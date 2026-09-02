@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+@layer base {
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+  
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #F1F5F9;
+    color: #1E293B;
+  }
+
+  html.dark body {
+    background-color: #0B1120;
+    color: #F8FAFC;
+  }
+}
+
+/* Custom Modal & Card Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
+/* Geometric Balance utility classes and custom overrides */
+.geo-card {
+  background-color: #ffffff;
+  border: 1px solid #E2E8F0;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+}
+
+.dark .geo-card {
+  background-color: #1E293B;
+  border-color: #334155;
+  color: #F8FAFC;
+}
+
+.geo-stat-box {
+  border: 1px solid #E2E8F0;
+  padding: 1rem;
+  border-radius: 0.375rem;
+  text-align: center;
+  background-color: #ffffff;
+}
+
+.dark .geo-stat-box {
+  background-color: #1E293B;
+  border-color: #334155;
+  color: #F8FAFC;
+}
+
+/* Leaflet map custom styling */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  font-family: inherit;
+  border-radius: 0.5rem;
+}
+
+.custom-mfy-tooltip {
+  background: rgba(15, 23, 42, 0.94) !important;
+  backdrop-filter: blur(8px);
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 0.375rem !important;
+  padding: 8px 12px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3) !important;
+  font-size: 13px !important;
+}
+
+.custom-mfy-tooltip::before {
+  border-top-color: rgba(15, 23, 42, 0.94) !important;
+}
+
+/* Print styles for PDF export */
+@media print {
+  header, footer, .no-print, button, .nav-buttons {
+    display: none !important;
+  }
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .print-break-inside-avoid {
+    break-inside: avoid;
+  }
+}
+

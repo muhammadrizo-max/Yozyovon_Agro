@@ -1,0 +1,6 @@
+{
+  "name": "Yozyovon Agro Monitoring",
+  "description": "Farg'ona viloyati Yozyovon tumani dehqonchilik va chorvachilik monitoring tizimi, interaktiv MFY xaritasi va AI tahlil paneli.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
