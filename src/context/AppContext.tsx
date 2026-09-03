@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
   User, UserRole, FarmType, MFYData, Crop, Livestock, AIScan, 
   WeatherInfo, MarketPrice, AppNotification, SubsidyApplication, ExportCertificate,
-  SecurityLog, CyberDefenseStatus, SiteSettings, UploadedGuide
+  SecurityLog, CyberDefenseStatus, SiteSettings, UploadedGuide, FarmerAdvice
 } from '../types';
 import { 
   INITIAL_USERS, YOZYOVON_MFY_LIST, INITIAL_CROPS, 
@@ -101,6 +101,17 @@ interface AppContextType {
   addSecurityLog: (log: Omit<SecurityLog, 'id' | 'timestamp'>) => void;
   exportDatabaseJson: () => string;
   importDatabaseJson: (jsonStr: string) => boolean;
+  // Farmer Badges & Verification by Gov
+  registeredFarmers: User[];
+  grantFarmerBadge: (userId: number, years: number, title?: string) => void;
+  revokeFarmerBadge: (userId: number) => void;
+  // Farmer Advices for Lemon Guide
+  farmerAdvices: FarmerAdvice[];
+  addFarmerAdvice: (advice: Omit<FarmerAdvice, 'id' | 'createdAt' | 'likes'>) => void;
+  toggleLikeAdvice: (id: string) => void;
+  // Universal Navigation Sidebar
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: (open: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -121,7 +132,10 @@ const STORAGE_KEYS = {
   SITE_SETTINGS: 'yozyovon_site_settings',
   CUSTOM_GUIDES: 'yozyovon_custom_guides',
   REAL_VAULT: 'yozyovon_encrypted_real_vault',
-  CYBER_STATUS: 'yozyovon_cyber_status'
+  CYBER_STATUS: 'yozyovon_cyber_status',
+  FARMERS_REGISTRY: 'yozyovon_farmers_registry_v2',
+  FARMER_ADVICES: 'yozyovon_farmer_advices_v2',
+  DEMO_CLEANED_FLAG: 'yozyovon_cleaned_demo_v2'
 };
 
 const DEFAULT_SITE_SETTINGS: SiteSettings = {
@@ -206,7 +220,115 @@ export const calculateMfyAgroWeather = (mfy: MFYData | undefined): WeatherInfo =
   };
 };
 
+// Boshlang'ich dehqonlar reestri (Davlat organi tasdiqlashi uchun)
+const INITIAL_FARMERS_REGISTRY: User[] = [
+  {
+    id: 101,
+    phone: '+998 90 123 45 67',
+    name: 'Rustamjon Qodirov',
+    email: 'rustam.dehqon@gmail.com',
+    role: 'dehqon',
+    mfyId: 1,
+    createdAt: '2023-04-12',
+    isVerified: true,
+    hasExperienceBadge: true,
+    badgeTitle: 'Davlat tomonidan tasdiqlangan tajribali dehqon',
+    experienceYears: 18,
+    badgeAwardedDate: '2025-05-10',
+    farmType: 'limon',
+    activityField: 'Issiqxonada sitrus yetishtirish'
+  },
+  {
+    id: 102,
+    phone: '+998 91 345 67 89',
+    name: 'Odilbek Mirzayev',
+    email: 'odilbek.agro@gmail.com',
+    role: 'dehqon',
+    mfyId: 3,
+    createdAt: '2022-09-18',
+    isVerified: true,
+    hasExperienceBadge: true,
+    badgeTitle: 'Davlat tomonidan tasdiqlangan tajribali dehqon',
+    experienceYears: 22,
+    badgeAwardedDate: '2024-11-05',
+    farmType: 'limon',
+    activityField: 'Meyeri va Toshkent navlari boʻyicha usta'
+  },
+  {
+    id: 103,
+    phone: '+998 93 456 78 90',
+    name: 'Shavkatbek Tojimatov',
+    email: 'shavkat.fermer@mail.uz',
+    role: 'dehqon',
+    mfyId: 5,
+    createdAt: '2024-02-14',
+    isVerified: true,
+    hasExperienceBadge: false,
+    experienceYears: 6,
+    farmType: 'limon',
+    activityField: 'Yangi koʻchatchilik xoʻjaligi'
+  },
+  {
+    id: 104,
+    phone: '+998 94 567 89 01',
+    name: 'Anvarjon Xolmatov',
+    email: 'anvar.xolmatov@inbox.uz',
+    role: 'dehqon',
+    mfyId: 8,
+    createdAt: '2024-05-20',
+    isVerified: true,
+    hasExperienceBadge: false,
+    experienceYears: 4,
+    farmType: 'bogdorchilik',
+    activityField: 'Uzumchilik va tomorqa'
+  }
+];
+
+// Tajribali dehqonlarning limonchilik qo'llanmasiga qo'ygan ko'rsatmalari
+const INITIAL_FARMER_ADVICES: FarmerAdvice[] = [
+  {
+    id: 'adv-1',
+    farmerId: 101,
+    farmerName: 'Rustamjon Qodirov',
+    farmerPhone: '+998 90 123 45 67',
+    mfyName: 'Yozyovon MFY',
+    experienceYears: 18,
+    badgeTitle: 'Davlat tomonidan tasdiqlangan tajribali dehqon',
+    title: 'Yozyovon qumloq tuproqlarida limon ildizini qishki sovuqdan (noyabr-fevral) asrash',
+    category: 'parvarish',
+    content: '18 yillik tajribamdan shuni aytamanki, Yozyovonda qishda havo quruq va ayozli boʻladi. Limon ildiz tizimi 0°C dan past haroratga chidamsiz. Noyabr oyining ikkinchi oʻn kunligida har bir daraxt tagiga 10-15 sm qalinlikda chirigan goʻng (gumus) yoki xazon solib mulchalash zarur. Bu nafaqat ildizni muzlashdan asraydi, balki bahorda organik ozuqa boʻlib xizmat qiladi. Issiqxonani har kecha 18:00 dan soʻng toʻliq germetik yopish va erta tongda shamollatishni unutmang.',
+    createdAt: '2026-08-25',
+    likes: 34
+  },
+  {
+    id: 'adv-2',
+    farmerId: 102,
+    farmerName: 'Odilbek Mirzayev',
+    farmerPhone: '+998 91 345 67 89',
+    mfyName: 'Guliston MFY',
+    experienceYears: 22,
+    badgeTitle: 'Davlat tomonidan tasdiqlangan tajribali dehqon',
+    title: 'Meyeri limonlarida gullash paytida toʻkilishning oldini olish va meva tugishini 30% ga oshirish',
+    category: 'hosil_yigish',
+    content: 'Koʻpchilik yosh dehqonlar limon gullagan paytda koʻp sugʻorib xato qilishadi. Gullash davrida ortiqcha suv berilsa, daraxt gullarni tashlab yuboradi! Shuning uchun kurtak chiqargan paytda oxirgi marta meʼyorida sugʻoring va gullash boshlanganda suv berishni 10-12 kunga toʻxtating. Gullashdan oldin bor kislotasi (10 litr suvga 5 gramm) bilan bargdan purkash gul toʻkilishini kamaytirib, meva tugishini keskin oshiradi.',
+    createdAt: '2026-08-28',
+    likes: 47
+  }
+];
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Demo ma'lumotlarni tozalash (Foydalanuvchi talabi: faqat ob-havo va limonchilik qollanmasi qolsin)
+  useEffect(() => {
+    if (!localStorage.getItem(STORAGE_KEYS.DEMO_CLEANED_FLAG)) {
+      localStorage.removeItem(STORAGE_KEYS.CROPS);
+      localStorage.removeItem(STORAGE_KEYS.LIVESTOCK);
+      localStorage.removeItem(STORAGE_KEYS.SCANS);
+      localStorage.removeItem(STORAGE_KEYS.SUBSIDIES);
+      localStorage.removeItem(STORAGE_KEYS.CERTS);
+      localStorage.setItem(STORAGE_KEYS.DEMO_CLEANED_FLAG, 'true');
+    }
+  }, []);
+
   // Login status: first-time visitors have false so login modal opens
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     return localStorage.getItem(STORAGE_KEYS.LOGGED_IN) === 'true';
@@ -222,20 +344,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.error('Error parsing stored user', e);
       }
     }
-    return INITIAL_USERS[0]; // Rustamjon Dehqon
+    return INITIAL_FARMERS_REGISTRY[0]; // Rustamjon Dehqon
   });
 
-  const [activeTab, setActiveTab] = useState<string>('map');
+  const [activeTab, setActiveTab] = useState<string>('lemon_academy');
   const [selectedMfyId, setSelectedMfyId] = useState<number | null>(null);
 
   const [mfyList, setMfyList] = useState<MFYData[]>(YOZYOVON_MFY_LIST);
 
+  // Demo ma'lumotlar tozalangan bo'sh massivlar
   const [crops, setCrops] = useState<Crop[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CROPS);
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { console.error(e); }
     }
-    return INITIAL_CROPS;
+    return [];
   });
 
   const [livestock, setLivestock] = useState<Livestock[]>(() => {
@@ -243,7 +366,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { console.error(e); }
     }
-    return INITIAL_LIVESTOCK;
+    return [];
   });
 
   const [aiScans, setAiScans] = useState<AIScan[]>(() => {
@@ -251,7 +374,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { console.error(e); }
     }
-    return INITIAL_AI_SCANS;
+    return [];
   });
 
   const [notifications, setNotifications] = useState<AppNotification[]>(() => {
@@ -259,7 +382,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { console.error(e); }
     }
-    return INITIAL_NOTIFICATIONS;
+    return [];
   });
 
   const [subsidies, setSubsidies] = useState<SubsidyApplication[]>(() => {
@@ -267,7 +390,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { console.error(e); }
     }
-    return INITIAL_SUBSIDIES;
+    return [];
   });
 
   const [exportCertificates, setExportCertificates] = useState<ExportCertificate[]>(() => {
@@ -275,7 +398,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { console.error(e); }
     }
-    return INITIAL_EXPORT_CERTS;
+    return [];
+  });
+
+  // Ro'yxatdan o'tgan dehqonlar reestri
+  const [registeredFarmers, setRegisteredFarmers] = useState<User[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.FARMERS_REGISTRY);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+    }
+    return INITIAL_FARMERS_REGISTRY;
+  });
+
+  // Tajribali dehqonlar tavsiyalari
+  const [farmerAdvices, setFarmerAdvices] = useState<FarmerAdvice[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.FARMER_ADVICES);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+    }
+    return INITIAL_FARMER_ADVICES;
   });
 
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(() => {
@@ -358,8 +499,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem(STORAGE_KEYS.THEME, next ? 'dark' : 'light');
       if (next) {
         document.documentElement.classList.add('dark');
+        document.body.classList.add('dark');
+        document.documentElement.setAttribute('data-theme', 'dark');
       } else {
         document.documentElement.classList.remove('dark');
+        document.body.classList.remove('dark');
+        document.documentElement.setAttribute('data-theme', 'light');
       }
       return next;
     });
@@ -368,14 +513,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
+      document.body.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
+      document.body.classList.remove('dark');
+      document.documentElement.setAttribute('data-theme', 'light');
     }
   }, [isDarkMode]);
 
   // Developer & Emergency Access Modal State
   const [isDevModalOpen, setIsDevModalOpen] = useState(false);
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Cyber Defense & Honeypot states
   const [cyberDefenseStatus, setCyberDefenseStatus] = useState<CyberDefenseStatus>(() => {
@@ -706,6 +856,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const lowerName = (name || '').toLowerCase().trim();
     const pwd = (password || '').trim();
 
+    // Maxsus Davlat Organlari Kirishi: davlatorgan@gmail.com / agrocontrol14
+    if (lowerId === 'davlatorgan@gmail.com') {
+      if (pwd === 'agrocontrol14' || pwd === 'gov1234') {
+        const govOfficial: User = {
+          id: 999901,
+          phone: '+998 73 502 12 34',
+          name: 'Davlat Qishloq Xoʻjaligi Inspeksiyasi (Yozyovon)',
+          email: 'davlatorgan@gmail.com',
+          role: 'davlat',
+          mfyId: 1,
+          createdAt: '2026-01-01',
+          isVerified: true,
+          farmType: 'limon',
+          activityField: 'Yozyovon Tumani Qishloq Xoʻjaligi Davlat Boshqarmasi'
+        };
+        setCurrentUser(govOfficial);
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(govOfficial));
+        localStorage.setItem(STORAGE_KEYS.LOGGED_IN, 'true');
+        setIsLoggedIn(true);
+        setActiveTab('gov_hub');
+        return true;
+      } else {
+        return false;
+      }
+    }
+
     if (!forceRole) {
       if (
         lowerId.includes('admin') || 
@@ -1008,6 +1184,106 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNotifications(prev => [testNotif, ...prev]);
   };
 
+  // Persist registeredFarmers & farmerAdvices
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.FARMERS_REGISTRY, JSON.stringify(registeredFarmers));
+  }, [registeredFarmers]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.FARMER_ADVICES, JSON.stringify(farmerAdvices));
+  }, [farmerAdvices]);
+
+  // Grant Farmer Badge by Government
+  const grantFarmerBadge = (userId: number, years: number, title = 'Davlat tomonidan tasdiqlangan tajribali dehqon') => {
+    const today = new Date().toISOString().split('T')[0];
+    setRegisteredFarmers(prev => prev.map(f => {
+      if (f.id === userId) {
+        return {
+          ...f,
+          hasExperienceBadge: true,
+          badgeTitle: title,
+          experienceYears: years,
+          badgeAwardedDate: today
+        };
+      }
+      return f;
+    }));
+
+    // If current user is the one receiving badge, update currentUser as well
+    if (currentUser.id === userId) {
+      setCurrentUser(prev => ({
+        ...prev,
+        hasExperienceBadge: true,
+        badgeTitle: title,
+        experienceYears: years,
+        badgeAwardedDate: today
+      }));
+    }
+
+    const notif: AppNotification = {
+      id: `badge-${Date.now()}`,
+      type: 'success',
+      title: '🏅 Dehqonga Tasdiq Nishoni Berildi',
+      message: `ID #${userId} raqamli dehqonga davlat organi tomonidan "${title}" (${years} yillik tajriba) nishoni berildi. Dehqon endi Limonchilik Qoʻllanmasida oʻz tajribasini ulashishi mumkin.`,
+      date: 'Hozir',
+      unread: true,
+      targetRole: 'all'
+    };
+    setNotifications(prev => [notif, ...prev]);
+  };
+
+  // Revoke Farmer Badge
+  const revokeFarmerBadge = (userId: number) => {
+    setRegisteredFarmers(prev => prev.map(f => {
+      if (f.id === userId) {
+        return {
+          ...f,
+          hasExperienceBadge: false,
+          badgeTitle: undefined,
+          badgeAwardedDate: undefined
+        };
+      }
+      return f;
+    }));
+
+    if (currentUser.id === userId) {
+      setCurrentUser(prev => ({
+        ...prev,
+        hasExperienceBadge: false,
+        badgeTitle: undefined,
+        badgeAwardedDate: undefined
+      }));
+    }
+  };
+
+  // Add Farmer Advice
+  const addFarmerAdvice = (adviceData: Omit<FarmerAdvice, 'id' | 'createdAt' | 'likes'>) => {
+    const today = new Date().toISOString().split('T')[0];
+    const newAdvice: FarmerAdvice = {
+      ...adviceData,
+      id: `adv-${Date.now()}`,
+      createdAt: today,
+      likes: 1
+    };
+    setFarmerAdvices(prev => [newAdvice, ...prev]);
+
+    const notif: AppNotification = {
+      id: `adv-notif-${Date.now()}`,
+      type: 'info',
+      title: `🍋 Yangi Dehqon Tavsiyasi: ${newAdvice.title}`,
+      message: `${newAdvice.farmerName} (${newAdvice.experienceYears} yillik tajribali dehqon) Limonchilik akademiyasiga yangi amaliy koʻrsatma qoʻshdi.`,
+      date: 'Hozir',
+      unread: true,
+      targetRole: 'all'
+    };
+    setNotifications(prev => [notif, ...prev]);
+  };
+
+  // Toggle Like Advice
+  const toggleLikeAdvice = (id: string) => {
+    setFarmerAdvices(prev => prev.map(a => a.id === id ? { ...a, likes: a.likes + 1 } : a));
+  };
+
   const exportToCsv = (filename: string, headers: string[], rows: (string | number)[][]) => {
     const csvContent = [
       headers.join(','),
@@ -1099,7 +1375,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         securityAuditLogs,
         addSecurityLog,
         exportDatabaseJson,
-        importDatabaseJson
+        importDatabaseJson,
+        registeredFarmers,
+        grantFarmerBadge,
+        revokeFarmerBadge,
+        farmerAdvices,
+        addFarmerAdvice,
+        toggleLikeAdvice,
+        isSidebarOpen,
+        setIsSidebarOpen
       }}
     >
       {children}

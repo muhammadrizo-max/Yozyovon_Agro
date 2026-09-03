@@ -28,7 +28,7 @@ import {
   X
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { DISEASE_SAMPLES, DiseaseSample } from '../data/yozyovonData';
+import { analyzeAgroImage } from '../utils/aiVisionAnalyzer';
 import { AIScan } from '../types';
 
 export const AIScanner: React.FC = () => {
@@ -67,11 +67,24 @@ export const AIScanner: React.FC = () => {
 
   // Refs
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const fullscreenVideoRef = useRef<HTMLVideoElement | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const isMountedRef = useRef(true);
   const startCameraSessionIdRef = useRef(0);
+
+  // Helper to attach stream to both video elements safely
+  const attachStreamToVideos = (stream: MediaStream) => {
+    [videoRef.current, fullscreenVideoRef.current].forEach(vEl => {
+      if (vEl) {
+        if (vEl.srcObject !== stream) {
+          vEl.srcObject = stream;
+        }
+        vEl.play().catch(() => {});
+      }
+    });
+  };
 
   // Auto-detect mobile screen on mount for full screen mode
   useEffect(() => {
@@ -129,10 +142,7 @@ export const AIScanner: React.FC = () => {
         setCameraPermissionState('granted');
 
         // Immediately attach to video element if ready
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play().catch(() => {});
-        }
+        attachStreamToVideos(stream);
       } else {
         setCameraPermissionState('denied');
         setCameraError("Kamera qurilmasi ushbu brauzerda qoʻllab-quvvatlanmadi yoki ruxsat yoʻq.");
@@ -161,26 +171,23 @@ export const AIScanner: React.FC = () => {
       mediaStreamRef.current.getTracks().forEach(track => track.stop());
       mediaStreamRef.current = null;
     }
-    if (videoRef.current) {
-      try {
-        videoRef.current.pause();
-      } catch (e) {
-        // Safe ignore
+    [videoRef.current, fullscreenVideoRef.current].forEach(vEl => {
+      if (vEl) {
+        try {
+          vEl.pause();
+        } catch (e) {}
+        vEl.srcObject = null;
       }
-      videoRef.current.srcObject = null;
-    }
+    });
     setIsCameraActive(false);
   };
 
-  // Re-attach video stream if camera active state or stream changes
+  // Re-attach video stream if camera active state or fullscreen mode changes
   useEffect(() => {
-    if (isCameraActive && mediaStreamRef.current && videoRef.current) {
-      if (videoRef.current.srcObject !== mediaStreamRef.current) {
-        videoRef.current.srcObject = mediaStreamRef.current;
-      }
-      videoRef.current.play().catch(() => {});
+    if (isCameraActive && mediaStreamRef.current) {
+      attachStreamToVideos(mediaStreamRef.current);
     }
-  }, [isCameraActive]);
+  }, [isCameraActive, isFullscreen]);
 
   // Initialize camera when entering camera mode
   useEffect(() => {
@@ -204,9 +211,11 @@ export const AIScanner: React.FC = () => {
 
     let snapshotUrl = '';
 
-    // If real video is playing, capture actual frame from canvas
-    if (videoRef.current && isCameraActive && canvasRef.current) {
-      const video = videoRef.current;
+    // If real video is playing, capture actual frame from active video
+    const activeVideo = (isFullscreen && fullscreenVideoRef.current) ? fullscreenVideoRef.current : videoRef.current;
+
+    if (activeVideo && isCameraActive && canvasRef.current) {
+      const video = activeVideo;
       const canvas = canvasRef.current;
       canvas.width = video.videoWidth || 640;
       canvas.height = video.videoHeight || 480;
@@ -225,7 +234,7 @@ export const AIScanner: React.FC = () => {
 
     setCurrentImage(snapshotUrl);
 
-    // AI Analysis process
+    // Real-time AI Analysis process
     const interval = setInterval(() => {
       setScanProgress(prev => {
         if (prev >= 90) {
@@ -234,32 +243,32 @@ export const AIScanner: React.FC = () => {
         }
         return prev + 25;
       });
-    }, 200);
+    }, 150);
 
-    setTimeout(() => {
+    setTimeout(async () => {
       clearInterval(interval);
       setScanProgress(100);
 
-      // Select diagnosis based on targetType
-      const sample = DISEASE_SAMPLES.find(s => s.targetType === selectedTargetType) || DISEASE_SAMPLES[0];
+      // Perform real pixel & spectral vision analysis
+      const analysis = await analyzeAgroImage(snapshotUrl, selectedTargetType);
 
       const newScan = addAIScan({
         mfyId: currentUser.mfyId,
         imageUrl: snapshotUrl,
         targetType: selectedTargetType,
-        diseaseName: sample.diseaseName,
-        confidence: sample.confidence,
-        severity: sample.severity,
-        recommendations: sample.recommendations,
-        medicines: sample.medicines,
-        reportedToGov: sample.severity === 'high'
+        diseaseName: analysis.diseaseName,
+        confidence: analysis.confidence,
+        severity: analysis.severity,
+        recommendations: analysis.recommendations,
+        medicines: analysis.medicines,
+        reportedToGov: analysis.severity === 'high'
       });
 
       setScanResult(newScan);
       setLiveCapturedList(prev => [newScan, ...prev]);
       setIsScanning(false);
       setJustSavedNotification(true);
-    }, 1100);
+    }, 900);
   };
 
   // Trigger file selection
@@ -291,32 +300,32 @@ export const AIScanner: React.FC = () => {
         }
         return prev + 20;
       });
-    }, 180);
+    }, 150);
 
-    setTimeout(() => {
+    setTimeout(async () => {
       clearInterval(interval);
       setScanProgress(100);
 
-      // Select diagnosis
-      const sample = DISEASE_SAMPLES.find(s => s.targetType === targetType) || DISEASE_SAMPLES[0];
+      // Real dynamic image analysis
+      const analysis = await analyzeAgroImage(imageUrl, targetType);
 
       const newScan = addAIScan({
         mfyId: currentUser.mfyId,
         imageUrl: imageUrl,
-        targetType: sample.targetType,
-        diseaseName: sample.diseaseName,
-        confidence: sample.confidence,
-        severity: sample.severity,
-        recommendations: sample.recommendations,
-        medicines: sample.medicines,
-        reportedToGov: sample.severity === 'high'
+        targetType: targetType,
+        diseaseName: analysis.diseaseName,
+        confidence: analysis.confidence,
+        severity: analysis.severity,
+        recommendations: analysis.recommendations,
+        medicines: analysis.medicines,
+        reportedToGov: analysis.severity === 'high'
       });
 
       setScanResult(newScan);
       setLiveCapturedList(prev => [newScan, ...prev]);
       setIsScanning(false);
       setJustSavedNotification(true);
-    }, 1200);
+    }, 1000);
   };
 
   return (
@@ -846,7 +855,7 @@ export const AIScanner: React.FC = () => {
               <>
                 <video
                   ref={(el) => {
-                    videoRef.current = el;
+                    fullscreenVideoRef.current = el;
                     if (el && mediaStreamRef.current && el.srcObject !== mediaStreamRef.current) {
                       el.srcObject = mediaStreamRef.current;
                       el.play().catch(() => {});
@@ -856,7 +865,7 @@ export const AIScanner: React.FC = () => {
                   playsInline
                   muted
                   onLoadedMetadata={() => {
-                    videoRef.current?.play().catch(() => {});
+                    fullscreenVideoRef.current?.play().catch(() => {});
                   }}
                   className="w-full h-full object-cover"
                 />

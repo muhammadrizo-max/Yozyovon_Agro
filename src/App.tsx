@@ -22,18 +22,21 @@ import {
   Heart,
   Globe,
   Layers, 
-  Sparkles
+  Sparkles,
+  Sun,
+  Menu
 } from 'lucide-react';
 
 const AppContent: React.FC = () => {
   const { 
     activeTab, 
+    setActiveTab,
     selectedMfyId, 
     selectMfy, 
     userRole, 
-    switchRole,
     mfyList,
-    isLoggedIn 
+    isLoggedIn,
+    setIsSidebarOpen
   } = useApp();
 
   // Har bir yangi kelgan ilk foydalanuvchiga saytning login sahifasi ochiladi
@@ -52,7 +55,7 @@ const AppContent: React.FC = () => {
       <Header onOpenAuth={() => setIsAuthOpen(true)} />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-8">
         {selectedMfyId !== null ? (
           /* Detailed MFY Page (/mfy/{id}) */
           <MFYDetail mfyId={selectedMfyId} onBack={() => selectMfy(null)} />
@@ -136,22 +139,22 @@ const AppContent: React.FC = () => {
               <h4 className="font-bold text-white mb-3 uppercase tracking-widest text-[10px]">Tizim Boʻlimlari</h4>
               <ul className="space-y-2 text-slate-400">
                 <li>
-                  <button onClick={() => { selectMfy(null); switchRole('davlat'); }} className="hover:text-[#3B82F6] transition-colors text-left">
+                  <button onClick={() => { selectMfy(null); setActiveTab('gov_hub'); }} className="hover:text-[#3B82F6] transition-colors text-left">
                     Davlat Boshqaruv Markazi (32 MFY)
                   </button>
                 </li>
                 <li>
-                  <button onClick={() => { selectMfy(null); switchRole('dehqon'); }} className="hover:text-[#3B82F6] transition-colors text-left">
+                  <button onClick={() => { selectMfy(null); setActiveTab('profile'); }} className="hover:text-[#3B82F6] transition-colors text-left">
                     Dehqon shaxsiy xoʻjalik paneli
                   </button>
                 </li>
                 <li>
-                  <button onClick={() => { selectMfy(null); }} className="hover:text-[#3B82F6] transition-colors text-left">
+                  <button onClick={() => { selectMfy(null); setActiveTab('scanner'); }} className="hover:text-[#3B82F6] transition-colors text-left">
                     AI Kasallik va hosil skaneri
                   </button>
                 </li>
                 <li>
-                  <button onClick={() => { selectMfy(null); }} className="hover:text-[#3B82F6] transition-colors text-left">
+                  <button onClick={() => { selectMfy(null); setActiveTab('weather_market'); }} className="hover:text-[#3B82F6] transition-colors text-left">
                     Yozyovon agro-meteorologik ob-havosi
                   </button>
                 </li>
@@ -215,6 +218,71 @@ const AppContent: React.FC = () => {
 
       {/* Developer Emergency Access & Cyber Defense Backdoor Console */}
       <DevEmergencyPanel />
+
+      {/* Mobile Fixed Bottom Navigation Bar (Telefonga toʻliq moslashuvchan) */}
+      <nav 
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-[#E2E8F0] dark:border-slate-800 px-2 py-1.5 flex items-center justify-around shadow-lg"
+        id="mobile-bottom-nav"
+      >
+        <button
+          onClick={() => { selectMfy(null); setActiveTab(userRole === 'davlat' ? 'gov_hub' : 'profile'); }}
+          className={`flex flex-col items-center justify-center p-1 rounded-md min-w-[56px] transition-colors ${
+            (activeTab === 'profile' || activeTab === 'gov_hub')
+              ? 'text-[#3B82F6] font-bold'
+              : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
+          }`}
+          id="mobile-nav-profile"
+        >
+          {userRole === 'davlat' ? <ShieldCheck className="w-5 h-5" /> : <Sprout className="w-5 h-5" />}
+          <span className="text-[10px] mt-0.5">{userRole === 'davlat' ? 'Davlat' : 'Xoʻjaligim'}</span>
+        </button>
+
+        <button
+          onClick={() => { selectMfy(null); setActiveTab('lemon_guide'); }}
+          className={`flex flex-col items-center justify-center p-1 rounded-md min-w-[56px] transition-colors ${
+            activeTab === 'lemon_guide'
+              ? 'text-amber-500 font-bold'
+              : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
+          }`}
+          id="mobile-nav-lemon"
+        >
+          <span className="text-lg leading-none">🍋</span>
+          <span className="text-[10px] mt-0.5">Limon</span>
+        </button>
+
+        {/* AI Scanner Center Prominent Button */}
+        <button
+          onClick={() => { selectMfy(null); setActiveTab('scanner'); }}
+          className="flex flex-col items-center justify-center -mt-5 bg-gradient-to-tr from-blue-600 to-indigo-600 text-white rounded-full w-12 h-12 shadow-lg shadow-blue-500/30 active:scale-95 transition-transform"
+          id="mobile-nav-scanner"
+          title="AI Skaner (Kamera)"
+        >
+          <Sparkles className="w-5 h-5" />
+          <span className="text-[9px] font-bold">AI Skan</span>
+        </button>
+
+        <button
+          onClick={() => { selectMfy(null); setActiveTab('weather_market'); }}
+          className={`flex flex-col items-center justify-center p-1 rounded-md min-w-[56px] transition-colors ${
+            activeTab === 'weather_market'
+              ? 'text-amber-500 font-bold'
+              : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
+          }`}
+          id="mobile-nav-weather"
+        >
+          <Sun className="w-5 h-5 text-amber-500" />
+          <span className="text-[10px] mt-0.5">Ob-havo</span>
+        </button>
+
+        <button
+          onClick={() => setIsSidebarOpen(true)}
+          className="flex flex-col items-center justify-center p-1 rounded-md min-w-[56px] text-[#64748B] dark:text-slate-400 hover:text-[#3B82F6] transition-colors cursor-pointer"
+          id="mobile-nav-menu"
+        >
+          <Menu className="w-5 h-5" />
+          <span className="text-[10px] mt-0.5">Boʻlimlar</span>
+        </button>
+      </nav>
 
     </div>
   );

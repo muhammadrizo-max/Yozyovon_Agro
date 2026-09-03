@@ -20,7 +20,12 @@ import {
   Download,
   Share2,
   Calendar,
-  Layers
+  Layers,
+  Award,
+  ThumbsUp,
+  PlusCircle,
+  Clock,
+  UserCheck
 } from 'lucide-react';
 import { 
   LEMON_CAROUSEL_SLIDES, 
@@ -33,18 +38,33 @@ import {
 import { useApp } from '../context/AppContext';
 
 export const LemonAcademy: React.FC = () => {
-  const { setActiveTab } = useApp();
+  const { 
+    setActiveTab, 
+    currentUser, 
+    farmerAdvices, 
+    addFarmerAdvice, 
+    toggleLikeAdvice,
+    mfyList
+  } = useApp();
 
   // Carousel State
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
 
   // Section Tabs
-  const [activeSection, setActiveSection] = useState<'beginner' | 'diseases' | 'pests' | 'calculator' | 'sources'>('beginner');
+  const [activeSection, setActiveSection] = useState<'beginner' | 'diseases' | 'pests' | 'calculator' | 'sources' | 'farmer_advices'>('beginner');
 
   // Selected details modal
   const [selectedDisease, setSelectedDisease] = useState<LemonDiseaseGuide | null>(null);
   const [selectedPest, setSelectedPest] = useState<LemonPestGuide | null>(null);
+
+  // New Advice Form States
+  const [showNewAdviceModal, setShowNewAdviceModal] = useState(false);
+  const [adviceTitle, setAdviceTitle] = useState('');
+  const [adviceCategory, setAdviceCategory] = useState<'parvarish' | 'kasallik' | 'hosildorlik' | 'qishlash' | 'sugorish'>('parvarish');
+  const [adviceContent, setAdviceContent] = useState('');
+  const [advicePrecautions, setAdvicePrecautions] = useState('');
+  const [adviceMedicines, setAdviceMedicines] = useState('');
 
   // Calculator State
   const [calcAreaGa, setCalcAreaGa] = useState<number>(1);
@@ -249,7 +269,23 @@ export const LemonAcademy: React.FC = () => {
           }`}
         >
           <ExternalLink className="w-4 h-4 text-purple-500" />
-          <span>Ochiq Manbalar & Standartlar</span>
+          <span>Ochiq Manbalar</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSection('farmer_advices')}
+          className={`px-4 py-2.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${
+            activeSection === 'farmer_advices'
+              ? 'bg-amber-600 text-white shadow-xs'
+              : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-300'
+          }`}
+          id="tab-farmer-advices-btn"
+        >
+          <Award className="w-4 h-4 text-amber-500 fill-current" />
+          <span>🏅 Tajribali Dehqonlar Tavsiyalari</span>
+          <span className="bg-amber-200 text-amber-950 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
+            {farmerAdvices.length}
+          </span>
         </button>
       </div>
 
@@ -669,6 +705,312 @@ export const LemonAcademy: React.FC = () => {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* SECTION CONTENT: 6. TAJRIBALI DEHQONLAR TAVSIYALARI (DAVLAT NISHONLI DEHQONLAR) */}
+      {activeSection === 'farmer_advices' && (
+        <div className="space-y-6">
+          
+          {/* Section Header with Authority Info */}
+          <div className="bg-gradient-to-r from-amber-600 via-amber-700 to-amber-800 text-white p-6 rounded-lg shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1.5 max-w-2xl">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[11px] font-bold">
+                <Award className="w-3.5 h-3.5 fill-current" />
+                <span>Yozyovon Tuman Qishloq Xoʻjaligi Boshqarmasi Tasdigʻi</span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-black tracking-tight">
+                Koʻp Yillik Tajribaga Ega Usta Dehqonlar Amaliy Tavsiyalari
+              </h3>
+              <p className="text-amber-100 text-xs leading-relaxed">
+                Ushbu boʻlimdagi barcha koʻrsatmalar davlat organlari tomonidan maxsus tasdiq nishoni berilgan, 
+                Yozyovon iqlimida 10-30 yildan ortiq vaqt davomida yuqori hosil olgan mirishkor dehqonlar tomonidan yozilgan.
+              </p>
+            </div>
+
+            {/* If current user has badge, show Add Advice button */}
+            {currentUser.hasExperienceBadge ? (
+              <div className="bg-white text-slate-900 p-4 rounded-lg shadow-lg border border-amber-300 text-center min-w-[220px]">
+                <div className="flex items-center justify-center gap-1 text-amber-600 font-bold text-xs mb-1">
+                  <Award className="w-4 h-4 fill-current" />
+                  <span>Siz Tasdiqlangan Dehqonsiz</span>
+                </div>
+                <div className="text-[11px] text-slate-600 mb-2.5 font-medium">
+                  {currentUser.experienceYears || 15} yillik tajriba egasi
+                </div>
+                <button
+                  onClick={() => setShowNewAdviceModal(true)}
+                  className="w-full py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black rounded text-xs shadow-xs flex items-center justify-center gap-1.5 transition-all"
+                  id="open-add-advice-modal-btn"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  <span>Tavsiya Qoʻshish</span>
+                </button>
+              </div>
+            ) : (
+              <div className="bg-black/25 backdrop-blur-xs p-4 rounded-lg border border-white/20 text-center min-w-[220px]">
+                <div className="text-2xl font-black text-amber-300">
+                  {farmerAdvices.length} ta
+                </div>
+                <div className="text-xs text-amber-100 font-semibold uppercase tracking-wider mt-0.5">
+                  Rasmiy Tavsiyalar
+                </div>
+                <div className="text-[10px] text-amber-200/90 mt-1">
+                  Oltin nishonli dehqonlardan
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Non-badged farmer friendly note */}
+          {!currentUser.hasExperienceBadge && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3 text-xs">
+              <Award className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 fill-current" />
+              <div className="space-y-1 text-amber-900">
+                <span className="font-bold block">
+                  Koʻp yillik tajribangiz bormi va oʻz koʻrsatmalaringizni qoʻshmoqchimisiz?
+                </span>
+                <p className="text-amber-800 leading-relaxed">
+                  Yozyovon tuman qishloq xoʻjaligi boʻlimi tomonidan koʻp yillik tajribaga ega dehqonlarga beriladigan davlat tasdiq nishonini olganingizdan soʻng, siz ham ushbu akademiyaga oʻz shaxsiy tavsiyalaringizni kiritish vakolatiga ega boʻlasiz.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Farmer Advices List */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {farmerAdvices.map((advice) => (
+              <div 
+                key={advice.id}
+                className="bg-white rounded-lg border border-amber-200/70 p-5 shadow-xs hover:border-amber-400 transition-all flex flex-col justify-between space-y-4"
+              >
+                <div className="space-y-3">
+                  {/* Farmer header with verified badge */}
+                  <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-white font-black flex items-center justify-center text-sm shadow-xs">
+                        {advice.farmerName.charAt(0)}
+                      </div>
+                      <div>
+                        <div className="font-bold text-sm text-[#0F172A] flex items-center gap-1.5">
+                          <span>{advice.farmerName}</span>
+                          <span title="Davlat tomonidan tasdiqlangan tajribali dehqon">
+                            <Award className="w-4 h-4 text-amber-500 fill-current" />
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-amber-800 font-semibold flex items-center gap-1">
+                          <UserCheck className="w-3.5 h-3.5 text-amber-600" />
+                          <span>{advice.experienceYears} yillik Tajribali Dehqon ({advice.mfyName})</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      {advice.createdAt}
+                    </span>
+                  </div>
+
+                  {/* Title & Category Badge */}
+                  <div>
+                    <div className="inline-block px-2 py-0.5 bg-amber-100 text-amber-900 text-[10px] font-bold uppercase rounded mb-1.5">
+                      {advice.category}
+                    </div>
+                    <h4 className="font-bold text-base text-[#0F172A] leading-snug">
+                      {advice.title}
+                    </h4>
+                  </div>
+
+                  {/* Main Advice Text */}
+                  <div className="text-xs text-[#334155] leading-relaxed bg-[#F8FAFC] p-3.5 rounded-md border border-slate-200">
+                    <p className="whitespace-pre-line">{advice.content}</p>
+                  </div>
+
+                  {/* Medicines / Remedies if any */}
+                  {advice.medicines && (
+                    <div className="text-xs bg-blue-50 border border-blue-200 p-3 rounded-md text-blue-950">
+                      <strong className="text-blue-900 block mb-1">🧪 Qoʻllaniladigan usul va dorilar:</strong>
+                      <span>{advice.medicines}</span>
+                    </div>
+                  )}
+
+                  {/* Precautions if any */}
+                  {advice.precautions && (
+                    <div className="text-xs bg-rose-50 border border-rose-200 p-3 rounded-md text-rose-950">
+                      <strong className="text-rose-900 block mb-1">⚠️ Ehtiyot choralari:</strong>
+                      <span>{advice.precautions}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer: Like / Helpful Button */}
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-[11px] text-slate-500">
+                    Limonchilik Qoʻllanmasi rasmiy tavsiyasi
+                  </span>
+
+                  <button
+                    onClick={() => toggleLikeAdvice(advice.id)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-900 text-xs font-semibold rounded-md border border-slate-200 hover:border-amber-300 transition-colors"
+                  >
+                    <ThumbsUp className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Foydali ({advice.likes})</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* If no advices yet */}
+          {farmerAdvices.length === 0 && (
+            <div className="bg-white p-8 rounded-lg border border-slate-200 text-center space-y-2">
+              <Award className="w-8 h-8 text-amber-500 mx-auto fill-current" />
+              <h4 className="font-bold text-sm text-slate-800">Hozircha dehqon tavsiyalari yoʻq</h4>
+              <p className="text-xs text-slate-500 max-w-md mx-auto">
+                Davlat organlari tomonidan tasdiq nishoni berilgan dehqonlar ushbu boʻlimga oʻz koʻrsatmalarini qoʻshishlari mumkin.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Add New Farmer Advice Modal */}
+      {showNewAdviceModal && (
+        <div className="fixed inset-0 z-50 bg-[#0F172A]/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-lg w-full p-6 shadow-xl border border-[#E2E8F0] space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-2 border-b border-[#E2E8F0]">
+              <div className="flex items-center gap-2">
+                <Award className="w-5 h-5 text-amber-500 fill-current" />
+                <h3 className="font-bold text-sm text-[#0F172A] uppercase">
+                  Limonchilik Qoʻllanmasiga Amaliy Tavsiya Qoʻshish
+                </h3>
+              </div>
+              <button 
+                onClick={() => setShowNewAdviceModal(false)}
+                className="text-[#64748B] hover:text-[#0F172A]"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-xs text-amber-900">
+              Muallif: <strong>{currentUser.name}</strong> (Tasdiqlangan dehqon, {currentUser.experienceYears || 15} yillik tajriba)
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!adviceTitle.trim() || !adviceContent.trim()) return;
+
+                const mfy = mfyList.find(m => m.id === currentUser.mfyId);
+                addFarmerAdvice({
+                  farmerId: currentUser.id,
+                  farmerName: currentUser.name,
+                  mfyName: mfy ? mfy.name : 'Yozyovon MFY',
+                  experienceYears: currentUser.experienceYears || 15,
+                  title: adviceTitle.trim(),
+                  category: adviceCategory,
+                  content: adviceContent.trim(),
+                  precautions: advicePrecautions.trim() || undefined,
+                  medicines: adviceMedicines.trim() || undefined
+                });
+
+                setAdviceTitle('');
+                setAdviceContent('');
+                setAdvicePrecautions('');
+                setAdviceMedicines('');
+                setShowNewAdviceModal(false);
+              }}
+              className="space-y-3.5 text-xs"
+            >
+              <div>
+                <label className="block font-semibold text-[#334155] mb-1">
+                  Tavsiya Mavzusi / Sarlavhasi *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={adviceTitle}
+                  onChange={(e) => setAdviceTitle(e.target.value)}
+                  placeholder="Masalan: Bahorgi sovuqdan himoyalashning eng samarali usuli"
+                  className="w-full px-3 py-2 border rounded-md bg-[#F8FAFC] font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#334155] mb-1">
+                  Kategoriya / Yoʻnalish
+                </label>
+                <select
+                  value={adviceCategory}
+                  onChange={(e) => setAdviceCategory(e.target.value as any)}
+                  className="w-full px-3 py-2 border rounded-md bg-[#F8FAFC]"
+                >
+                  <option value="parvarish">Agrotexnik Parvarish</option>
+                  <option value="qishlash">Qishlash va Sovuqdan Saqlash</option>
+                  <option value="sugorish">Sugʻorish va Oziqlantirish</option>
+                  <option value="kasallik">Kasallik va Zararkunandalarga Qarshi Kurash</option>
+                  <option value="hosildorlik">Hosildorlikni Oshirish Usullari</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#334155] mb-1">
+                  Batafsil Tavsiya va Amaliy Koʻrsatma *
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  value={adviceContent}
+                  onChange={(e) => setAdviceContent(e.target.value)}
+                  placeholder="Oʻz tajribangizdan kelib chiqib, aniq qadamlar, muddatlar va bajarilishi kerak boʻlgan ishlarni batafsil yozing..."
+                  className="w-full px-3 py-2 border rounded-md bg-[#F8FAFC]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#334155] mb-1">
+                  Tavsiya qilinadigan oʻgʻit / preparat / dori (ixtiyoriy)
+                </label>
+                <input
+                  type="text"
+                  value={adviceMedicines}
+                  onChange={(e) => setAdviceMedicines(e.target.value)}
+                  placeholder="Masalan: 1% li Bordo suyuqligi, chirindi oʻgʻit"
+                  className="w-full px-3 py-2 border rounded-md bg-[#F8FAFC]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#334155] mb-1">
+                  Ehtiyot choralari (nimalardan saqlanish kerak)
+                </label>
+                <input
+                  type="text"
+                  value={advicePrecautions}
+                  onChange={(e) => setAdvicePrecautions(e.target.value)}
+                  placeholder="Masalan: Harorat +5 darajadan past boʻlganda purkash mumkin emas"
+                  className="w-full px-3 py-2 border rounded-md bg-[#F8FAFC]"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowNewAdviceModal(false)}
+                  className="px-4 py-2 border border-[#CBD5E1] text-[#64748B] font-semibold rounded-md hover:bg-[#F8FAFC]"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black rounded-md shadow-xs flex items-center gap-1.5"
+                >
+                  <Award className="w-4 h-4 fill-current" />
+                  <span>Qoʻllanmaga Eʼlon Qilish</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

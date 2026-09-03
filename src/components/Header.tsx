@@ -51,10 +51,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
     toggleDarkMode,
     setIsDevModalOpen,
     logout,
-    siteSettings
+    siteSettings,
+    isSidebarOpen,
+    setIsSidebarOpen
   } = useApp();
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
 
@@ -119,8 +120,18 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 sm:h-17">
           
-          {/* Logo and Brand */}
-          <div className="flex items-center gap-3">
+          {/* Logo, Brand and Universal Sidebar Button */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-2 sm:px-3 sm:py-2 rounded-lg border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 hover:bg-[#F1F5F9] dark:hover:bg-slate-700 text-[#0F172A] dark:text-white flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+              id="header-sidebar-trigger-btn"
+              title="Boʻlimlarni almashtirish menyusi (Sidebar)"
+            >
+              <Menu className="w-5 h-5 text-[#3B82F6]" />
+              <span className="text-xs font-bold hidden lg:inline">Boʻlimlar</span>
+            </button>
+
             <button 
               onClick={() => {
                 selectMfy(null);
@@ -132,7 +143,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
                   setActiveTab('profile');
                 }
               }}
-              className="flex items-center gap-3 text-left group focus:outline-hidden"
+              className="flex items-center gap-2.5 sm:gap-3 text-left group focus:outline-hidden"
               id="brand-logo-btn"
             >
               <div className="w-8 h-8 bg-[#3B82F6] rounded-xs rotate-45 flex items-center justify-center shadow-xs transition-transform group-hover:scale-105 shrink-0">

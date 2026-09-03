@@ -35,10 +35,20 @@ export const GovManagementHub: React.FC = () => {
     sendGovBroadcastAlert, 
     resetGovDemoData,
     selectMfy,
-    exportToCsv
+    exportToCsv,
+    registeredFarmers,
+    grantFarmerBadge,
+    revokeFarmerBadge,
+    farmerAdvices
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'subsidies' | 'broadcast' | 'certs' | 'mfy_matrix'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'subsidies' | 'broadcast' | 'certs' | 'mfy_matrix' | 'farmer_badges'>('overview');
+
+  // Badge Modal states
+  const [badgeModalFarmer, setBadgeModalFarmer] = useState<{ id: number; name: string; mfyName: string } | null>(null);
+  const [badgeYears, setBadgeYears] = useState<number>(15);
+  const [badgeCustomTitle, setBadgeCustomTitle] = useState('Davlat tomonidan tasdiqlangan tajribali dehqon');
+  const [farmerSearch, setFarmerSearch] = useState('');
 
   // Broadcast Alert Form states
   const [broadcastTitle, setBroadcastTitle] = useState('');
@@ -267,7 +277,23 @@ export const GovManagementHub: React.FC = () => {
           }`}
         >
           <Award className="w-3.5 h-3.5" />
-          <span>Eksport & Fitonazorat Sertifikatlari</span>
+          <span>Eksport & Sertifikatlar</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('farmer_badges')}
+          className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
+            activeTab === 'farmer_badges' 
+              ? 'bg-amber-600 text-white shadow-xs' 
+              : 'text-amber-700 hover:text-amber-900 hover:bg-amber-50'
+          }`}
+          id="tab-farmer-badges-btn"
+        >
+          <Award className="w-3.5 h-3.5 text-amber-400 fill-current" />
+          <span>🏅 Dehqonlarga Tasdiq Nishoni Berish</span>
+          <span className="bg-amber-100 text-amber-900 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
+            {registeredFarmers.filter(f => f.hasExperienceBadge).length}
+          </span>
         </button>
       </div>
 
@@ -707,6 +733,269 @@ export const GovManagementHub: React.FC = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: FARMER BADGES & VERIFICATION (DAVLAT TASDIQ NISHONI BERISH) */}
+      {activeTab === 'farmer_badges' && (
+        <div className="space-y-6">
+          
+          {/* Top Banner */}
+          <div className="bg-gradient-to-r from-amber-600 via-amber-700 to-amber-800 text-white p-6 rounded-lg shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1.5 max-w-2xl">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 text-white text-[11px] font-bold">
+                <Award className="w-3.5 h-3.5 fill-current" />
+                <span>Davlat Qishloq Xoʻjaligi Boshqarmasi Vakolati</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight">
+                Koʻp Yillik Tajribaga Ega Dehqonlarga Tasdiq Nishoni Berish
+              </h2>
+              <p className="text-amber-100 text-xs leading-relaxed">
+                Ushbu davlat tasdiq nishoni Yozyovon tumanida koʻp yillik fidokorona tajribaga ega, 
+                yuqori hosildorlikka erishgan usta sitruschi va mirishkor dehqonlarga beriladi. 
+                Nishoni bor dehqonlar <strong>Limonchilik Akademiyasi</strong>da boshqa dehqonlar uchun oʻz amaliy tavsiya va koʻrsatmalarini rasmiy eʼlon qilish huquqiga ega boʻladilar.
+              </p>
+            </div>
+
+            <div className="bg-black/25 backdrop-blur-xs p-4 rounded-lg border border-white/20 text-center min-w-[200px]">
+              <div className="text-3xl font-black text-amber-300">
+                {registeredFarmers.filter(f => f.hasExperienceBadge).length}
+              </div>
+              <div className="text-xs text-amber-100 font-semibold uppercase tracking-wider mt-0.5">
+                Nishonli Dehqonlar
+              </div>
+              <div className="text-[10px] text-amber-200/80 mt-1">
+                Jami roʻyxatda: {registeredFarmers.length} ta
+              </div>
+            </div>
+          </div>
+
+          {/* Search and Filters */}
+          <div className="bg-white p-4 rounded-lg border border-[#E2E8F0] shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="relative w-full sm:w-80">
+              <Search className="w-4 h-4 text-[#94A3B8] absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={farmerSearch}
+                onChange={(e) => setFarmerSearch(e.target.value)}
+                placeholder="Dehqon ismi yoki mahallasi..."
+                className="w-full pl-9 pr-3 py-2 border rounded-md text-xs bg-[#F8FAFC]"
+                id="search-farmer-input"
+              />
+            </div>
+
+            <div className="text-xs text-[#64748B] flex items-center gap-2">
+              <span>Koʻrsatkich:</span>
+              <span className="font-bold text-[#0F172A]">{farmerAdvices.length} ta umumiy tavsiya</span>
+            </div>
+          </div>
+
+          {/* Farmers Registry Table */}
+          <div className="bg-white rounded-lg border border-[#E2E8F0] shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#0F172A] text-white uppercase text-[10px] tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4 font-bold">Dehqon / Fermer</th>
+                    <th className="py-3 px-4 font-bold">Mahalla (MFY)</th>
+                    <th className="py-3 px-4 font-bold">Telefon & Aloqa</th>
+                    <th className="py-3 px-4 font-bold">Faoliyat Yoʻnalishi</th>
+                    <th className="py-3 px-4 font-bold">Davlat Nishoni Maqomi</th>
+                    <th className="py-3 px-4 font-bold">Amallar</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E2E8F0]">
+                  {registeredFarmers
+                    .filter(f => 
+                      f.name.toLowerCase().includes(farmerSearch.toLowerCase()) ||
+                      f.phone.includes(farmerSearch)
+                    )
+                    .map(farmer => {
+                      const mfy = mfyList.find(m => m.id === farmer.mfyId);
+                      const adviceCount = farmerAdvices.filter(a => a.farmerId === farmer.id).length;
+
+                      return (
+                        <tr key={farmer.id} className="hover:bg-[#F8FAFC] transition-colors">
+                          <td className="py-3.5 px-4 font-bold text-[#0F172A]">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-700 text-xs">
+                                {farmer.name.charAt(0)}
+                              </div>
+                              <div>
+                                <div>{farmer.name}</div>
+                                <div className="text-[10px] text-[#64748B] font-normal">ID: #{farmer.id}</div>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="py-3.5 px-4 text-[#334155] font-semibold">
+                            {mfy ? mfy.name : 'Yozyovon MFY'}
+                          </td>
+
+                          <td className="py-3.5 px-4 font-mono text-[#64748B]">
+                            {farmer.phone}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-[#334155]">
+                            {farmer.activityField || 'Sitruschilik va tomorqa'}
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            {farmer.hasExperienceBadge ? (
+                              <div className="inline-flex flex-col gap-1">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                  <Award className="w-3.5 h-3.5 text-amber-600 fill-current" />
+                                  <span>🏅 {farmer.experienceYears || 15} yillik Tajribali Dehqon</span>
+                                </span>
+                                <span className="text-[10px] text-emerald-700 font-semibold">
+                                  ✓ Qoʻllanmaga tavsiya qoʻyish huquqiga ega ({adviceCount} ta koʻrsatma)
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                                <span>Tasdiqlanmagan</span>
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            {farmer.hasExperienceBadge ? (
+                              <button
+                                onClick={() => revokeFarmerBadge(farmer.id)}
+                                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded text-xs border border-rose-200 transition-colors"
+                                title="Nishonni bekor qilish"
+                              >
+                                Nishonni Bekor Qilish
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setBadgeModalFarmer({
+                                    id: farmer.id,
+                                    name: farmer.name,
+                                    mfyName: mfy ? mfy.name : 'Yozyovon MFY'
+                                  });
+                                  setBadgeYears(15);
+                                }}
+                                className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black rounded text-xs shadow-xs flex items-center gap-1.5 transition-all"
+                              >
+                                <Award className="w-3.5 h-3.5 fill-current" />
+                                <span>🏅 Tasdiq Nishoni Berish</span>
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Grant Badge Modal */}
+      {badgeModalFarmer && (
+        <div className="fixed inset-0 z-50 bg-[#0F172A]/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl border border-[#E2E8F0] space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-[#E2E8F0]">
+              <div className="flex items-center gap-2">
+                <Award className="w-5 h-5 text-amber-500 fill-current" />
+                <h3 className="font-bold text-sm text-[#0F172A] uppercase">
+                  Dehqonga Davlat Tasdiq Nishonini Berish
+                </h3>
+              </div>
+              <button onClick={() => setBadgeModalFarmer(null)} className="text-[#64748B] hover:text-[#0F172A]">
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-xs space-y-1">
+              <div className="text-amber-900 font-bold text-sm">
+                {badgeModalFarmer.name}
+              </div>
+              <div className="text-amber-800">
+                Mahallasi: {badgeModalFarmer.mfyName}
+              </div>
+              <div className="text-[11px] text-amber-700 pt-1 border-t border-amber-200/60 mt-1">
+                Ushbu nishon topshirilgandan soʻng, dehqon Yozyovon Limonchilik Akademiyasiga oʻzining ilmiy-amaliy tavsiyalarini kiritish imkoniyatiga ega boʻladi.
+              </div>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!badgeModalFarmer) return;
+                grantFarmerBadge(badgeModalFarmer.id, badgeYears, badgeCustomTitle);
+                setBadgeModalFarmer(null);
+              }}
+              className="space-y-3.5 text-xs"
+            >
+              <div>
+                <label className="block font-semibold text-[#334155] mb-1">
+                  Koʻp Yillik Tajriba (Yillarda) *
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="3"
+                    max="60"
+                    required
+                    value={badgeYears}
+                    onChange={(e) => setBadgeYears(Number(e.target.value))}
+                    className="w-28 px-3 py-2 border rounded-md font-bold text-center text-sm bg-[#F8FAFC]"
+                  />
+                  <span className="text-[#64748B] font-medium">yil tajribaga ega</span>
+                </div>
+                <div className="flex gap-2 mt-2">
+                  {[10, 15, 20, 25].map(yr => (
+                    <button
+                      key={yr}
+                      type="button"
+                      onClick={() => setBadgeYears(yr)}
+                      className={`px-2 py-1 rounded text-[11px] font-bold border transition-colors ${
+                        badgeYears === yr 
+                          ? 'bg-amber-500 text-white border-amber-600' 
+                          : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                      }`}
+                    >
+                      {yr} yil
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#334155] mb-1">
+                  Nishon Unvoni / Maqomi
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={badgeCustomTitle}
+                  onChange={(e) => setBadgeCustomTitle(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md bg-[#F8FAFC] text-xs font-semibold"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBadgeModalFarmer(null)}
+                  className="px-4 py-2 border border-[#CBD5E1] text-[#64748B] font-semibold rounded-md hover:bg-[#F8FAFC]"
+                >
+                  Bekor qilish
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black rounded-md shadow-xs flex items-center gap-1.5"
+                >
+                  <Award className="w-4 h-4 fill-current" />
+                  <span>Nishonni Tasdiqlash & Berish</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

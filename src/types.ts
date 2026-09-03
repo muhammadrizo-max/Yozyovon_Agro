@@ -37,6 +37,26 @@ export interface User {
   verificationToken?: string;
   farmType?: FarmType;
   activityField?: string;
+  // Davlat organi tomonidan beriladigan nishon
+  hasExperienceBadge?: boolean;
+  badgeTitle?: string;
+  experienceYears?: number;
+  badgeAwardedDate?: string;
+}
+
+export interface FarmerAdvice {
+  id: string;
+  farmerId: number;
+  farmerName: string;
+  farmerPhone?: string;
+  mfyName: string;
+  experienceYears: number;
+  badgeTitle: string;
+  title: string;
+  category: 'ekish' | 'parvarish' | 'zararkunanda' | 'hosil_yigish' | 'tajriba';
+  content: string;
+  createdAt: string;
+  likes: number;
 }
 
 export interface SiteSettings {

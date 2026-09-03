@@ -92,7 +92,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       localStorage.removeItem('yozyovon_remember_login');
     }
 
-    login(loginIdentifier.trim(), loginIdentifier.trim(), loginPassword.trim());
+    const ok = login(loginIdentifier.trim(), loginIdentifier.trim(), loginPassword.trim());
+    if (!ok) {
+      setErrorMsg('Login yoki parol notoʻgʻri kiritildi! Iltimos, qayta tekshiring.');
+      return;
+    }
     onClose();
   };
 
@@ -385,6 +389,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <span>Kirish</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
+
+                  {/* Davlat Organi Tezkor Kirishi */}
+                  <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-lg p-2.5 text-center">
+                    <p className="text-[11px] text-amber-800 dark:text-amber-300 mb-1.5 font-medium">
+                      🏛️ Davlat organlari va inspektorlar uchun maxsus kirish:
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginIdentifier('davlatorgan@gmail.com');
+                        setLoginPassword('agrocontrol14');
+                      }}
+                      className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded text-[11px] inline-flex items-center gap-1.5 transition-colors"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>davlatorgan@gmail.com / agrocontrol14 ni toʻldirish</span>
+                    </button>
+                  </div>
 
                   {/* Kirish tugmasining tagida joylashgan matnli tugmalar / linklar */}
                   <div className="border-t border-[#E2E8F0] dark:border-slate-800 pt-3 flex items-center justify-between text-xs">
