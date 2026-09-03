@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Sprout, 
   MapPin, 
@@ -55,6 +55,32 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
+
+  const notifRef = useRef<HTMLDivElement>(null);
+  const roleDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close notifications and profile dropdown when clicking outside or tapping anywhere else on screen
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node;
+      if (notifRef.current && !notifRef.current.contains(target)) {
+        setIsNotifOpen(false);
+      }
+      if (roleDropdownRef.current && !roleDropdownRef.current.contains(target)) {
+        setIsRoleDropdownOpen(false);
+      }
+    };
+
+    if (isNotifOpen || isRoleDropdownOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+      document.addEventListener('touchstart', handleOutsideClick);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+    };
+  }, [isNotifOpen, isRoleDropdownOpen]);
 
   const unreadCount = notifications.filter(n => n.unread).length;
 
@@ -324,7 +350,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
             </button>
 
             {/* Notifications Bell Dropdown */}
-            <div className="relative">
+            <div className="relative" ref={notifRef}>
               <button
                 onClick={() => setIsNotifOpen(!isNotifOpen)}
                 className="p-2 rounded-md border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 hover:bg-[#F1F5F9] dark:hover:bg-slate-700 text-[#0F172A] dark:text-slate-100 transition-colors relative"
@@ -372,7 +398,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
             </div>
 
             {/* Role Switcher & User Profile Menu (3 ta kalit) */}
-            <div className="relative">
+            <div className="relative" ref={roleDropdownRef}>
               <button
                 onClick={() => setIsRoleDropdownOpen(!isRoleDropdownOpen)}
                 className="flex items-center gap-2 p-1.5 rounded-md border border-[#E2E8F0] dark:border-slate-700 hover:border-[#3B82F6] bg-[#F8FAFC] dark:bg-slate-800 transition-colors"

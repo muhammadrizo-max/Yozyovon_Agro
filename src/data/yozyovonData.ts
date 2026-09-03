@@ -1,5 +1,7 @@
 import { MFYData, Crop, Livestock, AIScan, WeatherInfo, MarketPrice, AppNotification, User, SubsidyApplication, ExportCertificate } from '../types';
-import { YOZYOVON_ALL_32_MFY } from './yozyovon32MfyData';
+import { YOZYOVON_ALL_32_MFY, YOZYOVON_KADASTR_DISTRICT_BOUNDARY, YOZYOVON_MAP_BOUNDS } from './yozyovon32MfyData';
+
+export { YOZYOVON_KADASTR_DISTRICT_BOUNDARY, YOZYOVON_MAP_BOUNDS };
 
 export const INITIAL_USERS: User[] = [
   {

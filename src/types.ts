@@ -21,7 +21,8 @@ export type FarmType =
   | 'asalarichilik'
   | 'baliqchilik'
   | 'logistika'
-  | 'kochatxona';
+  | 'kochatxona'
+  | 'boshqa';
 
 export interface User {
   id: number;

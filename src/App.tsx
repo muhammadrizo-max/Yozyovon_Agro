@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Header } from './components/Header';
 import { MFYMap } from './components/MFYMap';
@@ -21,7 +21,7 @@ import {
   ExternalLink, 
   Heart,
   Globe,
-  Layers,
+  Layers, 
   Sparkles
 } from 'lucide-react';
 
@@ -32,10 +32,18 @@ const AppContent: React.FC = () => {
     selectMfy, 
     userRole, 
     switchRole,
-    mfyList 
+    mfyList,
+    isLoggedIn 
   } = useApp();
 
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  // Har bir yangi kelgan ilk foydalanuvchiga saytning login sahifasi ochiladi
+  const [isAuthOpen, setIsAuthOpen] = useState(() => !isLoggedIn);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setIsAuthOpen(true);
+    }
+  }, [isLoggedIn]);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F1F5F9] dark:bg-slate-950 text-[#1E293B] dark:text-slate-100 font-sans antialiased transition-colors duration-200">

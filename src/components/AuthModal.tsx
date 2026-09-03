@@ -13,9 +13,7 @@ import {
   Send,
   ExternalLink,
   Sparkles,
-  RefreshCw,
-  Terminal,
-  KeyRound
+  RefreshCw
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { FarmType, UserRole } from '../types';
@@ -43,6 +41,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const [regPasswordConfirm, setRegPasswordConfirm] = useState('');
   const [regMfyId, setRegMfyId] = useState<number>(1);
   const [farmType, setFarmType] = useState<FarmType>('limon');
+  const [customFarmType, setCustomFarmType] = useState('');
 
   // Verification step state
   const [verificationResult, setVerificationResult] = useState<{
@@ -96,6 +95,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       return;
     }
 
+    if (farmType === 'boshqa' && !customFarmType.trim()) {
+      setErrorMsg('Xoʻjaligingizning aniq faoliyat turini yozing');
+      return;
+    }
+
     setErrorMsg('');
     const result = registerFarmer({
       name: fullName.trim(),
@@ -103,7 +107,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       phone: regPhone.trim(),
       password: regPassword,
       mfyId: Number(regMfyId),
-      farmType
+      farmType,
+      customFarmType: farmType === 'boshqa' ? customFarmType.trim() : undefined
     });
 
     setVerificationResult({
@@ -122,18 +127,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       setIsVerifying(false);
       onClose();
     }, 900);
-  };
-
-  // Quick Preset Logins (3 ta asosiy kalit)
-  const handleQuickKeyLogin = (keyRole: 'dehqon' | 'davlat' | 'admin') => {
-    if (keyRole === 'admin') {
-      login('Tizim Dasturchisi', '+998901234569', 'admin123', 'admin');
-    } else if (keyRole === 'davlat') {
-      login('Akmal Karimov (Inspektor)', '+998901234568', 'gov1234', 'davlat');
-    } else {
-      login('Rustamjon Qodirov', '+998901234567', 'test1234', 'dehqon');
-    }
-    onClose();
   };
 
   return (
@@ -253,51 +246,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 </button>
               </div>
 
-              {/* 3 ta Asosiy Kalit (Quick Presets) */}
-              <div className="p-3 bg-[#F8FAFC] dark:bg-slate-800/80 rounded-lg border border-[#E2E8F0] dark:border-slate-700">
-                <div className="flex items-center gap-1.5 mb-2">
-                  <KeyRound className="w-3.5 h-3.5 text-[#3B82F6]" />
-                  <span className="text-[10px] font-bold text-[#64748B] dark:text-slate-400 uppercase tracking-wider">
-                    3 ta Asosiy Kalit orqali Tez Kirish:
+              {/* Davlat Kiber-xavfsizlik va Shifrlangan Saqlash Kafolati */}
+              <div className="p-3 bg-emerald-50/80 dark:bg-emerald-950/40 rounded-lg border border-emerald-200 dark:border-emerald-800/60">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300">
+                    Davlat Standarti: Shifrlangan Xavfsiz Baza
                   </span>
                 </div>
-                <div className="grid grid-cols-3 gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleQuickKeyLogin('dehqon')}
-                    className="p-2 bg-white dark:bg-slate-900 hover:bg-emerald-50/50 dark:hover:bg-emerald-950/30 border border-[#CBD5E1] dark:border-slate-700 hover:border-emerald-500 rounded-md text-left transition-all"
-                  >
-                    <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
-                      <Sprout className="w-3 h-3 shrink-0" />
-                      <span className="truncate">1. Dehqon</span>
-                    </div>
-                    <span className="text-[9px] text-[#64748B] dark:text-slate-400 block truncate mt-0.5">Rustamjon Q.</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickKeyLogin('davlat')}
-                    className="p-2 bg-white dark:bg-slate-900 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 border border-[#CBD5E1] dark:border-slate-700 hover:border-blue-500 rounded-md text-left transition-all"
-                  >
-                    <div className="flex items-center gap-1 text-[11px] font-bold text-[#3B82F6]">
-                      <ShieldCheck className="w-3 h-3 shrink-0" />
-                      <span className="truncate">2. Davlat</span>
-                    </div>
-                    <span className="text-[9px] text-[#64748B] dark:text-slate-400 block truncate mt-0.5">Inspektor</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickKeyLogin('admin')}
-                    className="p-2 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-950/60 border border-[#CBD5E1] dark:border-slate-700 hover:border-emerald-400 rounded-md text-left transition-all"
-                  >
-                    <div className="flex items-center gap-1 text-[11px] font-bold text-slate-800 dark:text-emerald-400">
-                      <Terminal className="w-3 h-3 shrink-0" />
-                      <span className="truncate">3. Dasturchi</span>
-                    </div>
-                    <span className="text-[9px] text-[#64748B] dark:text-slate-400 block truncate mt-0.5">Root Admin</span>
-                  </button>
-                </div>
+                <p className="text-[10px] text-emerald-700/90 dark:text-emerald-400 mt-1 leading-relaxed">
+                  Barcha foydalanuvchi hisoblari va maʼlumotlari AES-256 va SHA-256 davlat kiber-xavfsizlik protokollari asosida shifrlangan holda xavfsiz saqlanadi.
+                </p>
               </div>
 
               {errorMsg && (
@@ -434,7 +393,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block font-medium text-[#64748B] dark:text-slate-400 uppercase text-[10px] tracking-wider mb-1">
-                        Yozyovondagi MFY *
+                        Yashash manzili (MFY) *
                       </label>
                       <div className="relative">
                         <MapPin className="w-4 h-4 text-[#94A3B8] absolute left-3 top-1/2 -translate-y-1/2" />
@@ -475,6 +434,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                       </select>
                     </div>
                   </div>
+
+                  {/* Agarda Boshqa xoʻjalik turi tanlansa: Foydalanuvchidan yozishi soʻraladi */}
+                  {farmType === 'boshqa' && (
+                    <div className="p-3 bg-emerald-50/70 dark:bg-emerald-950/40 rounded-lg border border-emerald-200 dark:border-emerald-800/60 animate-in fade-in duration-200">
+                      <label className="block font-semibold text-emerald-900 dark:text-emerald-300 text-xs mb-1">
+                        Xoʻjalik Turini Yozing (Aniq Yoʻnalish) *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={customFarmType}
+                        onChange={(e) => setCustomFarmType(e.target.value)}
+                        placeholder="Masalan: Issiqxonada gulchilik, dorivor giyohlar yoki koʻchatchilik"
+                        className="w-full px-3 py-2 border border-emerald-300 dark:border-emerald-700 rounded-md bg-white dark:bg-slate-900 text-[#0F172A] dark:text-white font-medium text-xs focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+                      />
+                    </div>
+                  )}
 
                   {/* Password Fields */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

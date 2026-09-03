@@ -10,10 +10,13 @@ import {
   ChevronRight,
   Info,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Compass,
+  RotateCcw
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { MFYData } from '../types';
+import { YOZYOVON_KADASTR_DISTRICT_BOUNDARY, YOZYOVON_MAP_BOUNDS } from '../data/yozyovonData';
 
 export const MFYMap: React.FC = () => {
   const { mfyList, selectMfy, userRole } = useApp();
@@ -68,16 +71,21 @@ export const MFYMap: React.FC = () => {
   const totalChorva = mfyList.reduce((acc, m) => acc + m.chorvaBoshlari, 0);
   const totalMaydon = mfyList.reduce((acc, m) => acc + m.dehqonchilikGa, 0);
 
-  // Initialize Leaflet Map
+  // Initialize Leaflet Map with smooth zoom & strict Kadastr bounds
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
     if (!mapInstanceRef.current) {
       const map = L.map(mapContainerRef.current, {
-        center: [40.665, 71.650], // Accurate Yozyovon District Center
-        zoom: 12.5,
+        center: [40.665, 71.650], // Yozyovon tumani markazi
+        zoom: 12,
         minZoom: 11,
-        maxZoom: 17,
+        maxZoom: 16,
+        zoomDelta: 0.5,
+        zoomSnap: 0.25,
+        wheelPxPerZoomLevel: 100,
+        maxBounds: YOZYOVON_MAP_BOUNDS,
+        maxBoundsViscosity: 0.95,
         zoomControl: false
       });
 
@@ -85,9 +93,22 @@ export const MFYMap: React.FC = () => {
 
       // OpenStreetMap Tiles
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        attribution: '&copy; Yozyovon Tuman Kadastri & OpenStreetMap',
         maxZoom: 19
       }).addTo(map);
+
+      // Official Kadastr District Boundary from User's Kadastr PDF
+      const districtBoundary = L.polygon(YOZYOVON_KADASTR_DISTRICT_BOUNDARY, {
+        color: '#0f172a',
+        weight: 3.5,
+        dashArray: '6, 6',
+        fill: false,
+        interactive: false
+      });
+      districtBoundary.addTo(map);
+
+      // Fit bounds cleanly on initial render
+      map.fitBounds(YOZYOVON_MAP_BOUNDS, { padding: [24, 24] });
 
       polygonsLayerGroupRef.current = L.layerGroup().addTo(map);
       mapInstanceRef.current = map;
@@ -100,6 +121,12 @@ export const MFYMap: React.FC = () => {
       }
     };
   }, []);
+
+  const resetDistrictView = () => {
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.fitBounds(YOZYOVON_MAP_BOUNDS, { padding: [24, 24], maxZoom: 13, animate: true });
+    }
+  };
 
   // Update Polygon Layers when filtered list or mfyList changes
   useEffect(() => {
@@ -313,6 +340,19 @@ export const MFYMap: React.FC = () => {
               className="w-full h-full z-10" 
             />
 
+            {/* Quick Map Controls: Reset to Kadastr District View */}
+            <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={resetDistrictView}
+                className="px-3 py-1.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-md shadow-md border border-[#E2E8F0] dark:border-slate-700 text-xs font-semibold text-[#0F172A] dark:text-white flex items-center gap-1.5 hover:bg-white dark:hover:bg-slate-800 transition-all active:scale-95"
+                title="Yozyovon tuman kadastr chegarasini ekranga toʻliq sigʻdirish"
+              >
+                <Compass className="w-3.5 h-3.5 text-[#3B82F6]" />
+                <span>Yozyovon Chegarasi</span>
+              </button>
+            </div>
+
             {/* Floating Legend Overlay */}
             <div className="absolute bottom-4 left-4 z-20 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-3 rounded-md shadow-md border border-[#E2E8F0] dark:border-slate-700 text-xs space-y-1.5 max-w-[210px]">
               <p className="text-[10px] uppercase font-bold text-[#64748B] dark:text-slate-400 tracking-wider border-b border-[#E2E8F0] dark:border-slate-700 pb-1">Limonchilik Rangi</p>
@@ -327,6 +367,10 @@ export const MFYMap: React.FC = () => {
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-xs bg-rose-500 border border-rose-600 shrink-0"></span>
                 <span className="text-[#334155] dark:text-slate-200 text-xs">&lt; 5 000 dona (Past)</span>
+              </div>
+              <div className="flex items-center gap-2 pt-1 border-t border-[#E2E8F0] dark:border-slate-700">
+                <span className="w-4 border-b-2 border-dashed border-slate-900 dark:border-white shrink-0"></span>
+                <span className="text-[#334155] dark:text-slate-300 text-[11px] font-medium">Tuman chegarasi</span>
               </div>
             </div>
 

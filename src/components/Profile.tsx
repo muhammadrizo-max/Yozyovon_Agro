@@ -98,40 +98,40 @@ export const Profile: React.FC = () => {
     <div className="space-y-6 max-w-7xl mx-auto pb-16 md:pb-0" id="farmer-profile-view">
       
       {/* Profile Overview Card - Geometric Balance (Mobile-first responsive) */}
-      <div className="bg-white p-5 sm:p-6 rounded-lg border border-[#E2E8F0] shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
+      <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-lg border border-[#E2E8F0] dark:border-slate-800 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
         <div className="flex items-center gap-3.5 sm:gap-4 w-full sm:w-auto">
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-md bg-[#F8FAFC] border border-[#E2E8F0] overflow-hidden flex items-center justify-center shrink-0">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-md bg-[#F8FAFC] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 overflow-hidden flex items-center justify-center shrink-0">
             {currentUser.avatar ? (
               <img src={currentUser.avatar} alt={currentUser.name} className="w-full h-full object-cover" />
             ) : (
-              <UserIcon className="w-7 h-7 text-[#64748B]" />
+              <UserIcon className="w-7 h-7 text-[#64748B] dark:text-slate-400" />
             )}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-              <h2 className="text-lg sm:text-xl font-bold text-[#0F172A] tracking-tight truncate">{currentUser.name}</h2>
-              <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider bg-blue-50 text-[#3B82F6] border border-blue-200">
+              <h2 className="text-lg sm:text-xl font-bold text-[#0F172A] dark:text-white tracking-tight truncate">{currentUser.name}</h2>
+              <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider bg-blue-50 dark:bg-blue-950/60 text-[#3B82F6] dark:text-blue-400 border border-blue-200 dark:border-blue-800">
                 Dehqon xoʻjaligi
               </span>
             </div>
-            <div className="flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-1 text-xs text-[#64748B] mt-1">
+            <div className="flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-1 text-xs text-[#64748B] dark:text-slate-400 mt-1">
               <span className="flex items-center gap-1">
                 <Home className="w-3.5 h-3.5 text-[#3B82F6]" />
                 <span className="truncate">{currentMfy.name} MFY</span>
               </span>
               <span className="flex items-center gap-1">
-                <Phone className="w-3.5 h-3.5 text-[#64748B]" />
+                <Phone className="w-3.5 h-3.5 text-[#64748B] dark:text-slate-400" />
                 <span>{currentUser.phone}</span>
               </span>
             </div>
           </div>
         </div>
 
-        {/* Quick Actions Bar */}
-        <div className="flex items-center gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-[#E2E8F0]">
+        {/* Quick Actions Bar - mobile full touch */}
+        <div className="flex items-center gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-[#E2E8F0] dark:border-slate-800">
           <button
             onClick={() => setActiveTab('scanner')}
-            className="flex-1 sm:flex-initial px-4 py-2.5 bg-[#3B82F6] hover:bg-blue-600 active:scale-95 text-white rounded-md text-xs font-semibold flex items-center justify-center gap-2 shadow-xs transition-all"
+            className="flex-1 sm:flex-initial min-h-[44px] px-4 py-2.5 bg-[#3B82F6] hover:bg-blue-600 active:scale-95 text-white rounded-md text-xs font-semibold flex items-center justify-center gap-2 shadow-xs transition-all"
           >
             <Camera className="w-4 h-4" />
             <span>AI Skaner</span>
@@ -139,7 +139,7 @@ export const Profile: React.FC = () => {
 
           <button
             onClick={() => setIsAddCropOpen(true)}
-            className="px-3.5 py-2.5 bg-[#0F172A] hover:bg-slate-800 active:scale-95 text-white rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-all"
+            className="flex-1 sm:flex-initial min-h-[44px] px-3.5 py-2.5 bg-[#0F172A] dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 active:scale-95 text-white rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-all border border-transparent dark:border-slate-700"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Ekin Qoʻshish</span>
@@ -150,70 +150,70 @@ export const Profile: React.FC = () => {
 
       {/* Yield Plan vs Actual Summary Cards - Responsive Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white p-4 sm:p-5 rounded-lg border border-[#E2E8F0] shadow-xs">
-          <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider block">Jami Ekin Maydoni</span>
-          <div className="text-xl sm:text-2xl font-bold text-[#0F172A] mt-1 sm:mt-2">
-            {totalCropArea.toFixed(1)} <span className="text-xs font-normal text-[#64748B]">ga</span>
+        <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-lg border border-[#E2E8F0] dark:border-slate-800 shadow-xs">
+          <span className="text-[10px] font-bold text-[#64748B] dark:text-slate-400 uppercase tracking-wider block">Jami Ekin Maydoni</span>
+          <div className="text-xl sm:text-2xl font-bold text-[#0F172A] dark:text-white mt-1 sm:mt-2">
+            {totalCropArea.toFixed(1)} <span className="text-xs font-normal text-[#64748B] dark:text-slate-400">ga</span>
           </div>
-          <p className="text-[11px] text-[#64748B] mt-0.5">{crops.length} ta maydonda</p>
+          <p className="text-[11px] text-[#64748B] dark:text-slate-400 mt-0.5">{crops.length} ta maydonda</p>
         </div>
 
-        <div className="bg-white p-4 sm:p-5 rounded-lg border border-[#E2E8F0] shadow-xs">
-          <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider block">Hosil Rejasi</span>
+        <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-lg border border-[#E2E8F0] dark:border-slate-800 shadow-xs">
+          <span className="text-[10px] font-bold text-[#64748B] dark:text-slate-400 uppercase tracking-wider block">Hosil Rejasi</span>
           <div className="text-xl sm:text-2xl font-bold text-[#3B82F6] mt-1 sm:mt-2">
-            {totalPlannedYield.toFixed(1)} <span className="text-xs font-normal text-[#64748B]">t</span>
+            {totalPlannedYield.toFixed(1)} <span className="text-xs font-normal text-[#64748B] dark:text-slate-400">t</span>
           </div>
-          <p className="text-[11px] text-[#64748B] mt-0.5">2026 mavsumiy reja</p>
+          <p className="text-[11px] text-[#64748B] dark:text-slate-400 mt-0.5">2026 mavsumiy reja</p>
         </div>
 
-        <div className="bg-white p-4 sm:p-5 rounded-lg border border-[#E2E8F0] shadow-xs">
-          <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider block">Yigʻilgan Hosil</span>
-          <div className="text-xl sm:text-2xl font-bold text-emerald-600 mt-1 sm:mt-2">
-            {totalActualYield.toFixed(1)} <span className="text-xs font-normal text-[#64748B]">t</span>
+        <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-lg border border-[#E2E8F0] dark:border-slate-800 shadow-xs">
+          <span className="text-[10px] font-bold text-[#64748B] dark:text-slate-400 uppercase tracking-wider block">Yigʻilgan Hosil</span>
+          <div className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1 sm:mt-2">
+            {totalActualYield.toFixed(1)} <span className="text-xs font-normal text-[#64748B] dark:text-slate-400">t</span>
           </div>
-          <div className="flex items-center gap-1 text-[10px] sm:text-[11px] text-emerald-700 font-semibold mt-0.5">
+          <div className="flex items-center gap-1 text-[10px] sm:text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold mt-0.5">
             <CheckCircle className="w-3 h-3" />
             <span>{Math.round((totalActualYield / (totalPlannedYield || 1)) * 100)}% bajarildi</span>
           </div>
         </div>
 
-        <div className="bg-white p-4 sm:p-5 rounded-lg border border-[#E2E8F0] shadow-xs">
-          <span className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider block">Jami Chorva Boshlari</span>
-          <div className="text-xl sm:text-2xl font-bold text-amber-600 mt-1 sm:mt-2">
-            {totalAnimals} <span className="text-xs font-normal text-[#64748B]">bosh</span>
+        <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-lg border border-[#E2E8F0] dark:border-slate-800 shadow-xs">
+          <span className="text-[10px] font-bold text-[#64748B] dark:text-slate-400 uppercase tracking-wider block">Jami Chorva Boshlari</span>
+          <div className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1 sm:mt-2">
+            {totalAnimals} <span className="text-xs font-normal text-[#64748B] dark:text-slate-400">bosh</span>
           </div>
-          <p className="text-[11px] text-[#64748B] mt-0.5">{livestock.length} toifada</p>
+          <p className="text-[11px] text-[#64748B] dark:text-slate-400 mt-0.5">{livestock.length} toifada</p>
         </div>
       </div>
 
       {/* MOBILE SEGMENT SELECTOR - Displayed primarily on phones for quick navigation */}
-      <div className="md:hidden flex items-center bg-white p-1 rounded-lg border border-[#E2E8F0] shadow-xs">
+      <div className="md:hidden flex items-center bg-white dark:bg-slate-900 p-1.5 rounded-lg border border-[#E2E8F0] dark:border-slate-800 shadow-xs gap-1">
         <button
           onClick={() => setMobileTab('crops')}
-          className={`flex-1 py-2 rounded-md text-xs font-bold transition-all text-center ${
+          className={`flex-1 py-2.5 rounded-md text-xs font-bold transition-all text-center min-h-[44px] flex items-center justify-center ${
             mobileTab === 'crops' 
-              ? 'bg-[#0F172A] text-white shadow-xs' 
-              : 'text-[#64748B] hover:text-[#0F172A]'
+              ? 'bg-[#0F172A] dark:bg-blue-600 text-white shadow-xs' 
+              : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
           }`}
         >
           🌿 Ekinlar ({crops.length})
         </button>
         <button
           onClick={() => setMobileTab('livestock')}
-          className={`flex-1 py-2 rounded-md text-xs font-bold transition-all text-center ${
+          className={`flex-1 py-2.5 rounded-md text-xs font-bold transition-all text-center min-h-[44px] flex items-center justify-center ${
             mobileTab === 'livestock' 
-              ? 'bg-[#0F172A] text-white shadow-xs' 
-              : 'text-[#64748B] hover:text-[#0F172A]'
+              ? 'bg-[#0F172A] dark:bg-blue-600 text-white shadow-xs' 
+              : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
           }`}
         >
           🐄 Chorva ({livestock.length})
         </button>
         <button
           onClick={() => setMobileTab('yield')}
-          className={`flex-1 py-2 rounded-md text-xs font-bold transition-all text-center ${
+          className={`flex-1 py-2.5 rounded-md text-xs font-bold transition-all text-center min-h-[44px] flex items-center justify-center ${
             mobileTab === 'yield' 
-              ? 'bg-[#0F172A] text-white shadow-xs' 
-              : 'text-[#64748B] hover:text-[#0F172A]'
+              ? 'bg-[#0F172A] dark:bg-blue-600 text-white shadow-xs' 
+              : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
           }`}
         >
           📊 Balans
@@ -566,11 +566,14 @@ export const Profile: React.FC = () => {
 
       {/* Responsive Modal: Yangi Ekin Maydoni Qo'shish */}
       {isAddCropOpen && (
-        <div className="fixed inset-0 z-50 bg-[#0F172A]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white rounded-t-xl sm:rounded-lg max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-[#E2E8F0] max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0]">
-              <h3 className="font-bold text-sm uppercase tracking-wider text-[#0F172A]">Yangi Ekin Maydoni Qoʻshish</h3>
-              <button onClick={() => setIsAddCropOpen(false)} className="text-[#64748B] hover:text-[#0F172A] p-1">
+        <div 
+          onClick={(e) => { if (e.target === e.currentTarget) setIsAddCropOpen(false); }}
+          className="fixed inset-0 z-50 bg-[#0F172A]/70 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+        >
+          <div className="bg-white dark:bg-slate-900 rounded-t-xl sm:rounded-lg max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-[#E2E8F0] dark:border-slate-800 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0] dark:border-slate-800">
+              <h3 className="font-bold text-sm uppercase tracking-wider text-[#0F172A] dark:text-white">Yangi Ekin Maydoni Qoʻshish</h3>
+              <button onClick={() => setIsAddCropOpen(false)} className="text-[#64748B] hover:text-[#0F172A] dark:hover:text-white p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -578,11 +581,11 @@ export const Profile: React.FC = () => {
             <form onSubmit={handleCreateCrop} className="mt-4 space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">Ekin turi</label>
+                  <label className="block font-semibold text-[#0F172A] dark:text-slate-200 mb-1">Ekin turi</label>
                   <select 
                     value={newCropType}
                     onChange={(e) => setNewCropType(e.target.value as any)}
-                    className="w-full p-2.5 border border-[#CBD5E1] rounded-md bg-[#F8FAFC] focus:bg-white text-[#0F172A]"
+                    className="w-full p-2.5 border border-[#CBD5E1] dark:border-slate-700 rounded-md bg-[#F8FAFC] dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 text-[#0F172A] dark:text-white"
                   >
                     <option value="limon">Limon (Sitrus)</option>
                     <option value="anor">Anor</option>
@@ -592,13 +595,13 @@ export const Profile: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">Maydoni (ga)</label>
+                  <label className="block font-semibold text-[#0F172A] dark:text-slate-200 mb-1">Maydoni (ga)</label>
                   <input 
                     type="number" 
                     step="0.1" 
                     value={newAreaGa} 
                     onChange={(e) => setNewAreaGa(e.target.value)}
-                    className="w-full p-2.5 border border-[#CBD5E1] rounded-md bg-[#F8FAFC] focus:bg-white text-[#0F172A]"
+                    className="w-full p-2.5 border border-[#CBD5E1] dark:border-slate-700 rounded-md bg-[#F8FAFC] dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 text-[#0F172A] dark:text-white"
                     required
                   />
                 </div>
@@ -606,65 +609,65 @@ export const Profile: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">Koordinata Lat</label>
+                  <label className="block font-semibold text-[#0F172A] dark:text-slate-200 mb-1">Koordinata Lat</label>
                   <input 
                     type="number" 
                     step="0.0001" 
                     value={newLat} 
                     onChange={(e) => setNewLat(e.target.value)}
-                    className="w-full p-2.5 border border-[#CBD5E1] rounded-md bg-[#F8FAFC] focus:bg-white text-[#0F172A]"
+                    className="w-full p-2.5 border border-[#CBD5E1] dark:border-slate-700 rounded-md bg-[#F8FAFC] dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 text-[#0F172A] dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">Koordinata Lng</label>
+                  <label className="block font-semibold text-[#0F172A] dark:text-slate-200 mb-1">Koordinata Lng</label>
                   <input 
                     type="number" 
                     step="0.0001" 
                     value={newLng} 
                     onChange={(e) => setNewLng(e.target.value)}
-                    className="w-full p-2.5 border border-[#CBD5E1] rounded-md bg-[#F8FAFC] focus:bg-white text-[#0F172A]"
+                    className="w-full p-2.5 border border-[#CBD5E1] dark:border-slate-700 rounded-md bg-[#F8FAFC] dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 text-[#0F172A] dark:text-white"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">Ekilgan sana</label>
+                  <label className="block font-semibold text-[#0F172A] dark:text-slate-200 mb-1">Ekilgan sana</label>
                   <input 
                     type="date" 
                     value={newPlantedDate} 
                     onChange={(e) => setNewPlantedDate(e.target.value)}
-                    className="w-full p-2.5 border border-[#CBD5E1] rounded-md bg-[#F8FAFC] focus:bg-white text-[#0F172A]"
+                    className="w-full p-2.5 border border-[#CBD5E1] dark:border-slate-700 rounded-md bg-[#F8FAFC] dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 text-[#0F172A] dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">Kutilayotgan hosil sanasi</label>
+                  <label className="block font-semibold text-[#0F172A] dark:text-slate-200 mb-1">Kutilayotgan hosil sanasi</label>
                   <input 
                     type="date" 
                     value={newHarvestDate} 
                     onChange={(e) => setNewHarvestDate(e.target.value)}
-                    className="w-full p-2.5 border border-[#CBD5E1] rounded-md bg-[#F8FAFC] focus:bg-white text-[#0F172A]"
+                    className="w-full p-2.5 border border-[#CBD5E1] dark:border-slate-700 rounded-md bg-[#F8FAFC] dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 text-[#0F172A] dark:text-white"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">Kutilgan hosil (tonna)</label>
+                  <label className="block font-semibold text-[#0F172A] dark:text-slate-200 mb-1">Kutilgan hosil (tonna)</label>
                   <input 
                     type="number" 
                     step="0.5" 
                     value={newExpectedYield} 
                     onChange={(e) => setNewExpectedYield(e.target.value)}
-                    className="w-full p-2.5 border border-[#CBD5E1] rounded-md bg-[#F8FAFC] focus:bg-white text-[#0F172A]"
+                    className="w-full p-2.5 border border-[#CBD5E1] dark:border-slate-700 rounded-md bg-[#F8FAFC] dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 text-[#0F172A] dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">Holati</label>
+                  <label className="block font-semibold text-[#0F172A] dark:text-slate-200 mb-1">Holati</label>
                   <select 
                     value={newHealth}
                     onChange={(e) => setNewHealth(e.target.value as any)}
-                    className="w-full p-2.5 border border-[#CBD5E1] rounded-md bg-[#F8FAFC] focus:bg-white text-[#0F172A]"
+                    className="w-full p-2.5 border border-[#CBD5E1] dark:border-slate-700 rounded-md bg-[#F8FAFC] dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 text-[#0F172A] dark:text-white"
                   >
                     <option value="yaxshi">Yaxshi (Yuqori unumdorlik)</option>
                     <option value="ortacha">Oʻrtacha (Parvarish talab)</option>
@@ -674,21 +677,21 @@ export const Profile: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-semibold text-[#0F172A] mb-1">Izoh / Nav maʼlumotlari</label>
+                <label className="block font-semibold text-[#0F172A] dark:text-slate-200 mb-1">Izoh / Nav maʼlumotlari</label>
                 <input 
                   type="text" 
                   placeholder="Masalan: Meyeri navli limon issiqxonasi"
                   value={newCropNotes}
                   onChange={(e) => setNewCropNotes(e.target.value)}
-                  className="w-full p-2.5 border border-[#CBD5E1] rounded-md bg-[#F8FAFC] focus:bg-white text-[#0F172A]"
+                  className="w-full p-2.5 border border-[#CBD5E1] dark:border-slate-700 rounded-md bg-[#F8FAFC] dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 text-[#0F172A] dark:text-white"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-[#E2E8F0]">
+              <div className="flex justify-end gap-2 pt-3 border-t border-[#E2E8F0] dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setIsAddCropOpen(false)}
-                  className="px-4 py-2.5 border border-[#E2E8F0] text-[#334155] rounded-md font-medium hover:bg-[#F8FAFC]"
+                  className="px-4 py-2.5 border border-[#E2E8F0] dark:border-slate-700 text-[#334155] dark:text-slate-300 rounded-md font-medium hover:bg-[#F8FAFC] dark:hover:bg-slate-800"
                 >
                   Bekor qilish
                 </button>
@@ -706,11 +709,14 @@ export const Profile: React.FC = () => {
 
       {/* Responsive Modal: Yangi Chorva Qo'shish */}
       {isAddLivestockOpen && (
-        <div className="fixed inset-0 z-50 bg-[#0F172A]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="bg-white rounded-t-xl sm:rounded-lg max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-[#E2E8F0] max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0]">
-              <h3 className="font-bold text-sm uppercase tracking-wider text-[#0F172A]">Yangi Chorva Boshlarini Qoʻshish</h3>
-              <button onClick={() => setIsAddLivestockOpen(false)} className="text-[#64748B] hover:text-[#0F172A] p-1">
+        <div 
+          onClick={(e) => { if (e.target === e.currentTarget) setIsAddLivestockOpen(false); }}
+          className="fixed inset-0 z-50 bg-[#0F172A]/70 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+        >
+          <div className="bg-white dark:bg-slate-900 rounded-t-xl sm:rounded-lg max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-[#E2E8F0] dark:border-slate-800 max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0] dark:border-slate-800">
+              <h3 className="font-bold text-sm uppercase tracking-wider text-[#0F172A] dark:text-white">Yangi Chorva Boshlarini Qoʻshish</h3>
+              <button onClick={() => setIsAddLivestockOpen(false)} className="text-[#64748B] hover:text-[#0F172A] dark:hover:text-white p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -718,11 +724,11 @@ export const Profile: React.FC = () => {
             <form onSubmit={handleCreateLivestock} className="mt-4 space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">Hayvon turi</label>
+                  <label className="block font-semibold text-[#0F172A] dark:text-slate-200 mb-1">Hayvon turi</label>
                   <select 
                     value={newAnimalType}
                     onChange={(e) => setNewAnimalType(e.target.value as any)}
-                    className="w-full p-2.5 border border-[#CBD5E1] rounded-md bg-[#F8FAFC] focus:bg-white text-[#0F172A]"
+                    className="w-full p-2.5 border border-[#CBD5E1] dark:border-slate-700 rounded-md bg-[#F8FAFC] dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 text-[#0F172A] dark:text-white"
                   >
                     <option value="sigir">Qoramol (Sigir / Buqa)</option>
                     <option value="qoy">Qoʻy / Echki</option>
@@ -732,13 +738,13 @@ export const Profile: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">Bosh soni</label>
+                  <label className="block font-semibold text-[#0F172A] dark:text-slate-200 mb-1">Bosh soni</label>
                   <input 
                     type="number" 
                     min="1" 
                     value={newCount} 
                     onChange={(e) => setNewCount(e.target.value)}
-                    className="w-full p-2.5 border border-[#CBD5E1] rounded-md bg-[#F8FAFC] focus:bg-white text-[#0F172A]"
+                    className="w-full p-2.5 border border-[#CBD5E1] dark:border-slate-700 rounded-md bg-[#F8FAFC] dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 text-[#0F172A] dark:text-white"
                     required
                   />
                 </div>
@@ -746,20 +752,20 @@ export const Profile: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">Yoshi (oy hisobida)</label>
+                  <label className="block font-semibold text-[#0F172A] dark:text-slate-200 mb-1">Yoshi (oy hisobida)</label>
                   <input 
                     type="number" 
                     value={newAgeMonths} 
                     onChange={(e) => setNewAgeMonths(e.target.value)}
-                    className="w-full p-2.5 border border-[#CBD5E1] rounded-md bg-[#F8FAFC] focus:bg-white text-[#0F172A]"
+                    className="w-full p-2.5 border border-[#CBD5E1] dark:border-slate-700 rounded-md bg-[#F8FAFC] dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 text-[#0F172A] dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">Holati</label>
+                  <label className="block font-semibold text-[#0F172A] dark:text-slate-200 mb-1">Holati</label>
                   <select 
                     value={newAnimalHealth}
                     onChange={(e) => setNewAnimalHealth(e.target.value as any)}
-                    className="w-full p-2.5 border border-[#CBD5E1] rounded-md bg-[#F8FAFC] focus:bg-white text-[#0F172A]"
+                    className="w-full p-2.5 border border-[#CBD5E1] dark:border-slate-700 rounded-md bg-[#F8FAFC] dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 text-[#0F172A] dark:text-white"
                   >
                     <option value="soglom">Sogʻlom</option>
                     <option value="homilador">Homilador (Boʻgʻoz)</option>
@@ -771,37 +777,37 @@ export const Profile: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">Oxirgi tekshiruv sanasi</label>
+                  <label className="block font-semibold text-[#0F172A] dark:text-slate-200 mb-1">Oxirgi tekshiruv sanasi</label>
                   <input 
                     type="date" 
                     value={newCheckupDate} 
                     onChange={(e) => setNewCheckupDate(e.target.value)}
-                    className="w-full p-2.5 border border-[#CBD5E1] rounded-md bg-[#F8FAFC] focus:bg-white text-[#0F172A]"
+                    className="w-full p-2.5 border border-[#CBD5E1] dark:border-slate-700 rounded-md bg-[#F8FAFC] dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 text-[#0F172A] dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">Birka raqami / Kod</label>
+                  <label className="block font-semibold text-[#0F172A] dark:text-slate-200 mb-1">Birka raqami / Kod</label>
                   <input 
                     type="text" 
                     value={newTagNumber} 
                     onChange={(e) => setNewTagNumber(e.target.value)}
                     placeholder="UZ-YZ-0104"
-                    className="w-full p-2.5 border border-[#CBD5E1] rounded-md bg-[#F8FAFC] focus:bg-white text-[#0F172A]"
+                    className="w-full p-2.5 border border-[#CBD5E1] dark:border-slate-700 rounded-md bg-[#F8FAFC] dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-900 text-[#0F172A] dark:text-white"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-[#E2E8F0]">
+              <div className="flex justify-end gap-2 pt-3 border-t border-[#E2E8F0] dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setIsAddLivestockOpen(false)}
-                  className="px-4 py-2.5 border border-[#E2E8F0] text-[#334155] rounded-md font-medium hover:bg-[#F8FAFC]"
+                  className="px-4 py-2.5 border border-[#E2E8F0] dark:border-slate-700 text-[#334155] dark:text-slate-300 rounded-md font-medium hover:bg-[#F8FAFC] dark:hover:bg-slate-800"
                 >
                   Bekor qilish
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2.5 bg-[#0F172A] hover:bg-slate-800 text-white rounded-md font-semibold transition-colors"
+                  className="px-4 py-2.5 bg-[#0F172A] dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-md font-semibold transition-colors"
                 >
                   Saqlash
                 </button>

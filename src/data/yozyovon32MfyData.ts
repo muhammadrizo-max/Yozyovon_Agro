@@ -1038,3 +1038,64 @@ export const YOZYOVON_ALL_32_MFY: MFYData[] = RAW_32_MFY.map(mfy => ({
   ...mfy,
   polygonCoordinates: generateOrganicMfyBoundary(mfy.center[0], mfy.center[1], mfy.id, mfy.dehqonchilikGa)
 }));
+
+/**
+ * Yozyovon Tumani Rasmiy Chegarasi
+ * Kadastr Agentligi - Milliy Geoaxborot Portali (open.ngis.uz) maʼlumotlari asosida
+ * Koordinatalar tuman tashqi chegarasining barcha nuqtalari boʻylab belgilangan
+ */
+export const YOZYOVON_KADASTR_DISTRICT_BOUNDARY: [number, number][] = [
+  // G'arbiy qism: Mingchinor MFY / Ulug'nor kanali shimoli-g'arbidan
+  [40.718, 71.492],
+  [40.712, 71.528],
+  [40.690, 71.556],
+  [40.648, 71.578], // G'arbiy va markaziy qismlarni bog'lovchi oraliq
+
+  // Markaziy va Shimoliy chegara: Ulug'nor tumani va Bo'ston tumani tutashgan hudud
+  [40.672, 71.595],
+  [40.712, 71.615], // Shahriobod va Ulug'bek MFY shimoli
+  [40.722, 71.628], // Shimoliy eng chekka nuqta (Ulug'nor kanali sohili)
+  [40.702, 71.642],
+  [40.690, 71.665], // Qo'rg'oncha MFY shimoli
+  [40.682, 71.692],
+  [40.665, 71.722], // Navro'z MFY va Bo'ston tumani chegarasi
+
+  // Sharqiy chegara: Toshloq tumani bilan chegara (Xonariq, Sariq jo'ga hududlari)
+  [40.642, 71.742],
+  [40.615, 71.754],
+  [40.588, 71.758], // Janubi-sharqiy chekka burchak
+
+  // Janubi-sharqiy kadastr qirralari: Qumqishloq, Farog'at, Qumariq MFY
+  [40.568, 71.748],
+  [40.558, 71.734],
+  [40.566, 71.722],
+  [40.582, 71.718],
+  [40.596, 71.698], // Tog'lik / Jorqishloq chegarasi
+  [40.608, 71.688],
+
+  // Janubiy chegara: Qo'shtepa tumani bilan tutashuv (Gaston, Aylanmajar, Xonaqa, Paxtakor)
+  [40.612, 71.668],
+  [40.600, 71.658],
+  [40.606, 71.644],
+  [40.614, 71.632],
+  [40.604, 71.618],
+  [40.608, 71.594], // Janubiy bog'lanma bo'g'izi
+
+  // Janubiy to'g'ri chiziqli chegara: Qo'shtepa tumani bo'ylab g'arbdagi Mingchinor tomonga
+  [40.610, 71.564],
+  [40.602, 71.528],
+  [40.598, 71.488],
+  [40.595, 71.448], // Janubi-g'arbiy eng chekka nuqta (Oltiariq / Qo'shtepa chegarasi)
+
+  // G'arbiy chegara: Oltiariq tumani bilan tutashgan shimolga tomon chiziq
+  [40.640, 71.424],
+  [40.678, 71.438],
+  [40.702, 71.464],
+  [40.718, 71.492] // Kontur yopildi
+];
+
+export const YOZYOVON_MAP_BOUNDS: [[number, number], [number, number]] = [
+  [40.53, 71.35],
+  [40.76, 71.80]
+];
+
