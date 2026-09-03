@@ -22,7 +22,10 @@ import {
   Layers,
   FileSpreadsheet,
   Trash2,
-  Maximize2
+  Maximize2,
+  Minimize2,
+  RotateCw,
+  X
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { DISEASE_SAMPLES, DiseaseSample } from '../data/yozyovonData';
@@ -34,6 +37,17 @@ export const AIScanner: React.FC = () => {
   // Active Modes: 'camera' (Live Camera) | 'upload' (File upload) - Samples removed per user request
   const [inputMode, setInputMode] = useState<'camera' | 'upload'>('camera');
   const [activeSubTab, setActiveSubTab] = useState<'scanner' | 'history'>('scanner');
+
+  // Fullscreen state: auto-enabled on mobile / phone
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768;
+    }
+    return false;
+  });
+
+  // Facing mode: 'environment' (orqaga qaragan asosiy kamera) | 'user' (old kamera)
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
 
   // Camera States
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -59,11 +73,24 @@ export const AIScanner: React.FC = () => {
   const isMountedRef = useRef(true);
   const startCameraSessionIdRef = useRef(0);
 
-  // Start Camera Stream
-  const startCamera = async () => {
+  // Auto-detect mobile screen on mount for full screen mode
+  useEffect(() => {
+    const checkMobile = () => {
+      if (window.innerWidth < 768) {
+        setIsFullscreen(true);
+      }
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Robust Start Camera Stream
+  const startCamera = async (overrideFacing?: 'environment' | 'user') => {
     setCameraError(null);
     setCameraPermissionState('checking');
     const currentSessionId = ++startCameraSessionIdRef.current;
+    const targetMode = overrideFacing || facingMode;
 
     // Stop any previously existing stream
     if (mediaStreamRef.current) {
@@ -73,14 +100,23 @@ export const AIScanner: React.FC = () => {
 
     try {
       if (typeof navigator !== 'undefined' && navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function') {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: 'environment' },
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          },
-          audio: false
-        });
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: { ideal: targetMode },
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            },
+            audio: false
+          });
+        } catch (constraintErr) {
+          // Fallback if device doesn't support specific facingMode
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false
+          });
+        }
 
         // Check if session became stale while waiting for getUserMedia
         if (!isMountedRef.current || startCameraSessionIdRef.current !== currentSessionId) {
@@ -89,19 +125,14 @@ export const AIScanner: React.FC = () => {
         }
 
         mediaStreamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          const playPromise = videoRef.current.play();
-          if (playPromise !== undefined) {
-            playPromise.catch(err => {
-              if (err && err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
-                console.warn("Camera stream notice:", err.message || err);
-              }
-            });
-          }
-        }
         setIsCameraActive(true);
         setCameraPermissionState('granted');
+
+        // Immediately attach to video element if ready
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
+        }
       } else {
         setCameraPermissionState('denied');
         setCameraError("Kamera qurilmasi ushbu brauzerda qoʻllab-quvvatlanmadi yoki ruxsat yoʻq.");
@@ -110,10 +141,17 @@ export const AIScanner: React.FC = () => {
       if (startCameraSessionIdRef.current === currentSessionId) {
         console.warn("Camera access note:", err?.message || err);
         setCameraPermissionState('denied');
-        setCameraError("Kameraga ruxsat berilmadi yoki kamera qurilmasi band. Iltimos, brauzeringizda kameraga ruxsat bering yoki 'Fayl Yuklash' orqali rasm yuboring.");
+        setCameraError("Kameraga ruxsat berilmadi yoki kamera band. Iltimos, brauzeringizda kameraga ruxsat bering yoki 'Fayl Yuklash' orqali rasm yuboring.");
         setIsCameraActive(false);
       }
     }
+  };
+
+  // Toggle Camera Facing Mode (old / orqa kamera)
+  const toggleFacingMode = () => {
+    const nextMode = facingMode === 'environment' ? 'user' : 'environment';
+    setFacingMode(nextMode);
+    startCamera(nextMode);
   };
 
   // Stop Camera Stream
@@ -133,6 +171,16 @@ export const AIScanner: React.FC = () => {
     }
     setIsCameraActive(false);
   };
+
+  // Re-attach video stream if camera active state or stream changes
+  useEffect(() => {
+    if (isCameraActive && mediaStreamRef.current && videoRef.current) {
+      if (videoRef.current.srcObject !== mediaStreamRef.current) {
+        videoRef.current.srcObject = mediaStreamRef.current;
+      }
+      videoRef.current.play().catch(() => {});
+    }
+  }, [isCameraActive]);
 
   // Initialize camera when entering camera mode
   useEffect(() => {
@@ -349,25 +397,37 @@ export const AIScanner: React.FC = () => {
                 </h3>
               </div>
 
-              {/* Target Type selector */}
-              <div className="flex items-center gap-1 bg-[#F8FAFC] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 p-0.5 rounded text-xs">
+              {/* Target Type selector and Fullscreen toggle */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 bg-[#F8FAFC] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 p-0.5 rounded text-xs">
+                  <button
+                    onClick={() => setSelectedTargetType('limon')}
+                    className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${selectedTargetType === 'limon' ? 'bg-[#0F172A] dark:bg-blue-600 text-white' : 'text-[#64748B] dark:text-slate-400'}`}
+                  >
+                    🍋 Limon
+                  </button>
+                  <button
+                    onClick={() => setSelectedTargetType('boshqa_ekin')}
+                    className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${selectedTargetType === 'boshqa_ekin' ? 'bg-[#0F172A] dark:bg-blue-600 text-white' : 'text-[#64748B] dark:text-slate-400'}`}
+                  >
+                    🌾 Boshqa Ekin
+                  </button>
+                  <button
+                    onClick={() => setSelectedTargetType('chorva')}
+                    className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${selectedTargetType === 'chorva' ? 'bg-[#0F172A] dark:bg-blue-600 text-white' : 'text-[#64748B] dark:text-slate-400'}`}
+                  >
+                    🐄 Chorva
+                  </button>
+                </div>
+
                 <button
-                  onClick={() => setSelectedTargetType('limon')}
-                  className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${selectedTargetType === 'limon' ? 'bg-[#0F172A] dark:bg-blue-600 text-white' : 'text-[#64748B] dark:text-slate-400'}`}
+                  onClick={() => setIsFullscreen(true)}
+                  className="px-2.5 py-1.5 rounded bg-[#F8FAFC] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#0F172A] dark:text-white hover:bg-blue-50 text-[11px] font-semibold flex items-center gap-1 transition-colors"
+                  title="Toʻliq ekranga oʻtish"
+                  id="fullscreen-toggle-btn"
                 >
-                  🍋 Limon
-                </button>
-                <button
-                  onClick={() => setSelectedTargetType('boshqa_ekin')}
-                  className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${selectedTargetType === 'boshqa_ekin' ? 'bg-[#0F172A] dark:bg-blue-600 text-white' : 'text-[#64748B] dark:text-slate-400'}`}
-                >
-                  🌾 Boshqa Ekin
-                </button>
-                <button
-                  onClick={() => setSelectedTargetType('chorva')}
-                  className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${selectedTargetType === 'chorva' ? 'bg-[#0F172A] dark:bg-blue-600 text-white' : 'text-[#64748B] dark:text-slate-400'}`}
-                >
-                  🐄 Chorva
+                  <Maximize2 className="w-3.5 h-3.5 text-[#3B82F6]" />
+                  <span className="hidden sm:inline">Toʻliq ekran</span>
                 </button>
               </div>
             </div>
@@ -381,10 +441,19 @@ export const AIScanner: React.FC = () => {
                   {isCameraActive ? (
                     <>
                       <video
-                        ref={videoRef}
+                        ref={(el) => {
+                          videoRef.current = el;
+                          if (el && mediaStreamRef.current && el.srcObject !== mediaStreamRef.current) {
+                            el.srcObject = mediaStreamRef.current;
+                            el.play().catch(() => {});
+                          }
+                        }}
                         autoPlay
                         playsInline
                         muted
+                        onLoadedMetadata={() => {
+                          videoRef.current?.play().catch(() => {});
+                        }}
                         className="w-full h-full object-cover"
                       />
 
@@ -715,6 +784,200 @@ export const AIScanner: React.FC = () => {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 📱 FULL-SCREEN MOBILE / IMMERSIVE CAMERA SCANNER VIEW                      */}
+      {/* ========================================================================= */}
+      {isFullscreen && inputMode === 'camera' && (
+        <div className="fixed inset-0 z-50 bg-black flex flex-col justify-between overflow-hidden" id="fullscreen-camera-scanner">
+          {/* Top Bar */}
+          <div className="relative z-30 p-3 pt-4 sm:p-4 bg-gradient-to-b from-black/90 via-black/60 to-transparent flex items-center justify-between text-white">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+              <span className="text-xs font-bold uppercase tracking-wider">
+                Yozyovon AI Skaner
+              </span>
+            </div>
+
+            {/* Target Mode Selector in Fullscreen */}
+            <div className="flex items-center gap-1 bg-black/60 backdrop-blur-md border border-white/20 p-0.5 rounded-full text-[11px]">
+              <button
+                onClick={() => setSelectedTargetType('limon')}
+                className={`px-2.5 py-1 rounded-full font-bold transition-all ${
+                  selectedTargetType === 'limon' ? 'bg-amber-500 text-slate-950 shadow-xs' : 'text-white/80'
+                }`}
+              >
+                🍋 Limon
+              </button>
+              <button
+                onClick={() => setSelectedTargetType('boshqa_ekin')}
+                className={`px-2.5 py-1 rounded-full font-bold transition-all ${
+                  selectedTargetType === 'boshqa_ekin' ? 'bg-blue-500 text-white shadow-xs' : 'text-white/80'
+                }`}
+              >
+                🌾 Ekin
+              </button>
+              <button
+                onClick={() => setSelectedTargetType('chorva')}
+                className={`px-2.5 py-1 rounded-full font-bold transition-all ${
+                  selectedTargetType === 'chorva' ? 'bg-emerald-500 text-white shadow-xs' : 'text-white/80'
+                }`}
+              >
+                🐄 Chorva
+              </button>
+            </div>
+
+            {/* Exit Fullscreen button */}
+            <button
+              onClick={() => setIsFullscreen(false)}
+              className="p-2 rounded-full bg-white/20 hover:bg-white/30 text-white backdrop-blur-md transition-colors"
+              title="Kichik ekranga qaytish"
+              id="exit-fullscreen-btn"
+            >
+              <Minimize2 className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Live Video Center */}
+          <div className="relative flex-1 w-full h-full flex items-center justify-center overflow-hidden">
+            {isCameraActive ? (
+              <>
+                <video
+                  ref={(el) => {
+                    videoRef.current = el;
+                    if (el && mediaStreamRef.current && el.srcObject !== mediaStreamRef.current) {
+                      el.srcObject = mediaStreamRef.current;
+                      el.play().catch(() => {});
+                    }
+                  }}
+                  autoPlay
+                  playsInline
+                  muted
+                  onLoadedMetadata={() => {
+                    videoRef.current?.play().catch(() => {});
+                  }}
+                  className="w-full h-full object-cover"
+                />
+
+                {/* Laser HUD Scan Line & Target Frame */}
+                <div className="absolute inset-0 pointer-events-none flex flex-col justify-between">
+                  <div className="w-full h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent shadow-lg shadow-blue-500 animate-bounce duration-1000 opacity-90"></div>
+                  
+                  <div className="my-auto mx-auto w-64 h-64 sm:w-80 sm:h-80 border-2 border-dashed border-emerald-400/80 rounded-2xl flex items-center justify-center relative">
+                    <Crosshair className="w-10 h-10 text-emerald-400 animate-pulse" />
+                    <span className="absolute -bottom-7 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] text-emerald-300 font-medium tracking-wide border border-emerald-400/30">
+                      Kamerani kasallangan barg yoki ekinga qarating
+                    </span>
+                  </div>
+
+                  <div className="w-full h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent opacity-50"></div>
+                </div>
+              </>
+            ) : (
+              <div className="text-center p-6 space-y-4 max-w-sm mx-auto text-white">
+                <VideoOff className="w-12 h-12 text-amber-400 mx-auto" />
+                <h4 className="font-bold text-base">Kamera faollashtirilmoqda...</h4>
+                <p className="text-xs text-white/70">
+                  Kameraga ruxsat bering yoki qayta ishga tushirish tugmasini bosing.
+                </p>
+                <button
+                  onClick={() => startCamera()}
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-full font-bold text-xs flex items-center justify-center gap-2 mx-auto"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Kamerani Yoqish</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Floating Bar */}
+          <div className="relative z-30 p-4 pb-8 bg-gradient-to-t from-black/95 via-black/60 to-transparent flex items-center justify-around text-white">
+            {/* Switch Camera (Front/Back) */}
+            <button
+              onClick={toggleFacingMode}
+              className="p-3.5 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md transition-all active:scale-90"
+              title="Kamerani almashtirish (Oldi / Orqasi)"
+              id="switch-camera-facing-btn"
+            >
+              <RotateCw className="w-5 h-5 text-white" />
+            </button>
+
+            {/* Big Shutter Button */}
+            <button
+              onClick={captureSnapshot}
+              disabled={isScanning}
+              className="w-20 h-20 rounded-full border-4 border-white bg-white/30 active:scale-90 flex items-center justify-center shadow-2xl transition-all disabled:opacity-50"
+              title="Suratga olish va AI tahlili"
+              id="fullscreen-shutter-btn"
+            >
+              <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center text-blue-600 shadow-inner">
+                {isScanning ? (
+                  <RefreshCw className="w-7 h-7 animate-spin text-blue-600" />
+                ) : (
+                  <Camera className="w-7 h-7 text-blue-600" />
+                )}
+              </div>
+            </button>
+
+            {/* Switch to File Upload */}
+            <button
+              onClick={() => {
+                setIsFullscreen(false);
+                setInputMode('upload');
+              }}
+              className="p-3.5 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md transition-all active:scale-90"
+              title="Fayl yuklashga oʻtish"
+              id="fullscreen-upload-switch-btn"
+            >
+              <Upload className="w-5 h-5 text-white" />
+            </button>
+          </div>
+
+          {/* Fullscreen Diagnosis Drawer if scanResult exists */}
+          {scanResult && (
+            <div className="absolute inset-x-0 bottom-0 z-40 bg-slate-900 border-t-2 border-emerald-500 rounded-t-2xl p-4 sm:p-6 text-white max-h-[75vh] overflow-y-auto animate-in slide-in-from-bottom duration-200">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-700">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-400" />
+                  <h4 className="font-bold text-sm">AI Diagnostika Natijasi</h4>
+                </div>
+                <button
+                  onClick={() => setScanResult(null)}
+                  className="p-1 rounded-md text-slate-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="mt-3 space-y-3 text-xs">
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase font-bold">Aniqlangan holat:</span>
+                  <h3 className="text-base font-bold text-emerald-400">{scanResult.diseaseName}</h3>
+                  <p className="text-[11px] text-slate-300">Ishonchlilik: {scanResult.confidence.toFixed(1)}%</p>
+                </div>
+
+                <div className="p-3 bg-slate-800 rounded-lg border border-slate-700 space-y-1">
+                  <strong className="text-emerald-300 block">Agrotexnik Tavsiya:</strong>
+                  <p className="text-slate-200 leading-relaxed">{scanResult.recommendations}</p>
+                </div>
+
+                <div className="p-3 bg-blue-950/60 rounded-lg border border-blue-800 space-y-1">
+                  <strong className="text-blue-300 block">Tavsiya Etilgan Dori & Doza:</strong>
+                  <p className="text-blue-100 leading-relaxed font-semibold">{scanResult.medicines}</p>
+                </div>
+
+                <button
+                  onClick={() => setScanResult(null)}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 rounded-lg font-bold text-xs"
+                >
+                  ✓ Tushunarli, Davom Etish
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

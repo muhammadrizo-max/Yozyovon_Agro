@@ -6,7 +6,7 @@ import {
   User, 
   ShieldCheck, 
   Sun, 
-  Moon,
+  Moon, 
   Layers, 
   ScanLine, 
   BarChart3, 
@@ -27,9 +27,10 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { UserRole } from '../types';
+import { Sidebar } from './Sidebar';
 
 interface HeaderProps {
-  onOpenAuth: () => void;
+  onOpenAuth: (mode?: 'login' | 'register') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
@@ -49,10 +50,11 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
     isDarkMode,
     toggleDarkMode,
     setIsDevModalOpen,
+    logout,
     siteSettings
   } = useApp();
 
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
 
@@ -434,90 +436,93 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
                         {currentUser.isVerified ? '✓ Tasdiqlangan' : '⏳ Kutilmoqda'}
                       </span>
                       <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                        {userRole === 'admin' ? 'Root Admin' : userRole === 'davlat' ? 'Inspektor' : 'Dehqon Xoʻjaligi'}
+                        {userRole === 'admin' ? 'Dasturchi' : userRole === 'davlat' ? 'Inspektor' : 'Dehqon Xoʻjaligi'}
                       </span>
                     </div>
                   </div>
 
-                  <span className="text-[10px] font-bold text-[#64748B] dark:text-slate-400 uppercase tracking-wider block px-2 pt-1">
-                    3 ta Asosiy Kalit (Rol Tanlash):
-                  </span>
-
-                  {/* 1. Dasturchi Key */}
-                  <button
-                    onClick={() => { 
-                      switchRole('admin'); 
-                      setIsDevModalOpen(true);
-                      setIsRoleDropdownOpen(false); 
-                    }}
-                    className={`w-full text-left p-2 rounded-md flex items-center justify-between transition-colors ${
-                      userRole === 'admin' ? 'bg-slate-900 text-emerald-400 font-bold' : 'hover:bg-[#F8FAFC] dark:hover:bg-slate-700 text-[#0F172A] dark:text-slate-200'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Terminal className="w-4 h-4 text-emerald-500" />
-                      <div>
-                        <span className="block font-semibold">1. Dasturchi (Developer)</span>
-                        <span className="text-[10px] text-slate-400 font-normal">Sayt va API sozlamalari, Kiber-himoya</span>
-                      </div>
-                    </div>
-                    {userRole === 'admin' && <span className="text-emerald-400 font-bold">✓</span>}
-                  </button>
-
-                  {/* 2. Dehqon Key */}
-                  <button
-                    onClick={() => { switchRole('dehqon'); setIsRoleDropdownOpen(false); }}
-                    className={`w-full text-left p-2 rounded-md flex items-center justify-between transition-colors ${
-                      userRole === 'dehqon' ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 font-bold' : 'hover:bg-[#F8FAFC] dark:hover:bg-slate-700 text-[#0F172A] dark:text-slate-200'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Sprout className="w-4 h-4 text-emerald-600" />
-                      <div>
-                        <span className="block font-semibold">2. Dehqon (Farmer)</span>
-                        <span className="text-[10px] text-slate-400 font-normal">Issiqxona, Limon qoʻllanmasi, AI Skaner</span>
-                      </div>
-                    </div>
-                    {userRole === 'dehqon' && <span className="text-emerald-600 font-bold">✓</span>}
-                  </button>
-
-                  {/* 3. Davlat Organi Key */}
-                  <button
-                    onClick={() => { switchRole('davlat'); setIsRoleDropdownOpen(false); }}
-                    className={`w-full text-left p-2 rounded-md flex items-center justify-between transition-colors ${
-                      userRole === 'davlat' ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-200 font-bold' : 'hover:bg-[#F8FAFC] dark:hover:bg-slate-700 text-[#0F172A] dark:text-slate-200'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-[#3B82F6]" />
-                      <div>
-                        <span className="block font-semibold">3. Davlat Organi (Inspector)</span>
-                        <span className="text-[10px] text-slate-400 font-normal">32 MFY nazorati, Subsidiyalar, Eksport</span>
-                      </div>
-                    </div>
-                    {userRole === 'davlat' && <span className="text-[#3B82F6] font-bold">✓</span>}
-                  </button>
-
-                  <div className="border-t border-[#E2E8F0] dark:border-slate-700 pt-1.5">
+                  {/* Clean Profile Menu (No role switching keys) */}
+                  <div className="space-y-1 pt-1">
                     <button
-                      onClick={() => { onOpenAuth(); setIsRoleDropdownOpen(false); }}
+                      onClick={() => {
+                        setActiveTab('profile');
+                        setIsRoleDropdownOpen(false);
+                      }}
+                      className="w-full text-left p-2 rounded-md hover:bg-[#F8FAFC] dark:hover:bg-slate-700 text-[#0F172A] dark:text-slate-200 font-medium flex items-center gap-2"
+                      id="profile-my-farm-btn"
+                    >
+                      <Sprout className="w-4 h-4 text-emerald-600" />
+                      <span>Mening Xoʻjaligim & Profil</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setActiveTab('lemon_guide');
+                        setIsRoleDropdownOpen(false);
+                      }}
+                      className="w-full text-left p-2 rounded-md hover:bg-[#F8FAFC] dark:hover:bg-slate-700 text-[#0F172A] dark:text-slate-200 font-medium flex items-center gap-2"
+                      id="profile-lemon-guide-btn"
+                    >
+                      <BookOpen className="w-4 h-4 text-amber-500" />
+                      <span>Limonchilik Qoʻllanmasi</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setActiveTab('scanner');
+                        setIsRoleDropdownOpen(false);
+                      }}
+                      className="w-full text-left p-2 rounded-md hover:bg-[#F8FAFC] dark:hover:bg-slate-700 text-[#0F172A] dark:text-slate-200 font-medium flex items-center gap-2"
+                      id="profile-scanner-btn"
+                    >
+                      <ScanLine className="w-4 h-4 text-blue-500" />
+                      <span>AI Agro-Skaner</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setActiveTab('weather_market');
+                        setIsRoleDropdownOpen(false);
+                      }}
+                      className="w-full text-left p-2 rounded-md hover:bg-[#F8FAFC] dark:hover:bg-slate-700 text-[#0F172A] dark:text-slate-200 font-medium flex items-center gap-2"
+                      id="profile-weather-btn"
+                    >
+                      <Sun className="w-4 h-4 text-amber-600" />
+                      <span>Agro-Ob-havo & Bozor</span>
+                    </button>
+                  </div>
+
+                  <div className="border-t border-[#E2E8F0] dark:border-slate-700 pt-1.5 space-y-1">
+                    <button
+                      onClick={() => { onOpenAuth('login'); setIsRoleDropdownOpen(false); }}
                       className="w-full text-left p-2 rounded-md hover:bg-[#F8FAFC] dark:hover:bg-slate-700 text-[#3B82F6] font-semibold flex items-center gap-2"
+                      id="profile-switch-account-btn"
                     >
                       <User className="w-4 h-4" />
-                      <span>Tizimga Kirish / Yangi Roʻyxat</span>
+                      <span>Boshqa Hisobga Kirish</span>
+                    </button>
+
+                    <button
+                      onClick={() => { logout(); setIsRoleDropdownOpen(false); }}
+                      className="w-full text-left p-2 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-semibold flex items-center gap-2"
+                      id="profile-logout-btn"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Tizimdan Chiqish</span>
                     </button>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Mobile Menu Trigger */}
+            {/* Mobile / Universal Sidebar Trigger */}
             <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 rounded-md border border-[#E2E8F0] dark:border-slate-700 md:hidden text-[#0F172A] dark:text-white"
-              id="mobile-menu-btn"
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-2 rounded-md border border-[#E2E8F0] dark:border-slate-700 md:hidden text-[#0F172A] dark:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              id="sidebar-toggle-btn"
+              title="Boʻlimlar menyusi"
             >
-              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              <Menu className="w-5 h-5" />
             </button>
 
           </div>
@@ -525,106 +530,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
         </div>
       </div>
 
-      {/* Mobile Drawer Menu */}
-      {isMobileMenuOpen && (
-        <div className="md:hidden bg-white dark:bg-slate-900 border-b border-[#E2E8F0] dark:border-slate-800 px-4 pt-2 pb-4 space-y-2 shadow-lg">
-          {userRole === 'admin' ? (
-            <>
-              <button
-                onClick={() => { setIsDevModalOpen(true); setIsMobileMenuOpen(false); }}
-                className="w-full text-left py-2 px-3 rounded-md text-xs font-bold uppercase text-emerald-400 bg-slate-900 flex items-center gap-2"
-              >
-                <Terminal className="w-4 h-4 text-emerald-400" />
-                <span>Dasturchi & Kiber-Himoya Konsoli</span>
-              </button>
-              <button
-                onClick={() => { selectMfy(null); setActiveTab('gov_hub'); setIsMobileMenuOpen(false); }}
-                className="w-full text-left py-2 px-3 rounded-md text-xs font-bold uppercase text-[#0F172A] dark:text-white"
-              >
-                Davlat Boshqaruv Markazi
-              </button>
-              <button
-                onClick={() => { selectMfy(null); setActiveTab('map'); setIsMobileMenuOpen(false); }}
-                className="w-full text-left py-2 px-3 rounded-md text-xs font-bold uppercase text-[#0F172A] dark:text-white"
-              >
-                32 MFY Xaritasi
-              </button>
-            </>
-          ) : userRole === 'davlat' ? (
-            <>
-              <button
-                onClick={() => { selectMfy(null); setActiveTab('gov_hub'); setIsMobileMenuOpen(false); }}
-                className="w-full text-left py-2 px-3 rounded-md text-xs font-bold uppercase text-[#0F172A] dark:text-white bg-blue-50 dark:bg-blue-950/40"
-              >
-                Davlat Boshqaruv Markazi
-              </button>
-              <button
-                onClick={() => { selectMfy(null); setActiveTab('map'); setIsMobileMenuOpen(false); }}
-                className="w-full text-left py-2 px-3 rounded-md text-xs font-bold uppercase text-[#0F172A] dark:text-white"
-              >
-                32 MFY Xaritasi
-              </button>
-              <button
-                onClick={() => { selectMfy(null); setActiveTab('statistics'); setIsMobileMenuOpen(false); }}
-                className="w-full text-left py-2 px-3 rounded-md text-xs font-bold uppercase text-[#0F172A] dark:text-white"
-              >
-                Tuman Statistikasi
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => { setActiveTab('profile'); setIsMobileMenuOpen(false); }}
-                className="w-full text-left py-2 px-3 rounded-md text-xs font-bold uppercase text-[#0F172A] dark:text-white bg-emerald-50 dark:bg-emerald-950/40"
-              >
-                Mening Xoʻjaligim
-              </button>
-              <button
-                onClick={() => { setActiveTab('lemon_guide'); setIsMobileMenuOpen(false); }}
-                className="w-full text-left py-2 px-3 rounded-md text-xs font-bold uppercase text-amber-600 dark:text-amber-400"
-              >
-                🍋 Limonchilik Qoʻllanmasi
-              </button>
-              <button
-                onClick={() => { setActiveTab('scanner'); setIsMobileMenuOpen(false); }}
-                className="w-full text-left py-2 px-3 rounded-md text-xs font-bold uppercase text-[#0F172A] dark:text-white"
-              >
-                AI Skaner
-              </button>
-              <button
-                onClick={() => { selectMfy(null); setActiveTab('map'); setIsMobileMenuOpen(false); }}
-                className="w-full text-left py-2 px-3 rounded-md text-xs font-bold uppercase text-[#0F172A] dark:text-white"
-              >
-                MFYlar Xaritasi
-              </button>
-              <button
-                onClick={() => { setActiveTab('weather_market'); setIsMobileMenuOpen(false); }}
-                className="w-full text-left py-2 px-3 rounded-md text-xs font-bold uppercase text-[#0F172A] dark:text-white"
-              >
-                Agro-Ob-havo & Bozor
-              </button>
-            </>
-          )}
-
-          <div className="border-t border-[#E2E8F0] dark:border-slate-800 pt-2 flex items-center justify-between">
-            <button
-              onClick={() => { onOpenAuth(); setIsMobileMenuOpen(false); }}
-              className="text-xs text-[#3B82F6] font-bold"
-            >
-              Kirish / Roʻyxatdan oʻtish
-            </button>
-            <button
-              onClick={() => {
-                switchRole(userRole === 'davlat' ? 'dehqon' : userRole === 'admin' ? 'dehqon' : 'davlat');
-                setIsMobileMenuOpen(false);
-              }}
-              className="text-xs text-[#64748B] dark:text-slate-400 underline"
-            >
-              Rolni almashtirish
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Slide-in Navigation Sidebar Drawer */}
+      <Sidebar 
+        isOpen={isSidebarOpen} 
+        onClose={() => setIsSidebarOpen(false)} 
+        onOpenAuth={onOpenAuth} 
+      />
 
     </header>
   );
