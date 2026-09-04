@@ -51,10 +51,12 @@ export interface FarmerAdvice {
   farmerPhone?: string;
   mfyName: string;
   experienceYears: number;
-  badgeTitle: string;
+  badgeTitle?: string;
   title: string;
-  category: 'ekish' | 'parvarish' | 'zararkunanda' | 'hosil_yigish' | 'tajriba';
+  category: 'ekish' | 'parvarish' | 'zararkunanda' | 'hosil_yigish' | 'tajriba' | 'kasallik' | 'hosildorlik' | 'qishlash' | 'sugorish';
   content: string;
+  medicines?: string;
+  precautions?: string;
   createdAt: string;
   likes: number;
 }
@@ -134,6 +136,7 @@ export interface MFYData {
   id: number;
   name: string;
   geojsonId: string;
+  referendumNum?: number; // 1-rasmdagi Referendum / Saylov uchastkasi raqami (#551-#582)
   dehqonchilikGa: number;
   limonDaraxtlari: number;
   chorvaBoshlari: number;
