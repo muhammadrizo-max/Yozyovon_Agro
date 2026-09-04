@@ -44,7 +44,8 @@ export const LemonAcademy: React.FC = () => {
     farmerAdvices, 
     addFarmerAdvice, 
     toggleLikeAdvice,
-    mfyList
+    mfyList,
+    isLoggedIn
   } = useApp();
 
   // Carousel State
@@ -729,8 +730,8 @@ export const LemonAcademy: React.FC = () => {
               </p>
             </div>
 
-            {/* If current user has badge, show Add Advice button */}
-            {currentUser.hasExperienceBadge ? (
+            {/* If current user has badge AND is logged in, show Add Advice button */}
+            {isLoggedIn && currentUser.hasExperienceBadge ? (
               <div className="bg-white text-slate-900 p-4 rounded-lg shadow-lg border border-amber-300 text-center min-w-[220px]">
                 <div className="flex items-center justify-center gap-1 text-amber-600 font-bold text-xs mb-1">
                   <Award className="w-4 h-4 fill-current" />
@@ -764,7 +765,7 @@ export const LemonAcademy: React.FC = () => {
           </div>
 
           {/* Non-badged farmer friendly note */}
-          {!currentUser.hasExperienceBadge && (
+          {(!isLoggedIn || !currentUser.hasExperienceBadge) && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3 text-xs">
               <Award className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 fill-current" />
               <div className="space-y-1 text-amber-900">
@@ -908,6 +909,7 @@ export const LemonAcademy: React.FC = () => {
                   farmerName: currentUser.name,
                   mfyName: mfy ? mfy.name : 'Yozyovon MFY',
                   experienceYears: currentUser.experienceYears || 15,
+                  badgeTitle: currentUser.badgeTitle || 'Davlat tomonidan tasdiqlangan tajribali dehqon',
                   title: adviceTitle.trim(),
                   category: adviceCategory,
                   content: adviceContent.trim(),
