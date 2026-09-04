@@ -11,6 +11,7 @@ import { GovAlertsAndPrograms } from './components/GovAlertsAndPrograms';
 import { GovManagementHub } from './components/GovManagementHub';
 import { LemonAcademy } from './components/LemonAcademy';
 import { AuthModal } from './components/AuthModal';
+import { LandingPage } from './components/LandingPage';
 import { DevEmergencyPanel } from './components/DevEmergencyPanel';
 import { 
   Sprout, 
@@ -36,23 +37,44 @@ const AppContent: React.FC = () => {
     userRole, 
     mfyList,
     isLoggedIn,
-    setIsSidebarOpen
+    setIsSidebarOpen,
+    setIsGuestModalOpen
   } = useApp();
 
-  // Har bir yangi kelgan ilk foydalanuvchiga saytning login sahifasi ochiladi
-  const [isAuthOpen, setIsAuthOpen] = useState(() => !isLoggedIn);
+  // Auth modal state (Kirish yoki Roʻyxatdan oʻtish)
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  // Guest browse mode — logged-out user clicks "Mehmon sifatida ko'rish"
+  const [isGuestBrowse, setIsGuestBrowse] = useState(false);
 
+  // When user logs out, reset guest browse mode so landing page shows again
   useEffect(() => {
     if (!isLoggedIn) {
-      setIsAuthOpen(true);
+      setIsGuestBrowse(false);
     }
   }, [isLoggedIn]);
+
+  const handleOpenAuth = (mode: 'login' | 'register' = 'login') => {
+    setAuthMode(mode);
+    setIsAuthOpen(true);
+  };
+
+  const handleEnterAsGuest = () => {
+    setIsGuestBrowse(true);
+    setIsGuestModalOpen(false);
+    setActiveTab('map');
+  };
+
+  // Show landing page for non-authenticated users who haven't chosen guest mode
+  if (!isLoggedIn && !isGuestBrowse) {
+    return <LandingPage onEnterAsGuest={handleEnterAsGuest} />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F1F5F9] dark:bg-slate-950 text-[#1E293B] dark:text-slate-100 font-sans antialiased transition-colors duration-200">
       
       {/* Header with Navigation and Profile */}
-      <Header onOpenAuth={() => setIsAuthOpen(true)} />
+      <Header onOpenAuth={(mode) => handleOpenAuth(mode || 'login')} />
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-8">
@@ -214,6 +236,7 @@ const AppContent: React.FC = () => {
       <AuthModal 
         isOpen={isAuthOpen} 
         onClose={() => setIsAuthOpen(false)} 
+        initialMode={authMode}
       />
 
       {/* Developer Emergency Access & Cyber Defense Backdoor Console */}
