@@ -1,7 +1,7 @@
 import { MFYData, Crop, Livestock, AIScan, WeatherInfo, MarketPrice, AppNotification, User, SubsidyApplication, ExportCertificate } from '../types';
-import { YOZYOVON_ALL_32_MFY, YOZYOVON_KADASTR_DISTRICT_BOUNDARY, YOZYOVON_MAP_BOUNDS } from './yozyovon32MfyData';
+import { YOZYOVON_ALL_33_MFY, YOZYOVON_ALL_32_MFY, YOZYOVON_KADASTR_DISTRICT_BOUNDARY, YOZYOVON_MAP_BOUNDS, YOZYOVON_WATER_RESERVOIR, YOZYOVON_NEIGHBORS } from './yozyovon32MfyData';
 
-export { YOZYOVON_KADASTR_DISTRICT_BOUNDARY, YOZYOVON_MAP_BOUNDS };
+export { YOZYOVON_ALL_33_MFY, YOZYOVON_ALL_32_MFY, YOZYOVON_KADASTR_DISTRICT_BOUNDARY, YOZYOVON_MAP_BOUNDS, YOZYOVON_WATER_RESERVOIR, YOZYOVON_NEIGHBORS };
 
 export const INITIAL_USERS: User[] = [
   {
@@ -39,66 +39,23 @@ export const INITIAL_USERS: User[] = [
     avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
     createdAt: '2026-01-01',
     isVerified: true
+  },
+  {
+    id: 4,
+    phone: '+998900001717',
+    name: 'Dasturchi (Developer Pro)',
+    email: 'developerpro@gamil.com',
+    role: 'admin',
+    mfyId: 1,
+    createdAt: '2026-01-01',
+    isVerified: true,
+    activityField: 'Dasturiy Taʼminot Arxitektori va Xavfsizlik'
   }
 ];
 
-export const INITIAL_SUBSIDIES: SubsidyApplication[] = [
-  {
-    id: 'sub-1',
-    farmerName: 'Xoliqov Jamshid (Dehqon xoʻjaligi)',
-    mfyName: 'Yozyovon MFY (Markaz)',
-    programTitle: 'Tomchilatib sugʻorish tizimini joriy etish',
-    requestedAmount: '18 000 000 soʻm',
-    purpose: '1.2 ga Meyeri limon issiqxonasiga avtomatlashgan tomchilatib sugʻorish uskunalarini oʻrnatish',
-    submittedDate: '2026-08-25',
-    status: 'tasdiqlandi'
-  },
-  {
-    id: 'sub-2',
-    farmerName: 'Abdullayev Sardorbek',
-    mfyName: 'Guliston MFY',
-    programTitle: 'Quyosh panelli energiya tejovchi issiqxona',
-    requestedAmount: '35 000 000 soʻm',
-    purpose: 'Qishki isitish tizimini modernizatsiya qilish uchun 10 kVt quyosh panellari oʻrnatish',
-    submittedDate: '2026-08-27',
-    status: 'kutilmoqda'
-  },
-  {
-    id: 'sub-3',
-    farmerName: 'Rahmonova Dilnoza',
-    mfyName: 'Qorasoy MFY',
-    programTitle: 'Sitrus koʻchatlarini yangilash granti',
-    requestedAmount: '12 500 000 soʻm',
-    purpose: '500 tup sertifikatlangan yangi Meyeri limon koʻchatlarini sotib olish',
-    submittedDate: '2026-08-28',
-    status: 'kutilmoqda'
-  }
-];
+export const INITIAL_SUBSIDIES: SubsidyApplication[] = [];
 
-export const INITIAL_EXPORT_CERTS: ExportCertificate[] = [
-  {
-    id: 'exp-101',
-    regNumber: 'UZ-YZ-EXP-2026/089',
-    farmerName: 'Qodirov Rustamjon',
-    mfyName: 'Yozyovon MFY',
-    productType: 'Yangi uzilgan Meyeri Limoni',
-    quantityTons: 12.5,
-    destinationCountry: 'Rossiya Federatsiyasi (Moskva)',
-    issueDate: '2026-08-26',
-    phytosanitaryStatus: 'sertifikatlangan'
-  },
-  {
-    id: 'exp-102',
-    regNumber: 'UZ-YZ-EXP-2026/090',
-    farmerName: 'Ismoilov Anvar',
-    mfyName: 'Ishtirxon MFY',
-    productType: 'Qayum Navli Shirin Anor',
-    quantityTons: 8.0,
-    destinationCountry: 'Qozogʻiston Respublikasi (Almati)',
-    issueDate: '2026-08-28',
-    phytosanitaryStatus: 'tekshiruvda'
-  }
-];
+export const INITIAL_EXPORT_CERTS: ExportCertificate[] = [];
 
 
 const OLD_MFY_LIST: MFYData[] = [
@@ -665,114 +622,12 @@ const OLD_MFY_LIST: MFYData[] = [
   }
 ];
 
-// All 32 MFYs of Yozyovon District
-export const YOZYOVON_MFY_LIST: MFYData[] = YOZYOVON_ALL_32_MFY;
+// All 33 MFYs of Yozyovon District
+export const YOZYOVON_MFY_LIST: MFYData[] = YOZYOVON_ALL_33_MFY;
 
-export const INITIAL_CROPS: Crop[] = [
-  {
-    id: 1,
-    userId: 1,
-    mfyId: 1,
-    cropType: 'limon',
-    areaGa: 1.8,
-    coordinates: { lat: 40.5182, lng: 71.0841 },
-    healthStatus: 'yaxshi',
-    plantedDate: '2023-04-10',
-    expectedHarvest: '2026-11-20',
-    expectedYieldTons: 38.5,
-    actualYieldTons: 36.2,
-    notes: 'Meyeri navli limon issiqxonasi. Tomchilatib sugʻorish tizimi ulangan.'
-  },
-  {
-    id: 2,
-    userId: 1,
-    mfyId: 1,
-    cropType: 'anor',
-    areaGa: 0.9,
-    coordinates: { lat: 40.5145, lng: 71.0892 },
-    healthStatus: 'yaxshi',
-    plantedDate: '2022-03-15',
-    expectedHarvest: '2026-10-15',
-    expectedYieldTons: 14.0,
-    actualYieldTons: 13.5,
-    notes: 'Qayum navli shirin anorzor.'
-  },
-  {
-    id: 3,
-    userId: 1,
-    mfyId: 1,
-    cropType: 'uzum',
-    areaGa: 1.2,
-    coordinates: { lat: 40.5211, lng: 71.0798 },
-    healthStatus: 'ortacha',
-    plantedDate: '2021-04-01',
-    expectedHarvest: '2026-09-10',
-    expectedYieldTons: 18.0,
-    actualYieldTons: 16.0,
-    notes: 'Husiyni va Rizamat uzum navlari.'
-  },
-  {
-    id: 4,
-    userId: 1,
-    mfyId: 1,
-    cropType: 'bugdoy',
-    areaGa: 3.5,
-    coordinates: { lat: 40.5118, lng: 71.0822 },
-    healthStatus: 'yaxshi',
-    plantedDate: '2025-10-25',
-    expectedHarvest: '2026-06-20',
-    expectedYieldTons: 22.0,
-    actualYieldTons: 23.4,
-    notes: 'Krasnodar-99 navli urugʻlik bugʻdoy maydoni.'
-  }
-];
+export const INITIAL_CROPS: Crop[] = [];
 
-export const INITIAL_LIVESTOCK: Livestock[] = [
-  {
-    id: 1,
-    userId: 1,
-    animalType: 'sigir',
-    count: 8,
-    ageMonths: 36,
-    healthStatus: 'soglom',
-    lastCheckup: '2026-08-15',
-    tagNumber: 'UZ-YZ-0104',
-    notes: 'Golshtin zotli sogʻin sigirlar, kunlik sut sogʻimi oʻrtacha 24 litr.'
-  },
-  {
-    id: 2,
-    userId: 1,
-    animalType: 'sigir',
-    count: 2,
-    ageMonths: 28,
-    healthStatus: 'homilador',
-    lastCheckup: '2026-08-20',
-    tagNumber: 'UZ-YZ-0109',
-    notes: '7 oylik boʻgʻoz, veterinariya koʻrigidan muvaffaqiyatli oʻtgan.'
-  },
-  {
-    id: 3,
-    userId: 1,
-    animalType: 'qoy',
-    count: 24,
-    ageMonths: 14,
-    healthStatus: 'soglom',
-    lastCheckup: '2026-08-10',
-    tagNumber: 'UZ-YZ-Q045',
-    notes: 'Hisori zotli semirtirilayotgan qoʻchqorlar.'
-  },
-  {
-    id: 4,
-    userId: 1,
-    animalType: 'tovuq',
-    count: 150,
-    ageMonths: 8,
-    healthStatus: 'emlangan',
-    lastCheckup: '2026-08-01',
-    tagNumber: 'POULTRY-BATCH-3',
-    notes: 'Loman Brown zotli tuxum yoʻnalishidagi tovuqlar.'
-  }
-];
+export const INITIAL_LIVESTOCK: Livestock[] = [];
 
 export interface DiseaseSample {
   id: string;
@@ -862,36 +717,7 @@ export const DISEASE_SAMPLES: DiseaseSample[] = [
   }
 ];
 
-export const INITIAL_AI_SCANS: AIScan[] = [
-  {
-    id: 1,
-    userId: 1,
-    mfyId: 1,
-    imageUrl: 'https://images.unsplash.com/photo-1598880940371-c756e015fea1?w=600&auto=format&fit=crop&q=80',
-    targetType: 'limon',
-    diseaseName: 'Limon bargi sargʻayishi (Temir xlorozi)',
-    confidence: 94.2,
-    severity: 'medium',
-    recommendations: 'Sugʻorish meʼyorini kamaytiring va tuproq aeratsiyasini yaxshilang. Bargdan temir xelati bilan oziqlantiring.',
-    medicines: 'Temir xelati (Fe-EDDHA) 15 g / 10 litr suv. Fitoverm 2ml/10L suv profilaktika uchun.',
-    scannedAt: '2026-08-27 14:22',
-    reportedToGov: false
-  },
-  {
-    id: 2,
-    userId: 1,
-    mfyId: 1,
-    imageUrl: 'https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=600&auto=format&fit=crop&q=80',
-    targetType: 'limon',
-    diseaseName: 'Sitrus oqqanoti (Dialeurodes citri) zarari',
-    confidence: 88.7,
-    severity: 'high',
-    recommendations: 'Issiqxonani zudlik bilan shamollating. Sariq yopishqoq tuzoqlar oʻrnating va insektitsid bilan purkang.',
-    medicines: 'Aktara 25 WG - 2-3 g / 10 litr suv YOKI Fitoverm 20 ml / 10L suv.',
-    scannedAt: '2026-08-25 09:40',
-    reportedToGov: true
-  }
-];
+export const INITIAL_AI_SCANS: AIScan[] = [];
 
 export const YOZYOVON_WEATHER: WeatherInfo = {
   temp: 31,
@@ -1018,32 +844,4 @@ export const MARKET_PRICES: MarketPrice[] = [
   }
 ];
 
-export const INITIAL_NOTIFICATIONS: AppNotification[] = [
-  {
-    id: 'notif-1',
-    type: 'danger',
-    title: 'Sitrus oqqanoti xavfi boʻyicha ogohlantirish',
-    message: 'Yozyovon va Navbahor MFY hududidagi issiqxonalarda sitrus oqqanoti tarqalish xavfi mavjud. Biologik va kimyoviy profilaktika oʻtkazing.',
-    date: '28 Avgust 2026, 08:30',
-    unread: true,
-    targetRole: 'all'
-  },
-  {
-    id: 'notif-2',
-    type: 'info',
-    title: '"Yashil Makon" dasturi doirasida yangi grantlar',
-    message: 'Yozyovon tumanidagi tomchilatib sugʻorishga oʻtgan limonchilik xoʻjaliklari uchun 20 mln soʻmgacha qaytarilmas subsidiya ajratilmoqda.',
-    date: '27 Avgust 2026, 16:15',
-    unread: true,
-    targetRole: 'dehqon'
-  },
-  {
-    id: 'notif-3',
-    type: 'warning',
-    title: 'Ob-havo: Kutilayotgan quruq shamol va issiqlik',
-    message: 'Yaqin kunlarda havo harorati 34°C gacha koʻtarilishi kutilmoqda. Issiqxonalarni shamollatish va namlikni saqlash choralarini koʻring.',
-    date: '26 Avgust 2026, 11:00',
-    unread: false,
-    targetRole: 'all'
-  }
-];
+export const INITIAL_NOTIFICATIONS: AppNotification[] = [];

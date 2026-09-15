@@ -12,26 +12,72 @@ import {
   Maximize2,
   Minimize2,
   Compass,
-  RotateCcw
+  RotateCcw,
+  Eye,
+  EyeOff,
+  Globe,
+  Waves,
+  MapPin,
+  Sparkles
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { MFYData } from '../types';
-import { YOZYOVON_KADASTR_DISTRICT_BOUNDARY, YOZYOVON_MAP_BOUNDS } from '../data/yozyovonData';
+import { 
+  YOZYOVON_KADASTR_DISTRICT_BOUNDARY, 
+  YOZYOVON_MAP_BOUNDS, 
+  YOZYOVON_WATER_RESERVOIR, 
+  YOZYOVON_NEIGHBORS 
+} from '../data/yozyovonData';
 
 export const MFYMap: React.FC = () => {
   const { mfyList, selectMfy, userRole } = useApp();
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const baseTileLayerRef = useRef<L.TileLayer | null>(null);
   const polygonsLayerGroupRef = useRef<L.LayerGroup | null>(null);
+  const labelsLayerGroupRef = useRef<L.LayerGroup | null>(null);
+  const staticOverlaysGroupRef = useRef<L.LayerGroup | null>(null);
 
   const [hoveredMfy, setHoveredMfy] = useState<MFYData | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'high' | 'medium' | 'low'>('all');
+  const [selectedSektor, setSelectedSektor] = useState<number | 'all'>('all');
+  const [colorMode, setColorMode] = useState<'borders' | 'sektor' | 'limon'>('borders');
+  const [mapLayer, setMapLayer] = useState<'satellite' | 'street' | 'terrain'>('satellite');
+  const [showLabels, setShowLabels] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Helper to determine color based on limon trees
-  const getMfyColor = (limonDaraxtlari: number): { fill: string; border: string; text: string; label: string } => {
-    if (limonDaraxtlari >= 10000) {
+  // Sector colors (#551-#583 grouping)
+  const SEKTOR_COLORS: Record<number, { fill: string; border: string; name: string; text: string }> = {
+    1: { fill: '#3b82f6', border: '#1d4ed8', name: '1-Sektor (Hokim)', text: 'text-blue-500' },
+    2: { fill: '#10b981', border: '#047857', name: '2-Sektor (Prokuror)', text: 'text-emerald-500' },
+    3: { fill: '#f59e0b', border: '#b45309', name: '3-Sektor (IIV)', text: 'text-amber-500' },
+    4: { fill: '#8b5cf6', border: '#6d28d9', name: '4-Sektor (DSQ)', text: 'text-purple-500' }
+  };
+
+  // Helper to determine color based on borders only, sector, or limon trees
+  const getMfyColor = (mfy: MFYData): { fill: string; border: string; text: string; label: string } => {
+    if (colorMode === 'borders') {
+      return {
+        fill: 'transparent',
+        border: mapLayer === 'satellite' ? '#38bdf8' : '#2563eb',
+        text: 'text-blue-500',
+        label: 'Chegara koʻrinishi (Rangsiz)'
+      };
+    }
+
+    if (colorMode === 'sektor') {
+      const s = mfy.sektorNum || 1;
+      const conf = SEKTOR_COLORS[s] || SEKTOR_COLORS[1];
+      return {
+        fill: conf.fill,
+        border: conf.border,
+        text: conf.text,
+        label: conf.name
+      };
+    }
+
+    // Default: limon count
+    if (mfy.limonDaraxtlari >= 10000) {
       return { 
         fill: '#22c55e', 
         border: '#15803d', 
@@ -39,7 +85,7 @@ export const MFYMap: React.FC = () => {
         label: '> 10 000 (Yetakchi)' 
       };
     }
-    if (limonDaraxtlari >= 5000) {
+    if (mfy.limonDaraxtlari >= 5000) {
       return { 
         fill: '#eab308', 
         border: '#a16207', 
@@ -51,7 +97,7 @@ export const MFYMap: React.FC = () => {
       fill: '#ef4444', 
       border: '#b91c1c', 
       text: 'text-rose-700',
-      label: '< 5 000 (Xavf/Past)' 
+      label: '< 5 000 (Past)' 
     };
   };
 
@@ -60,6 +106,11 @@ export const MFYMap: React.FC = () => {
     const matchesSearch = mfy.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           mfy.asosiyEkinlar.some(c => c.toLowerCase().includes(searchQuery.toLowerCase()));
     if (!matchesSearch) return false;
+    
+    if (selectedSektor !== 'all' && mfy.sektorNum !== selectedSektor) {
+      return false;
+    }
+
     if (filterType === 'high') return mfy.limonDaraxtlari >= 10000;
     if (filterType === 'medium') return mfy.limonDaraxtlari >= 5000 && mfy.limonDaraxtlari < 10000;
     if (filterType === 'low') return mfy.limonDaraxtlari < 5000;
@@ -71,7 +122,7 @@ export const MFYMap: React.FC = () => {
   const totalChorva = mfyList.reduce((acc, m) => acc + m.chorvaBoshlari, 0);
   const totalMaydon = mfyList.reduce((acc, m) => acc + m.dehqonchilikGa, 0);
 
-  // Initialize Leaflet Map with smooth zoom & strict Kadastr bounds
+  // Initialize Leaflet Map
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
@@ -79,38 +130,74 @@ export const MFYMap: React.FC = () => {
       const map = L.map(mapContainerRef.current, {
         center: [40.665, 71.650], // Yozyovon tumani markazi
         zoom: 12,
-        minZoom: 11,
-        maxZoom: 16,
+        minZoom: 10,
+        maxZoom: 17,
         zoomDelta: 0.5,
         zoomSnap: 0.25,
         wheelPxPerZoomLevel: 100,
         maxBounds: YOZYOVON_MAP_BOUNDS,
-        maxBoundsViscosity: 0.95,
+        maxBoundsViscosity: 0.9,
         zoomControl: false
       });
 
       L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-      // OpenStreetMap Tiles
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; Yozyovon Tuman Kadastri & OpenStreetMap',
-        maxZoom: 19
-      }).addTo(map);
+      // Base tile layer: Google Satellite Hybrid (Real fazoviy suratlar)
+      const satLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        attribution: '&copy; Yozyovon Tuman Kadastri & Google Earth',
+        maxZoom: 20
+      });
+      satLayer.addTo(map);
+      baseTileLayerRef.current = satLayer;
 
-      // Official Kadastr District Boundary from User's Kadastr PDF
+      // Layer groups
+      staticOverlaysGroupRef.current = L.layerGroup().addTo(map);
+      polygonsLayerGroupRef.current = L.layerGroup().addTo(map);
+      labelsLayerGroupRef.current = L.layerGroup().addTo(map);
+
+      // Add Static Overlays:
+      // 1. Water Reservoir (Markaziy Farg'ona Suv Ombori) - Sun'iy doira olib tashlandi, nozik kontur va tabiiy suv havzasi
+      const reservoirPoly = L.polygon(YOZYOVON_WATER_RESERVOIR.polygon, {
+        color: '#0284c7',
+        weight: 1.5,
+        dashArray: '5, 5',
+        fill: false, // Foydalanuvchi so'rovi: sun'iy ko'k qoplama olib tashlangan
+        interactive: true
+      });
+      reservoirPoly.bindTooltip(`
+        <div class="p-1">
+          <div class="font-bold text-xs text-sky-300">🌊 ${YOZYOVON_WATER_RESERVOIR.name}</div>
+          <div class="text-[10px] text-slate-300">${YOZYOVON_WATER_RESERVOIR.capacity}</div>
+        </div>
+      `, { sticky: true, className: 'custom-mfy-tooltip' });
+      staticOverlaysGroupRef.current.addLayer(reservoirPoly);
+
+      // 2. Official Kadastr District Boundary (High-contrast gold outline for satellite clarity)
       const districtBoundary = L.polygon(YOZYOVON_KADASTR_DISTRICT_BOUNDARY, {
-        color: '#0f172a',
+        color: '#fbbf24',
         weight: 3.5,
-        dashArray: '6, 6',
+        dashArray: '8, 6',
         fill: false,
         interactive: false
       });
-      districtBoundary.addTo(map);
+      staticOverlaysGroupRef.current.addLayer(districtBoundary);
+
+      // 3. Neighboring district labels
+      YOZYOVON_NEIGHBORS.forEach(neighbor => {
+        const neighborIcon = L.divIcon({
+          className: 'neighbor-label',
+          html: `
+            <div class="px-2 py-0.5 bg-slate-900/90 text-amber-300 text-[10px] font-semibold rounded border border-amber-400/40 pointer-events-none whitespace-nowrap shadow-sm">
+              📍 ${neighbor.name} (${neighbor.direction})
+            </div>
+          `,
+          iconSize: [0, 0]
+        });
+        staticOverlaysGroupRef.current?.addLayer(L.marker(neighbor.position, { icon: neighborIcon }));
+      });
 
       // Fit bounds cleanly on initial render
-      map.fitBounds(YOZYOVON_MAP_BOUNDS, { padding: [24, 24] });
-
-      polygonsLayerGroupRef.current = L.layerGroup().addTo(map);
+      map.fitBounds(YOZYOVON_MAP_BOUNDS, { padding: [20, 20] });
       mapInstanceRef.current = map;
     }
 
@@ -122,35 +209,71 @@ export const MFYMap: React.FC = () => {
     };
   }, []);
 
+  // Switch Base Tile Layer
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+
+    if (baseTileLayerRef.current) {
+      mapInstanceRef.current.removeLayer(baseTileLayerRef.current);
+    }
+
+    let newTileLayer: L.TileLayer;
+    if (mapLayer === 'satellite') {
+      newTileLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        attribution: '&copy; Yozyovon Tuman Kadastri & Google Earth',
+        maxZoom: 20
+      });
+    } else if (mapLayer === 'street') {
+      newTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; Yozyovon Tuman Kadastri & OpenStreetMap',
+        maxZoom: 19
+      });
+    } else {
+      newTileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+        attribution: '&copy; Esri, DeLorme, USGS',
+        maxZoom: 18
+      });
+    }
+
+    newTileLayer.addTo(mapInstanceRef.current);
+    baseTileLayerRef.current = newTileLayer;
+  }, [mapLayer]);
+
   const resetDistrictView = () => {
     if (mapInstanceRef.current) {
-      mapInstanceRef.current.fitBounds(YOZYOVON_MAP_BOUNDS, { padding: [24, 24], maxZoom: 13, animate: true });
+      mapInstanceRef.current.fitBounds(YOZYOVON_MAP_BOUNDS, { padding: [20, 20], maxZoom: 13, animate: true });
     }
   };
 
-  // Update Polygon Layers when filtered list or mfyList changes
+  // Update Polygon Layers when filtered list, colorMode, or showLabels changes
   useEffect(() => {
-    if (!mapInstanceRef.current || !polygonsLayerGroupRef.current) return;
+    if (!mapInstanceRef.current || !polygonsLayerGroupRef.current || !labelsLayerGroupRef.current) return;
 
     polygonsLayerGroupRef.current.clearLayers();
+    labelsLayerGroupRef.current.clearLayers();
 
     filteredMfyList.forEach(mfy => {
-      const colorInfo = getMfyColor(mfy.limonDaraxtlari);
+      const colorInfo = getMfyColor(mfy);
+      const isBordersOnly = colorMode === 'borders';
 
-      // Create organic multi-vertex boundary polygon
+      // Create boundary polygon
       const polygon = L.polygon(mfy.polygonCoordinates, {
         color: colorInfo.border,
-        weight: 2.5,
-        fillColor: colorInfo.fill,
-        fillOpacity: 0.45,
+        weight: isBordersOnly ? 2 : 2.2,
+        fillColor: isBordersOnly ? 'transparent' : colorInfo.fill,
+        fillOpacity: isBordersOnly ? 0 : 0.45,
         className: 'cursor-pointer transition-all duration-300'
       });
 
       // Tooltip on hover
       const tooltipContent = `
         <div class="p-1 space-y-1">
-          <div class="font-bold text-sm text-white flex items-center gap-1.5 border-b border-slate-700/60 pb-1">
+          <div class="font-bold text-sm text-white flex items-center justify-between gap-2 border-b border-slate-700/60 pb-1">
             <span>🌿 ${mfy.name}</span>
+            <span class="text-xs font-mono text-amber-300">#${mfy.referendumNum || (550 + mfy.id)}</span>
+          </div>
+          <div class="text-[11px] text-blue-300 font-semibold">
+            Sektor: ${mfy.sektorNum}-sektor
           </div>
           <div class="grid grid-cols-2 gap-x-2 gap-y-0.5 text-xs text-slate-300 pt-0.5">
             <div>Maydon: <b class="text-white">${mfy.dehqonchilikGa} ga</b></div>
@@ -162,7 +285,7 @@ export const MFYMap: React.FC = () => {
             Asosiy: ${mfy.asosiyEkinlar.join(', ')}
           </div>
           <div class="text-[10px] text-emerald-400 font-semibold mt-1">
-            👉 Batafsil ko'rish uchun bosing
+            👉 Batafsil maʼlumotlarni koʻrish uchun bosing
           </div>
         </div>
       `;
@@ -173,12 +296,14 @@ export const MFYMap: React.FC = () => {
         direction: 'top'
       });
 
-      // Hover events - only show hover div when cursor is over polygon
+      // Hover events
       polygon.on('mouseover', (e) => {
         const layer = e.target;
         layer.setStyle({
-          weight: 4,
-          fillOpacity: 0.75
+          weight: 3.5,
+          color: isBordersOnly ? '#60a5fa' : colorInfo.border,
+          fillColor: isBordersOnly ? '#38bdf8' : colorInfo.fill,
+          fillOpacity: isBordersOnly ? 0.25 : 0.75
         });
         setHoveredMfy(mfy);
       });
@@ -186,8 +311,10 @@ export const MFYMap: React.FC = () => {
       polygon.on('mouseout', (e) => {
         const layer = e.target;
         layer.setStyle({
-          weight: 2.5,
-          fillOpacity: 0.45
+          weight: isBordersOnly ? 2 : 2.2,
+          color: colorInfo.border,
+          fillColor: isBordersOnly ? 'transparent' : colorInfo.fill,
+          fillOpacity: isBordersOnly ? 0 : 0.45
         });
         setHoveredMfy(null);
       });
@@ -197,23 +324,26 @@ export const MFYMap: React.FC = () => {
         selectMfy(mfy.id);
       });
 
-      // Add center marker label
-      const customLabelIcon = L.divIcon({
-        className: 'custom-map-label',
-        html: `
-          <div class="px-2 py-0.5 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xs text-slate-900 dark:text-slate-100 font-bold text-[11px] rounded-md shadow-xs border border-slate-300 dark:border-slate-700 pointer-events-none whitespace-nowrap -translate-x-1/2 -translate-y-1/2">
-            ${mfy.name}
-          </div>
-        `,
-        iconSize: [0, 0]
-      });
-
-      const labelMarker = L.marker(mfy.center, { icon: customLabelIcon });
-
       polygonsLayerGroupRef.current?.addLayer(polygon);
-      polygonsLayerGroupRef.current?.addLayer(labelMarker);
+
+      // Add center marker label if showLabels is enabled
+      if (showLabels) {
+        const customLabelIcon = L.divIcon({
+          className: 'custom-map-label',
+          html: `
+            <div class="px-1.5 py-0.5 bg-slate-900/85 backdrop-blur-xs text-white font-medium text-[10px] rounded shadow-sm border border-emerald-500/50 pointer-events-none whitespace-nowrap -translate-x-1/2 -translate-y-1/2 flex items-center gap-1">
+              <span class="text-amber-400 font-mono font-bold text-[9px]">#${mfy.referendumNum || (550 + mfy.id)}</span>
+              <span>${mfy.name.replace(' MFY', '')}</span>
+            </div>
+          `,
+          iconSize: [0, 0]
+        });
+
+        const labelMarker = L.marker(mfy.center, { icon: customLabelIcon, interactive: false });
+        labelsLayerGroupRef.current?.addLayer(labelMarker);
+      }
     });
-  }, [filteredMfyList]);
+  }, [filteredMfyList, colorMode, showLabels]);
 
   const handleMfyClick = (mfy: MFYData) => {
     selectMfy(mfy.id);
@@ -228,11 +358,11 @@ export const MFYMap: React.FC = () => {
   return (
     <div className="space-y-5" id="yozyovon-map-section">
       
-      {/* Top Banner with Geometric Balance District Statistics */}
+      {/* Top Banner with District Statistics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 p-4 rounded-md text-center shadow-xs">
-          <p className="text-2xl font-bold text-[#0F172A] dark:text-white">{mfyList.length}</p>
-          <p className="text-[10px] text-[#64748B] dark:text-slate-400 uppercase font-semibold tracking-wider mt-1">Jami MFYlar</p>
+          <p className="text-2xl font-bold text-[#0F172A] dark:text-white">{mfyList.length} ta</p>
+          <p className="text-[10px] text-[#64748B] dark:text-slate-400 uppercase font-semibold tracking-wider mt-1">MFYlar Soni (Toʻliq 33 ta)</p>
         </div>
 
         <div className="bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 p-4 rounded-md text-center shadow-xs">
@@ -252,65 +382,174 @@ export const MFYMap: React.FC = () => {
       </div>
 
       {/* Map Control Toolbar */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-[#E2E8F0] dark:border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 flex-1 min-w-[240px]">
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B]" />
-            <input
-              type="text"
-              placeholder="MFY nomi yoki ekin turi boʻyicha qidirish..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-[#F8FAFC] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 rounded-md focus:outline-hidden focus:ring-2 focus:ring-[#3B82F6] focus:bg-white dark:focus:bg-slate-900 text-[#0F172A] dark:text-white"
-            />
+      <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-lg border border-[#E2E8F0] dark:border-slate-800 shadow-xs space-y-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="w-full sm:flex-1 max-w-md">
+            <div className="relative w-full">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B]" />
+              <input
+                type="text"
+                placeholder="MFY nomi yoki ekin turi boʻyicha qidirish..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-[#F8FAFC] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 rounded-md focus:outline-hidden focus:ring-2 focus:ring-[#3B82F6] focus:bg-white dark:focus:bg-slate-900 text-[#0F172A] dark:text-white"
+              />
+            </div>
+          </div>
+
+          {/* Map Layer and Labels View Controls */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Satellite / Street / Terrain Switcher */}
+            <div className="flex items-center bg-[#F1F5F9] dark:bg-slate-800 p-1 rounded-md border border-[#E2E8F0] dark:border-slate-700 text-xs">
+              <button
+                onClick={() => setMapLayer('satellite')}
+                className={`px-2 py-1 rounded font-semibold transition-all flex items-center gap-1 ${
+                  mapLayer === 'satellite'
+                    ? 'bg-[#0F172A] dark:bg-blue-600 text-white shadow-xs'
+                    : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
+                }`}
+                title="Sun'iy yo'ldosh fazoviy suratlari (Google Hybrid)"
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span>Sputnik</span>
+              </button>
+              <button
+                onClick={() => setMapLayer('street')}
+                className={`px-2 py-1 rounded font-semibold transition-all flex items-center gap-1 ${
+                  mapLayer === 'street'
+                    ? 'bg-[#0F172A] dark:bg-blue-600 text-white shadow-xs'
+                    : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
+                }`}
+                title="Sxematik ko'cha xaritasi (OpenStreetMap)"
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Sxema</span>
+              </button>
+              <button
+                onClick={() => setMapLayer('terrain')}
+                className={`px-2 py-1 rounded font-semibold transition-all flex items-center gap-1 ${
+                  mapLayer === 'terrain'
+                    ? 'bg-[#0F172A] dark:bg-blue-600 text-white shadow-xs'
+                    : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
+                }`}
+                title="Topografik relyef va landshaft"
+              >
+                <Compass className="w-3.5 h-3.5" />
+                <span>Relyef</span>
+              </button>
+            </div>
+
+            {/* Labels Toggle */}
+            <button
+              onClick={() => setShowLabels(!showLabels)}
+              className={`px-2.5 py-1.5 rounded-md border text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                showLabels
+                  ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+                  : 'bg-[#F8FAFC] dark:bg-slate-800 border-[#E2E8F0] dark:border-slate-700 text-[#64748B] dark:text-slate-400'
+              }`}
+              title="Mahalla nomlarini xaritada ko'rsatish yoki yashirish"
+            >
+              {showLabels ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+              <span>{showLabels ? 'Nomlar: Ochiq' : 'Nomlar: Yashirin'}</span>
+            </button>
+
+            {/* Color Mode Switcher (Default: Borders only, Sector, Lemon) */}
+            <div className="flex items-center bg-[#F1F5F9] dark:bg-slate-800 p-1 rounded-md border border-[#E2E8F0] dark:border-slate-700 text-xs">
+              <button
+                onClick={() => setColorMode('borders')}
+                className={`px-2.5 py-1 rounded font-bold transition-all ${
+                  colorMode === 'borders'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A]'
+                }`}
+                title="Standart holat: MFYlar uchun rang berilmasin, faqat chegaralari ko'rinsin"
+              >
+                Chegaralar (Rangsiz)
+              </button>
+              <button
+                onClick={() => setColorMode('sektor')}
+                className={`px-2.5 py-1 rounded font-bold transition-all ${
+                  colorMode === 'sektor'
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A]'
+                }`}
+                title="4 ta Sektor bo'yicha ranglash"
+              >
+                4 Sektor
+              </button>
+              <button
+                onClick={() => setColorMode('limon')}
+                className={`px-2.5 py-1 rounded font-bold transition-all ${
+                  colorMode === 'limon'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A]'
+                }`}
+                title="Limon daraxtlari zichligi va hosildorlik bo'yicha ranglash"
+              >
+                Limonchilik
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Status Filters */}
-        <div className="flex items-center gap-2 text-xs flex-wrap">
-          <span className="text-[#64748B] dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px] mr-1 hidden sm:inline">Limon Zichligi:</span>
+        {/* 4 Sectors Selector Filter Tabs */}
+        <div className="flex items-center gap-1.5 text-xs overflow-x-auto pb-1 no-scrollbar border-t border-[#E2E8F0] dark:border-slate-800 pt-2.5">
+          <span className="text-[#64748B] dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] mr-1 shrink-0">
+            Sektorlar:
+          </span>
           <button
-            onClick={() => setFilterType('all')}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              filterType === 'all' 
-                ? 'bg-[#0F172A] dark:bg-slate-700 text-white shadow-xs' 
-                : 'bg-[#F8FAFC] dark:bg-slate-800 text-[#64748B] dark:text-slate-300 hover:text-[#0F172A] border border-[#E2E8F0] dark:border-slate-700'
+            onClick={() => setSelectedSektor('all')}
+            className={`px-2.5 py-1 rounded text-xs font-semibold whitespace-nowrap transition-colors ${
+              selectedSektor === 'all'
+                ? 'bg-[#0F172A] dark:bg-blue-600 text-white shadow-xs'
+                : 'bg-[#F8FAFC] dark:bg-slate-800 text-[#64748B] dark:text-slate-300 border border-[#E2E8F0] dark:border-slate-700'
             }`}
           >
-            Barchasi ({mfyList.length})
+            Barcha Sektorlar (33 ta)
           </button>
           <button
-            onClick={() => setFilterType('high')}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
-              filterType === 'high' 
-                ? 'bg-[#3B82F6] text-white shadow-xs' 
-                : 'bg-[#F8FAFC] dark:bg-slate-800 text-[#64748B] dark:text-slate-300 hover:text-[#3B82F6] border border-[#E2E8F0] dark:border-slate-700'
+            onClick={() => setSelectedSektor(1)}
+            className={`px-2.5 py-1 rounded text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+              selectedSektor === 1
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-[#F8FAFC] dark:bg-slate-800 text-[#64748B] dark:text-slate-300 border border-[#E2E8F0] dark:border-slate-700'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+            1-Sektor (#551-#558)
+          </button>
+          <button
+            onClick={() => setSelectedSektor(2)}
+            className={`px-2.5 py-1 rounded text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+              selectedSektor === 2
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-[#F8FAFC] dark:bg-slate-800 text-[#64748B] dark:text-slate-300 border border-[#E2E8F0] dark:border-slate-700'
             }`}
           >
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            &gt; 10 000 daraxt
+            2-Sektor (#559-#564)
           </button>
           <button
-            onClick={() => setFilterType('medium')}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
-              filterType === 'medium' 
-                ? 'bg-amber-600 text-white shadow-xs' 
-                : 'bg-[#F8FAFC] dark:bg-slate-800 text-[#64748B] dark:text-slate-300 hover:text-amber-700 border border-[#E2E8F0] dark:border-slate-700'
+            onClick={() => setSelectedSektor(3)}
+            className={`px-2.5 py-1 rounded text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+              selectedSektor === 3
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'bg-[#F8FAFC] dark:bg-slate-800 text-[#64748B] dark:text-slate-300 border border-[#E2E8F0] dark:border-slate-700'
             }`}
           >
             <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-            5 000 - 10 000
+            3-Sektor (#565-#574)
           </button>
           <button
-            onClick={() => setFilterType('low')}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${
-              filterType === 'low' 
-                ? 'bg-rose-600 text-white shadow-xs' 
-                : 'bg-[#F8FAFC] dark:bg-slate-800 text-[#64748B] dark:text-slate-300 hover:text-rose-700 border border-[#E2E8F0] dark:border-slate-700'
+            onClick={() => setSelectedSektor(4)}
+            className={`px-2.5 py-1 rounded text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+              selectedSektor === 4
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'bg-[#F8FAFC] dark:bg-slate-800 text-[#64748B] dark:text-slate-300 border border-[#E2E8F0] dark:border-slate-700'
             }`}
           >
-            <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-            &lt; 5 000 daraxt
+            <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+            4-Sektor (#575-#583)
           </button>
         </div>
       </div>
@@ -322,18 +561,18 @@ export const MFYMap: React.FC = () => {
         <div className="lg:col-span-3 bg-white dark:bg-slate-900 rounded-lg border border-[#E2E8F0] dark:border-slate-800 shadow-xs overflow-hidden relative flex flex-col">
           
           {/* Map Header Instructions */}
-          <div className="px-4 py-2.5 bg-[#F8FAFC] dark:bg-slate-800 border-b border-[#E2E8F0] dark:border-slate-700 flex items-center justify-between text-xs text-[#64748B] dark:text-slate-300">
+          <div className="px-4 py-2 bg-[#F8FAFC] dark:bg-slate-800 border-b border-[#E2E8F0] dark:border-slate-700 flex items-center justify-between text-xs text-[#64748B] dark:text-slate-300">
             <div className="flex items-center gap-2">
               <Info className="w-4 h-4 text-[#3B82F6]" />
-              <span><b>Koʻrsatma:</b> MFY ustiga kursorni olib borib qisqa maʼlumot oling, batafsil tahlil uchun poligon ustiga bosing.</span>
+              <span><b>Koʻrsatma:</b> Kursorni poligon ustiga olib borib qisqa maʼlumot oling, toʻliq sahifani ochish uchun poligon ustiga bosing.</span>
             </div>
             <div className="flex items-center gap-2 hidden sm:flex">
-              <span className="text-[11px] text-[#94A3B8] dark:text-slate-400">Markaz: 40.665° N, 71.650° E (Yozyovon markazi)</span>
+              <span className="text-[11px] text-amber-500 font-medium">Sariq uzuq chiziq — Yozyovon tuman chegarasi</span>
             </div>
           </div>
 
           {/* Leaflet Map Stage */}
-          <div className="relative w-full h-[460px] sm:h-[550px]">
+          <div className="relative w-full h-[480px] sm:h-[580px]">
             <div 
               ref={mapContainerRef} 
               id="leaflet-yozyovon-map"
@@ -345,63 +584,107 @@ export const MFYMap: React.FC = () => {
               <button
                 type="button"
                 onClick={resetDistrictView}
-                className="px-3 py-1.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md rounded-md shadow-md border border-[#E2E8F0] dark:border-slate-700 text-xs font-semibold text-[#0F172A] dark:text-white flex items-center gap-1.5 hover:bg-white dark:hover:bg-slate-800 transition-all active:scale-95"
-                title="Yozyovon tuman kadastr chegarasini ekranga toʻliq sigʻdirish"
+                className="px-3 py-1.5 bg-slate-900/90 text-white backdrop-blur-md rounded-md shadow-md border border-slate-700 text-xs font-semibold flex items-center gap-1.5 hover:bg-slate-800 transition-all active:scale-95"
+                title="Yozyovon tuman chegarasini markazlashtirish"
               >
-                <Compass className="w-3.5 h-3.5 text-[#3B82F6]" />
-                <span>Yozyovon Chegarasi</span>
+                <Compass className="w-3.5 h-3.5 text-amber-400" />
+                <span>Yozyovon Markazi</span>
               </button>
             </div>
 
             {/* Floating Legend Overlay */}
-            <div className="absolute bottom-4 left-4 z-20 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-3 rounded-md shadow-md border border-[#E2E8F0] dark:border-slate-700 text-xs space-y-1.5 max-w-[210px]">
-              <p className="text-[10px] uppercase font-bold text-[#64748B] dark:text-slate-400 tracking-wider border-b border-[#E2E8F0] dark:border-slate-700 pb-1">Limonchilik Rangi</p>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-xs bg-emerald-500 border border-emerald-600 shrink-0"></span>
-                <span className="text-[#334155] dark:text-slate-200 text-xs">&gt; 10 000 dona (Yuqori)</span>
+            <div className="absolute bottom-4 left-4 z-20 bg-slate-900/90 text-white backdrop-blur-md p-3 rounded-md shadow-md border border-slate-700 text-xs space-y-1.5 max-w-[220px]">
+              <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider border-b border-slate-800 pb-1">
+                {colorMode === 'sektor' ? '4 ta Sektor Tasnifi' : 'Limonchilik Darajasi'}
+              </p>
+              
+              {colorMode === 'borders' ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 h-1 rounded-full bg-blue-400 shrink-0"></span>
+                    <span className="text-slate-200 text-xs font-semibold">MFY Chegaralari (Rangsiz)</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 leading-snug">
+                    Faqat maʼmuriy chegara chiziqlari koʻrsatilgan. Ekinzor va bogʻlar tabiiy ravishda koʻrinadi.
+                  </p>
+                </>
+              ) : colorMode === 'sektor' ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-xs bg-blue-500 shrink-0"></span>
+                    <span className="text-slate-200 text-xs">1-Sektor (#551-#558)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-xs bg-emerald-500 shrink-0"></span>
+                    <span className="text-slate-200 text-xs">2-Sektor (#559-#564)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-xs bg-amber-500 shrink-0"></span>
+                    <span className="text-slate-200 text-xs">3-Sektor (#565-#574)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-xs bg-purple-500 shrink-0"></span>
+                    <span className="text-slate-200 text-xs">4-Sektor (#575-#583)</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-xs bg-emerald-500 shrink-0"></span>
+                    <span className="text-slate-200 text-xs">&gt; 10 000 dona (Yetakchi)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-xs bg-amber-500 shrink-0"></span>
+                    <span className="text-slate-200 text-xs">5 000 - 10 000 dona</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-xs bg-rose-500 shrink-0"></span>
+                    <span className="text-slate-200 text-xs">&lt; 5 000 dona (Past)</span>
+                  </div>
+                </>
+              )}
+
+              <div className="flex items-center gap-2 pt-1 border-t border-slate-800">
+                <span className="w-4 border-b-2 border-dashed border-amber-400 shrink-0"></span>
+                <span className="text-slate-300 text-[10px] font-medium">Tuman chegarasi</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-xs bg-amber-500 border border-amber-600 shrink-0"></span>
-                <span className="text-[#334155] dark:text-slate-200 text-xs">5 000 - 10 000 dona</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-xs bg-rose-500 border border-rose-600 shrink-0"></span>
-                <span className="text-[#334155] dark:text-slate-200 text-xs">&lt; 5 000 dona (Past)</span>
-              </div>
-              <div className="flex items-center gap-2 pt-1 border-t border-[#E2E8F0] dark:border-slate-700">
-                <span className="w-4 border-b-2 border-dashed border-slate-900 dark:border-white shrink-0"></span>
-                <span className="text-[#334155] dark:text-slate-300 text-[11px] font-medium">Tuman chegarasi</span>
+                <span className="w-3 h-3 rounded-xs bg-sky-400/80 border border-sky-300 shrink-0"></span>
+                <span className="text-slate-300 text-[10px] font-medium">Markaziy Fargʻona suv ombori</span>
               </div>
             </div>
 
-            {/* Live Hover Info Card on Map - ONLY rendered when cursor is hovering over MFY */}
+            {/* Live Hover Info Card on Map */}
             {hoveredMfy && (
-              <div className="absolute top-4 right-4 z-20 bg-white dark:bg-slate-900 p-4 rounded-lg shadow-lg border border-[#E2E8F0] dark:border-slate-700 text-xs max-w-xs animate-in fade-in">
-                <div className="flex items-center justify-between pb-2 border-b border-[#E2E8F0] dark:border-slate-700">
-                  <span className="font-bold text-sm text-[#0F172A] dark:text-white">{hoveredMfy.name}</span>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${getMfyColor(hoveredMfy.limonDaraxtlari).text} bg-[#F8FAFC] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700`}>
+              <div className="absolute top-4 right-4 z-20 bg-slate-900/95 text-white p-4 rounded-lg shadow-xl border border-slate-700 text-xs max-w-xs animate-in fade-in">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                  <div>
+                    <span className="font-bold text-sm text-white">{hoveredMfy.name}</span>
+                    <span className="text-[10px] font-mono text-amber-400 block">#{hoveredMfy.referendumNum || (550 + hoveredMfy.id)} • {hoveredMfy.sektorNum}-sektor</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-emerald-400 border border-slate-700">
                     {hoveredMfy.limonDaraxtlari.toLocaleString()} limon
                   </span>
                 </div>
-                <div className="mt-2.5 space-y-1.5 text-[#64748B] dark:text-slate-400">
+                <div className="mt-2.5 space-y-1.5 text-slate-300">
                   <div className="flex justify-between">
-                    <span>Ekin maydoni:</span>
-                    <b className="text-[#0F172A] dark:text-white">{hoveredMfy.dehqonchilikGa} ga</b>
+                    <span className="text-slate-400">Ekin maydoni:</span>
+                    <b className="text-white">{hoveredMfy.dehqonchilikGa} ga</b>
                   </div>
                   <div className="flex justify-between">
-                    <span>Chorva boshlari:</span>
-                    <b className="text-[#0F172A] dark:text-white">{hoveredMfy.chorvaBoshlari.toLocaleString()}</b>
+                    <span className="text-slate-400">Chorva boshlari:</span>
+                    <b className="text-white">{hoveredMfy.chorvaBoshlari.toLocaleString()}</b>
                   </div>
                   <div className="flex justify-between">
-                    <span>Asosiy ekinlar:</span>
-                    <b className="text-[#0F172A] dark:text-white">{hoveredMfy.asosiyEkinlar.join(', ')}</b>
+                    <span className="text-slate-400">Asosiy ekinlar:</span>
+                    <b className="text-white">{hoveredMfy.asosiyEkinlar.join(', ')}</b>
                   </div>
                 </div>
                 <button
                   onClick={() => selectMfy(hoveredMfy.id)}
-                  className="mt-3 w-full py-2 bg-[#0F172A] dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white rounded font-medium text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                  className="mt-3 w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
                 >
-                  <span>Batafsil /mfy/{hoveredMfy.id} ga oʻtish</span>
+                  <span>Batafsil maʼlumotlarni koʻrish</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -410,42 +693,37 @@ export const MFYMap: React.FC = () => {
         </div>
 
         {/* Right 1 Col: MFY List Quick Navigation */}
-        <div className="bg-white dark:bg-slate-900 rounded-lg border border-[#E2E8F0] dark:border-slate-800 shadow-xs p-4 flex flex-col h-[500px] sm:h-[600px] overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 rounded-lg border border-[#E2E8F0] dark:border-slate-800 shadow-xs p-4 flex flex-col h-[520px] sm:h-[620px] overflow-hidden">
           <div className="pb-3 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-widest text-[#64748B] dark:text-slate-400">Yozyovon MFYlari ({filteredMfyList.length})</h3>
-            <span className="text-[10px] text-[#94A3B8] font-semibold uppercase">Tanlang</span>
+            <span className="text-[10px] text-amber-500 font-semibold font-mono">#551-#583</span>
           </div>
 
           <div className="mt-3 flex-1 overflow-y-auto space-y-2 pr-1">
             {filteredMfyList.map(mfy => {
-              const colorInfo = getMfyColor(mfy.limonDaraxtlari);
+              const colorInfo = getMfyColor(mfy);
               return (
                 <div
                   key={mfy.id}
                   onClick={() => handleMfyClick(mfy)}
-                  className="p-3 rounded border border-[#E2E8F0] dark:border-slate-800 hover:border-[#3B82F6] hover:bg-[#F8FAFC] dark:hover:bg-slate-800/80 transition-all cursor-pointer group bg-white dark:bg-slate-900"
+                  className="p-2.5 rounded border border-[#E2E8F0] dark:border-slate-800 hover:border-[#3B82F6] hover:bg-[#F8FAFC] dark:hover:bg-slate-800/80 transition-all cursor-pointer group bg-white dark:bg-slate-900"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-xs ${mfy.limonDaraxtlari >= 10000 ? 'bg-emerald-500' : mfy.limonDaraxtlari >= 5000 ? 'bg-amber-500' : 'bg-rose-500'}`}></span>
+                      <span className="w-2.5 h-2.5 rounded-xs" style={{ backgroundColor: colorInfo.fill }}></span>
                       <span className="font-semibold text-xs text-[#0F172A] dark:text-white group-hover:text-[#3B82F6]">{mfy.name}</span>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-[#94A3B8] group-hover:text-[#3B82F6] group-hover:translate-x-0.5 transition-transform" />
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] font-mono text-slate-400">#{mfy.referendumNum || (550 + mfy.id)}</span>
+                      <ChevronRight className="w-4 h-4 text-[#94A3B8] group-hover:text-[#3B82F6] group-hover:translate-x-0.5 transition-transform" />
+                    </div>
                   </div>
                   
-                  <div className="mt-2 grid grid-cols-2 gap-1 text-[11px] text-[#64748B] dark:text-slate-400">
+                  <div className="mt-1.5 grid grid-cols-2 gap-1 text-[11px] text-[#64748B] dark:text-slate-400">
                     <div>Limon: <b className="text-[#0F172A] dark:text-slate-200">{mfy.limonDaraxtlari.toLocaleString()}</b></div>
                     <div>Chorva: <b className="text-[#0F172A] dark:text-slate-200">{mfy.chorvaBoshlari.toLocaleString()}</b></div>
                     <div>Maydon: <b className="text-[#0F172A] dark:text-slate-200">{mfy.dehqonchilikGa} ga</b></div>
-                    <div>Fermer: <b className="text-[#0F172A] dark:text-slate-200">{mfy.farmersCount}</b></div>
-                  </div>
-
-                  <div className="mt-2 flex items-center gap-1 flex-wrap">
-                    {mfy.asosiyEkinlar.slice(0, 3).map((crop, idx) => (
-                      <span key={idx} className="text-[10px] bg-[#F1F5F9] dark:bg-slate-800 text-[#475569] dark:text-slate-300 px-1.5 py-0.5 rounded border border-[#E2E8F0] dark:border-slate-700">
-                        {crop}
-                      </span>
-                    ))}
+                    <div>Sektor: <b className="text-[#0F172A] dark:text-slate-200">{mfy.sektorNum}-sektor</b></div>
                   </div>
                 </div>
               );

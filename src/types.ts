@@ -136,7 +136,8 @@ export interface MFYData {
   id: number;
   name: string;
   geojsonId: string;
-  referendumNum?: number; // 1-rasmdagi Referendum / Saylov uchastkasi raqami (#551-#582)
+  referendumNum?: number; // 1-rasmdagi Referendum / Saylov uchastkasi raqami (#551-#583)
+  sektorNum?: 1 | 2 | 3 | 4; // 1-rasmdagi 4 ta Sektor (1-ko'k, 2-sariq, 3-qizil, 4-yashil)
   dehqonchilikGa: number;
   limonDaraxtlari: number;
   chorvaBoshlari: number;
@@ -250,15 +251,36 @@ export interface AppNotification {
   targetRole: 'dehqon' | 'davlat' | 'all';
 }
 
+export interface ChatAttachment {
+  id: string;
+  name: string;
+  size: string;
+  type: 'image' | 'pdf' | 'doc' | 'archive' | 'file';
+  url?: string;
+  dataUrl?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  senderRole: 'davlat' | 'dehqon';
+  senderName: string;
+  text: string;
+  timestamp: string;
+  attachments?: ChatAttachment[];
+}
+
 export interface SubsidyApplication {
   id: string;
+  farmerId?: number;
   farmerName: string;
+  farmerPhone?: string;
   mfyName: string;
   programTitle: string;
   requestedAmount: string;
   purpose: string;
   submittedDate: string;
   status: 'kutilmoqda' | 'tasdiqlandi' | 'rad_etildi';
+  messages?: ChatMessage[];
 }
 
 export interface ExportCertificate {

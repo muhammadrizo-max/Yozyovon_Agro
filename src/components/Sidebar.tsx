@@ -48,6 +48,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenAuth })
     onClose();
   };
 
+  const isGov = userRole === 'davlat' || userRole === 'admin';
+
   const navItems = [
     {
       id: 'profile',
@@ -57,14 +59,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenAuth })
       color: 'text-emerald-600 dark:text-emerald-400',
       activeBg: 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
     },
-    {
-      id: 'map',
-      label: '32 MFY Interaktiv Xaritasi',
-      desc: 'Yozyovon tumani mahallalari va fermerlar',
-      icon: Layers,
-      color: 'text-blue-600 dark:text-blue-400',
-      activeBg: 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800'
-    },
+    ...(isGov ? [
+      {
+        id: 'gov_hub',
+        label: 'Davlat Boshqaruv Markazi',
+        desc: 'Monitoring, subsidiyalar va ob-havo nazorati',
+        icon: ShieldCheck,
+        color: 'text-slate-700 dark:text-slate-300',
+        activeBg: 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white border-slate-300 dark:border-slate-700'
+      },
+      {
+        id: 'map',
+        label: '33 MFY Interaktiv Xaritasi',
+        desc: 'Faqat davlat inspektorlari uchun xarita',
+        icon: Layers,
+        color: 'text-blue-600 dark:text-blue-400',
+        activeBg: 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800'
+      },
+      {
+        id: 'statistics',
+        label: 'Tuman Statistikasi',
+        desc: 'Sitrus, chorva va ekinlar koʻrsatkichlari',
+        icon: BarChart3,
+        color: 'text-cyan-600 dark:text-cyan-400',
+        activeBg: 'bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border-cyan-300 dark:border-cyan-800'
+      }
+    ] : []),
     {
       id: 'scanner',
       label: 'AI Agro-Skaner (Kamera)',
@@ -83,27 +103,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenAuth })
     },
     {
       id: 'weather_market',
-      label: 'Agro-Ob-havo & Bozor',
-      desc: 'Tomorrow.io API va Yozyovon narxlari',
+      label: 'Agro-Ob-havo',
+      desc: 'Real vaqtli meteorologik maʼlumotlar',
       icon: Sun,
       color: 'text-amber-600 dark:text-amber-400',
       activeBg: 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800'
-    },
-    {
-      id: 'statistics',
-      label: 'Tuman Statistikasi',
-      desc: 'Sitrus, chorva va ekinlar koʻrsatkichlari',
-      icon: BarChart3,
-      color: 'text-cyan-600 dark:text-cyan-400',
-      activeBg: 'bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border-cyan-300 dark:border-cyan-800'
-    },
-    {
-      id: 'gov_hub',
-      label: 'Davlat Boshqaruv Markazi',
-      desc: 'Monitoring, subsidiyalar va sertifikatlar',
-      icon: ShieldCheck,
-      color: 'text-slate-700 dark:text-slate-300',
-      activeBg: 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white border-slate-300 dark:border-slate-700'
     }
   ];
 

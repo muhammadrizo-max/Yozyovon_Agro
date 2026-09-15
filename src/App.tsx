@@ -37,37 +37,30 @@ const AppContent: React.FC = () => {
     userRole, 
     mfyList,
     isLoggedIn,
-    setIsSidebarOpen,
-    setIsGuestModalOpen
+    setIsSidebarOpen
   } = useApp();
 
   // Auth modal state (Kirish yoki Roʻyxatdan oʻtish)
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  // Guest browse mode — logged-out user clicks "Mehmon sifatida ko'rish"
-  const [isGuestBrowse, setIsGuestBrowse] = useState(false);
-
-  // When user logs out, reset guest browse mode so landing page shows again
-  useEffect(() => {
-    if (!isLoggedIn) {
-      setIsGuestBrowse(false);
-    }
-  }, [isLoggedIn]);
 
   const handleOpenAuth = (mode: 'login' | 'register' = 'login') => {
     setAuthMode(mode);
     setIsAuthOpen(true);
   };
 
-  const handleEnterAsGuest = () => {
-    setIsGuestBrowse(true);
-    setIsGuestModalOpen(false);
-    setActiveTab('map');
-  };
-
-  // Show landing page for non-authenticated users who haven't chosen guest mode
-  if (!isLoggedIn && !isGuestBrowse) {
-    return <LandingPage onEnterAsGuest={handleEnterAsGuest} />;
+  // Show landing page for all unauthenticated users and redirected on logout
+  if (!isLoggedIn) {
+    return (
+      <>
+        <LandingPage onOpenAuth={handleOpenAuth} />
+        <AuthModal
+          isOpen={isAuthOpen}
+          onClose={() => setIsAuthOpen(false)}
+          initialMode={authMode}
+        />
+      </>
+    );
   }
 
   return (
@@ -242,68 +235,70 @@ const AppContent: React.FC = () => {
       {/* Developer Emergency Access & Cyber Defense Backdoor Console */}
       <DevEmergencyPanel />
 
-      {/* Mobile Fixed Bottom Navigation Bar (Telefonga toʻliq moslashuvchan) */}
+      {/* Mobile Fixed Bottom Navigation Bar (Telefonda toʻliq moslashuvchan) */}
       <nav 
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-[#E2E8F0] dark:border-slate-800 px-2 py-1.5 flex items-center justify-around shadow-lg"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-[#E2E8F0] dark:border-slate-800 px-1.5 py-1 flex items-center justify-between shadow-lg"
         id="mobile-bottom-nav"
       >
         <button
           onClick={() => { selectMfy(null); setActiveTab(userRole === 'davlat' ? 'gov_hub' : 'profile'); }}
-          className={`flex flex-col items-center justify-center p-1 rounded-md min-w-[56px] transition-colors ${
+          className={`flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-0.5 rounded-md transition-colors ${
             (activeTab === 'profile' || activeTab === 'gov_hub')
               ? 'text-[#3B82F6] font-bold'
               : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
           }`}
           id="mobile-nav-profile"
         >
-          {userRole === 'davlat' ? <ShieldCheck className="w-5 h-5" /> : <Sprout className="w-5 h-5" />}
-          <span className="text-[10px] mt-0.5">{userRole === 'davlat' ? 'Davlat' : 'Xoʻjaligim'}</span>
+          {userRole === 'davlat' ? <ShieldCheck className="w-5 h-5 shrink-0" /> : <Sprout className="w-5 h-5 shrink-0" />}
+          <span className="text-[10px] mt-0.5 truncate max-w-[62px]">{userRole === 'davlat' ? 'Davlat' : 'Xoʻjaligim'}</span>
         </button>
 
         <button
           onClick={() => { selectMfy(null); setActiveTab('lemon_guide'); }}
-          className={`flex flex-col items-center justify-center p-1 rounded-md min-w-[56px] transition-colors ${
+          className={`flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-0.5 rounded-md transition-colors ${
             activeTab === 'lemon_guide'
               ? 'text-amber-500 font-bold'
               : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
           }`}
           id="mobile-nav-lemon"
         >
-          <span className="text-lg leading-none">🍋</span>
-          <span className="text-[10px] mt-0.5">Limon</span>
+          <span className="text-lg leading-none shrink-0">🍋</span>
+          <span className="text-[10px] mt-0.5 truncate max-w-[62px]">Limon</span>
         </button>
 
         {/* AI Scanner Center Prominent Button */}
-        <button
-          onClick={() => { selectMfy(null); setActiveTab('scanner'); }}
-          className="flex flex-col items-center justify-center -mt-5 bg-gradient-to-tr from-blue-600 to-indigo-600 text-white rounded-full w-12 h-12 shadow-lg shadow-blue-500/30 active:scale-95 transition-transform"
-          id="mobile-nav-scanner"
-          title="AI Skaner (Kamera)"
-        >
-          <Sparkles className="w-5 h-5" />
-          <span className="text-[9px] font-bold">AI Skan</span>
-        </button>
+        <div className="flex-1 flex justify-center -mt-5 shrink-0">
+          <button
+            onClick={() => { selectMfy(null); setActiveTab('scanner'); }}
+            className="flex flex-col items-center justify-center bg-gradient-to-tr from-blue-600 to-indigo-600 text-white rounded-full w-12 h-12 shadow-lg shadow-blue-500/30 active:scale-95 transition-transform"
+            id="mobile-nav-scanner"
+            title="AI Skaner (Kamera)"
+          >
+            <Sparkles className="w-5 h-5 shrink-0" />
+            <span className="text-[9px] font-bold">AI Skan</span>
+          </button>
+        </div>
 
         <button
           onClick={() => { selectMfy(null); setActiveTab('weather_market'); }}
-          className={`flex flex-col items-center justify-center p-1 rounded-md min-w-[56px] transition-colors ${
+          className={`flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-0.5 rounded-md transition-colors ${
             activeTab === 'weather_market'
               ? 'text-amber-500 font-bold'
               : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
           }`}
           id="mobile-nav-weather"
         >
-          <Sun className="w-5 h-5 text-amber-500" />
-          <span className="text-[10px] mt-0.5">Ob-havo</span>
+          <Sun className="w-5 h-5 text-amber-500 shrink-0" />
+          <span className="text-[10px] mt-0.5 truncate max-w-[62px]">Ob-havo</span>
         </button>
 
         <button
           onClick={() => setIsSidebarOpen(true)}
-          className="flex flex-col items-center justify-center p-1 rounded-md min-w-[56px] text-[#64748B] dark:text-slate-400 hover:text-[#3B82F6] transition-colors cursor-pointer"
+          className="flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-0.5 rounded-md text-[#64748B] dark:text-slate-400 hover:text-[#3B82F6] transition-colors cursor-pointer"
           id="mobile-nav-menu"
         >
-          <Menu className="w-5 h-5" />
-          <span className="text-[10px] mt-0.5">Boʻlimlar</span>
+          <Menu className="w-5 h-5 shrink-0" />
+          <span className="text-[10px] mt-0.5 truncate max-w-[62px]">Boʻlimlar</span>
         </button>
       </nav>
 

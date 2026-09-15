@@ -19,10 +19,21 @@ import {
   MapPin,
   Sparkles,
   Search,
-  Filter
+  Filter,
+  MessageSquare,
+  Droplets,
+  Sprout,
+  CheckSquare,
+  Sliders,
+  PhoneCall,
+  UserCheck,
+  Sun,
+  CloudSun,
+  Radio
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { MFYData, SubsidyApplication, ExportCertificate } from '../types';
+import { FarmerGovChatModal } from './FarmerGovChatModal';
 
 export const GovManagementHub: React.FC = () => {
   const { 
@@ -39,10 +50,14 @@ export const GovManagementHub: React.FC = () => {
     registeredFarmers,
     grantFarmerBadge,
     revokeFarmerBadge,
-    farmerAdvices
+    farmerAdvices,
+    weatherProvider,
+    setWeatherProvider
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'subsidies' | 'broadcast' | 'certs' | 'mfy_matrix' | 'farmer_badges'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'subsidies' | 'farmers_registry' | 'resource_management' | 'broadcast' | 'certs' | 'mfy_matrix' | 'farmer_badges' | 'weather_control'>('overview');
+  const [weatherNotice, setWeatherNotice] = useState<string | null>(null);
+  const [selectedChatSubsidy, setSelectedChatSubsidy] = useState<SubsidyApplication | null>(null);
 
   // Badge Modal states
   const [badgeModalFarmer, setBadgeModalFarmer] = useState<{ id: number; name: string; mfyName: string } | null>(null);
@@ -127,7 +142,7 @@ export const GovManagementHub: React.FC = () => {
       m.farmersCount,
       m.limonDaraxtlari >= 10000 ? 'Yetakchi (>10k)' : m.limonDaraxtlari >= 5000 ? 'Oʻrta (5k-10k)' : 'Past (<5k)'
     ]);
-    exportToCsv('Yozyovon_32_MFY_Davlat_Monitoring_Hisoboti', headers, rows);
+    exportToCsv('Yozyovon_33_MFY_Davlat_Monitoring_Hisoboti', headers, rows);
   };
 
   return (
@@ -145,7 +160,7 @@ export const GovManagementHub: React.FC = () => {
                 Davlat Agroinspeksiyasi Boshqaruv Markazi
               </h1>
               <span className="bg-[#1E293B] text-[#3B82F6] text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border border-[#334155]">
-                32 MFY Boshqaruvi
+                33 MFY Boshqaruvi
               </span>
             </div>
             <p className="text-xs text-[#94A3B8] mt-0.5">
@@ -160,7 +175,7 @@ export const GovManagementHub: React.FC = () => {
             onClick={resetGovDemoData}
             className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-95 text-slate-950 text-xs font-bold rounded-md flex items-center gap-2 shadow-lg transition-all"
             id="quick-gov-test-btn"
-            title="Barcha 32 MFY va subsidiya test maʼlumotlarini qayta yuklash"
+            title="Barcha 33 MFY va subsidiya test maʼlumotlarini qayta yuklash"
           >
             <Zap className="w-4 h-4 text-slate-950 fill-current" />
             <span>⚡ Tezkor Test Maʼlumotlarini Yangilash</span>
@@ -178,7 +193,7 @@ export const GovManagementHub: React.FC = () => {
           <div className="text-2xl sm:text-3xl font-black text-[#0F172A] mt-2">
             {totalLimon.toLocaleString()} <span className="text-xs font-normal text-[#64748B]">tup</span>
           </div>
-          <span className="text-[11px] text-emerald-700 font-semibold block mt-1">32 ta MFY boʻyicha toʻliq</span>
+          <span className="text-[11px] text-emerald-700 font-semibold block mt-1">33 ta MFY boʻyicha toʻliq</span>
         </div>
 
         <div className="bg-white p-4 sm:p-5 rounded-md border border-[#E2E8F0] shadow-xs">
@@ -229,15 +244,19 @@ export const GovManagementHub: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTab('mfy_matrix')}
+          onClick={() => setActiveTab('farmers_registry')}
           className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeTab === 'mfy_matrix' 
+            activeTab === 'farmers_registry' 
               ? 'bg-[#0F172A] text-white shadow-xs' 
               : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
           }`}
+          id="tab-farmers-registry-btn"
         >
-          <span>32 MFY Toliq Reyestri</span>
-          <span className="bg-slate-200 text-slate-800 text-[10px] px-1.5 py-0.2 rounded-full">32</span>
+          <Users className="w-3.5 h-3.5" />
+          <span>Dehqonlar Nazorati & Reyestri</span>
+          <span className="bg-blue-100 text-blue-800 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
+            {registeredFarmers.length}
+          </span>
         </button>
 
         <button
@@ -248,12 +267,38 @@ export const GovManagementHub: React.FC = () => {
               : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
           }`}
         >
-          <span>Subsidiyalar & Grantlar</span>
+          <MessageSquare className="w-3.5 h-3.5" />
+          <span>Subsidiyalar & Muloqot</span>
           {pendingSubsidies.length > 0 && (
             <span className="bg-rose-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold">
               {pendingSubsidies.length}
             </span>
           )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('resource_management')}
+          className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
+            activeTab === 'resource_management' 
+              ? 'bg-[#0F172A] text-white shadow-xs' 
+              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+          }`}
+          id="tab-resource-mgmt-btn"
+        >
+          <Droplets className="w-3.5 h-3.5 text-blue-500" />
+          <span>Resurslar Taqsimoti (Suv/Oʻgʻit)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('mfy_matrix')}
+          className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
+            activeTab === 'mfy_matrix' 
+              ? 'bg-[#0F172A] text-white shadow-xs' 
+              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+          }`}
+        >
+          <span>33 MFY Toʻliq Reyestri</span>
+          <span className="bg-slate-200 text-slate-800 text-[10px] px-1.5 py-0.2 rounded-full">33</span>
         </button>
 
         <button
@@ -265,7 +310,7 @@ export const GovManagementHub: React.FC = () => {
           }`}
         >
           <Send className="w-3.5 h-3.5" />
-          <span>Fitosanitar Xabarnoma Yuborish</span>
+          <span>Xabarnoma Yuborish</span>
         </button>
 
         <button
@@ -277,7 +322,7 @@ export const GovManagementHub: React.FC = () => {
           }`}
         >
           <Award className="w-3.5 h-3.5" />
-          <span>Eksport & Sertifikatlar</span>
+          <span>Eksport Sertifikatlari</span>
         </button>
 
         <button
@@ -290,9 +335,25 @@ export const GovManagementHub: React.FC = () => {
           id="tab-farmer-badges-btn"
         >
           <Award className="w-3.5 h-3.5 text-amber-400 fill-current" />
-          <span>🏅 Dehqonlarga Tasdiq Nishoni Berish</span>
+          <span>🏅 Tasdiq Nishonlari</span>
           <span className="bg-amber-100 text-amber-900 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
             {registeredFarmers.filter(f => f.hasExperienceBadge).length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('weather_control')}
+          className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
+            activeTab === 'weather_control' 
+              ? 'bg-blue-600 text-white shadow-xs' 
+              : 'text-blue-700 hover:text-blue-900 hover:bg-blue-50'
+          }`}
+          id="tab-weather-control-btn"
+        >
+          <Sun className="w-3.5 h-3.5 text-amber-500" />
+          <span>Ob-havo API Boshqaruvi</span>
+          <span className="bg-blue-100 text-blue-900 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
+            {weatherProvider === 'accuweather' ? 'AccuWeather' : 'Tomorrow.io'}
           </span>
         </button>
       </div>
@@ -354,6 +415,15 @@ export const GovManagementHub: React.FC = () => {
 
                       {/* Action buttons */}
                       <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => setSelectedChatSubsidy(sub)}
+                          className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
+                          title="Dehqon bilan toʻgʻridan-toʻgʻri chat va hujjat almashish"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>Muloqot & Hujjatlar ({sub.messages?.length || 0})</span>
+                        </button>
+
                         {sub.status === 'kutilmoqda' ? (
                           <>
                             <button
@@ -392,7 +462,7 @@ export const GovManagementHub: React.FC = () => {
               <div className="flex items-center justify-between pb-2 border-b border-[#E2E8F0]">
                 <h3 className="font-bold text-xs uppercase tracking-wider text-[#0F172A] flex items-center gap-2">
                   <Send className="w-4 h-4 text-[#3B82F6]" />
-                  <span>Tezkor Fitosanitar Xabar Yuborish (Barcha 32 MFY)</span>
+                  <span>Tezkor Fitosanitar Xabar Yuborish (Barcha 33 MFY)</span>
                 </h3>
                 <button
                   onClick={() => setActiveTab('broadcast')}
@@ -450,14 +520,14 @@ export const GovManagementHub: React.FC = () => {
                 <span>Hisobotlarni Yuklab Olish</span>
               </h3>
               <p className="text-xs text-[#64748B]">
-                Viloyat hokimligi va Qishloq xoʻjaligi vazirligi uchun 32 MFY agrosektori toʻliq statistikasi:
+                Viloyat hokimligi va Qishloq xoʻjaligi vazirligi uchun 33 MFY agrosektori toʻliq statistikasi:
               </p>
               <button
                 onClick={handleExportMatrixCsv}
                 className="w-full py-2 bg-[#0F172A] hover:bg-slate-800 text-white rounded-md text-xs font-semibold flex items-center justify-center gap-2 shadow-xs transition-colors"
               >
                 <Download className="w-3.5 h-3.5" />
-                <span>32 MFY Hisobotini Yuklab Olish (Excel)</span>
+                <span>33 MFY Hisobotini Yuklab Olish (Excel)</span>
               </button>
             </div>
           </div>
@@ -465,13 +535,13 @@ export const GovManagementHub: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 2: 32 MFY MATRIX */}
+      {/* TAB 2: 33 MFY MATRIX */}
       {activeTab === 'mfy_matrix' && (
         <div className="bg-white p-5 sm:p-6 rounded-lg border border-[#E2E8F0] shadow-xs space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-[#E2E8F0]">
             <div>
               <h3 className="text-base font-bold text-[#0F172A] uppercase tracking-wider">
-                Yozyovon Tumani 32 MFY Agrosektor Reestri
+                Yozyovon Tumani 33 MFY Agrosektor Reestri
               </h3>
               <p className="text-xs text-[#64748B] mt-0.5">
                 Har bir mahallaning dehqonchilik maydoni, sitrus plantatsiyalari va chorvachilik monitoringi
@@ -565,7 +635,276 @@ export const GovManagementHub: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 3: BROADCAST */}
+      {/* TAB: SUBSIDIES & CHAT */}
+      {activeTab === 'subsidies' && (
+        <div className="bg-white p-5 sm:p-6 rounded-lg border border-[#E2E8F0] shadow-xs space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-[#E2E8F0]">
+            <div>
+              <h3 className="text-base font-bold text-[#0F172A] uppercase tracking-wider flex items-center gap-2">
+                <MessageSquare className="w-5 h-5 text-[#3B82F6]" />
+                <span>Davlat Subsidiyalari & Dehqonlar Bilan Rasmiy Muloqot Markazi</span>
+              </h3>
+              <p className="text-xs text-[#64748B] mt-0.5">
+                Tomchilatib sugʻorish, quyosh panellari va sitrus issiqxonalarini modernizatsiya qilish arizalari, hujjat almashish va smeta tekshiruvi
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-xs font-bold">
+                {pendingSubsidies.length} ta koʻrib chiqilmoqda
+              </span>
+              <span className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-xs font-bold">
+                {subsidies.filter(s => s.status === 'tasdiqlandi').length} ta tasdiqlangan
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4">
+            {subsidies.map(sub => (
+              <div 
+                key={sub.id}
+                className="p-4 rounded-xl border border-[#CBD5E1] bg-[#F8FAFC] hover:border-[#3B82F6] transition-all space-y-3"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-sm text-[#0F172A]">{sub.farmerName}</h4>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
+                        📍 {sub.mfyName}
+                      </span>
+                      {sub.farmerPhone && (
+                        <span className="text-[11px] text-[#64748B] font-mono">
+                          📞 {sub.farmerPhone}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs font-semibold text-[#334155] mt-1">{sub.programTitle}</p>
+                    <p className="text-xs text-[#64748B] mt-0.5 bg-white p-2.5 rounded-md border border-[#E2E8F0]">
+                      "{sub.purpose}"
+                    </p>
+                  </div>
+
+                  <div className="text-right">
+                    <div className="text-sm font-black text-emerald-700">{sub.requestedAmount}</div>
+                    <span className="text-[10px] text-[#64748B] block">Ariza sanasi: {sub.submittedDate}</span>
+                    <span className={`inline-block mt-1 px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                      sub.status === 'tasdiqlandi' 
+                        ? 'bg-emerald-100 text-emerald-800' 
+                        : sub.status === 'rad_etildi'
+                        ? 'bg-rose-100 text-rose-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}>
+                      {sub.status === 'tasdiqlandi' ? '✓ Tasdiqlangan' : sub.status === 'rad_etildi' ? '✕ Rad etilgan' : '⏳ Kutilmoqda'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-[#E2E8F0] flex flex-wrap items-center justify-between gap-3">
+                  <div className="text-xs text-[#64748B] flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-blue-600" />
+                    <span>Xabarlar tarixi: <strong>{sub.messages?.length || 0} ta</strong></span>
+                    {sub.messages && sub.messages.some(m => m.attachments && m.attachments.length > 0) && (
+                      <span className="text-emerald-600 font-semibold">• Biriktirilgan hujjatlar mavjud</span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setSelectedChatSubsidy(sub)}
+                      className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>Muloqotni Ochish & Hujjat Almashish</span>
+                    </button>
+
+                    {sub.status === 'kutilmoqda' && (
+                      <>
+                        <button
+                          onClick={() => approveSubsidy(sub.id)}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-bold flex items-center gap-1 shadow-xs transition-colors"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Tasdiqlash</span>
+                        </button>
+                        <button
+                          onClick={() => rejectSubsidy(sub.id)}
+                          className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-md text-xs font-bold flex items-center gap-1 shadow-xs transition-colors"
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                          <span>Rad etish</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB: FARMERS REGISTRY & DIRECT MONITORING */}
+      {activeTab === 'farmers_registry' && (
+        <div className="bg-white p-5 sm:p-6 rounded-lg border border-[#E2E8F0] shadow-xs space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-[#E2E8F0]">
+            <div>
+              <h3 className="text-base font-bold text-[#0F172A] uppercase tracking-wider flex items-center gap-2">
+                <Users className="w-5 h-5 text-[#3B82F6]" />
+                <span>Yozyovon Tumani Dehqon va Fermerlari Yagona Nazorat Reyestri</span>
+              </h3>
+              <p className="text-xs text-[#64748B] mt-0.5">
+                Tomorqa maydonlari, yetishtirayotgan ekinlari, davlat tekshiruvi holati va agronom monitoringi
+              </p>
+            </div>
+
+            <div className="text-xs text-[#64748B]">
+              Jami roʻyxatda: <strong className="text-[#0F172A]">{registeredFarmers.length} nafar dehqon</strong>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-[#0F172A] text-white uppercase text-[10px] tracking-wider">
+                  <th className="py-3 px-4">Dehqon / Fermer</th>
+                  <th className="py-3 px-4">MFY</th>
+                  <th className="py-3 px-4">Telefon</th>
+                  <th className="py-3 px-4">Faoliyat Yoʻnalishi</th>
+                  <th className="py-3 px-4">Tajribasi</th>
+                  <th className="py-3 px-4">Davlat Tasdiq Nishoni</th>
+                  <th className="py-3 px-4 text-right">Amallar</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E2E8F0]">
+                {registeredFarmers.map(farmer => {
+                  const mfyObj = mfyList.find(m => m.id === farmer.mfyId);
+                  return (
+                    <tr key={farmer.id} className="hover:bg-[#F8FAFC] transition-colors">
+                      <td className="py-3 px-4 font-bold text-[#0F172A]">
+                        {farmer.name}
+                        {farmer.email && <span className="block text-[10px] text-[#64748B] font-normal">{farmer.email}</span>}
+                      </td>
+                      <td className="py-3 px-4 font-semibold text-[#334155]">
+                        {mfyObj ? mfyObj.name : `MFY #${farmer.mfyId}`}
+                      </td>
+                      <td className="py-3 px-4 font-mono font-medium text-[#0F172A]">
+                        {farmer.phone || '+998 90 123 45 67'}
+                      </td>
+                      <td className="py-3 px-4 text-[#334155]">
+                        <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded font-medium text-[11px]">
+                          {farmer.farmType === 'limon' ? '🍋 Limonchilik' : farmer.farmType === 'chorva' ? '🐄 Chorvachilik' : '🌱 Tomorqa & Bogʻdorchilik'}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 font-bold text-[#0F172A]">
+                        {farmer.experienceYears || 5} yil
+                      </td>
+                      <td className="py-3 px-4">
+                        {farmer.hasExperienceBadge ? (
+                          <span className="px-2.5 py-1 rounded bg-amber-100 text-amber-900 border border-amber-300 text-[10px] font-bold flex items-center gap-1 w-fit">
+                            <Award className="w-3 h-3 text-amber-600 fill-current" />
+                            <span>Tasdiqlangan</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-[#94A3B8]">Berilmagan</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-right space-x-2">
+                        <button
+                          onClick={() => {
+                            setBadgeModalFarmer({
+                              id: farmer.id,
+                              name: farmer.name,
+                              mfyName: mfyObj?.name || 'Yozyovon'
+                            });
+                            setBadgeYears(farmer.experienceYears || 15);
+                          }}
+                          className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded text-[11px] font-bold transition-colors"
+                        >
+                          🏅 Nishon Berish
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB: RESOURCE MANAGEMENT (SUV VA O'G'IT TAQSIMOTI) */}
+      {activeTab === 'resource_management' && (
+        <div className="bg-white p-5 sm:p-6 rounded-lg border border-[#E2E8F0] shadow-xs space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-[#E2E8F0]">
+            <div>
+              <h3 className="text-base font-bold text-[#0F172A] uppercase tracking-wider flex items-center gap-2">
+                <Droplets className="w-5 h-5 text-blue-600" />
+                <span>Yozyovon Tumani Agrotexnik Resurslar Taqsimoti</span>
+              </h3>
+              <p className="text-xs text-[#64748B] mt-0.5">
+                Markaziy Fargʻona va Ulugʻnor tizimidan sugʻorish suvi navbati, imtiyozli mineral oʻgʻitlar va issiqxona energiya monitoringi
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 rounded-lg bg-blue-50 border border-blue-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-xs uppercase text-blue-900">Sugʻorish Suvi Taʼminoti</span>
+                <Droplets className="w-4 h-4 text-blue-600" />
+              </div>
+              <div className="text-2xl font-black text-blue-950">94.2%</div>
+              <p className="text-[11px] text-blue-800">
+                Markaziy Fargʻona suv ombori va Katta Fargʻona kanali orqali 33 ta MFYga uzluksiz navbat asosida suv yetkazilmoqda.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-xs uppercase text-emerald-900">Mineral Oʻgʻitlar Kvotasi</span>
+                <Sprout className="w-4 h-4 text-emerald-600" />
+              </div>
+              <div className="text-2xl font-black text-emerald-950">1,420 tonna</div>
+              <p className="text-[11px] text-emerald-800">
+                Azot, fosfor, kaliy va sitrus mevalar uchun temir xelati imtiyozli narxlarda dehqon xoʻjaliklariga taqsimlandi.
+              </p>
+            </div>
+
+            <div className="p-4 rounded-lg bg-amber-50 border border-amber-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-xs uppercase text-amber-900">Qishki Issiqlik Fondi</span>
+                <Zap className="w-4 h-4 text-amber-600" />
+              </div>
+              <div className="text-2xl font-black text-amber-950">850 kVt / m²</div>
+              <p className="text-[11px] text-amber-800">
+                Issiqxonalarga quyosh panellari oʻrnatish dasturi doirasida 35 nafar dehqonga texnik shart berildi.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h4 className="font-bold text-xs uppercase tracking-wider text-[#0F172A]">
+              33 MFY Boʻyicha Navbatdagi Sugʻorish Jadvali (Suv Taqsimoti)
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {mfyList.slice(0, 8).map(m => (
+                <div key={m.id} className="p-3 rounded-lg border border-[#CBD5E1] bg-[#F8FAFC] text-xs space-y-1">
+                  <div className="font-bold text-[#0F172A] flex items-center justify-between">
+                    <span>{m.name}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">Faol</span>
+                  </div>
+                  <div className="text-[11px] text-[#64748B]">
+                    Navbat: <strong>Dushanba / Payshanba</strong>
+                  </div>
+                  <div className="text-[10px] text-blue-600 font-semibold">
+                    Suv meʼyori: {Math.round(m.dehqonchilikGa * 1.8)} m³/sutka
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       {activeTab === 'broadcast' && (
         <div className="bg-white p-5 sm:p-7 rounded-lg border border-[#E2E8F0] shadow-xs space-y-5 max-w-3xl">
           <div>
@@ -581,7 +920,7 @@ export const GovManagementHub: React.FC = () => {
           {broadcastSentSuccess && (
             <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-md flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Xabarnoma muvaffaqiyatli joʻnatildi va barcha 32 MFY dehqonlariga yetkazildi!</span>
+              <span>Xabarnoma muvaffaqiyatli joʻnatildi va barcha 33 MFY dehqonlariga yetkazildi!</span>
             </div>
           )}
 
@@ -663,7 +1002,7 @@ export const GovManagementHub: React.FC = () => {
               className="px-6 py-2.5 bg-[#0F172A] hover:bg-slate-800 text-white font-bold rounded-md shadow-xs transition-colors flex items-center gap-2"
             >
               <Send className="w-4 h-4" />
-              <span>Xabarnomani Barcha 32 MFYga Yuborish</span>
+              <span>Xabarnomani Barcha 33 MFYga Yuborish</span>
             </button>
           </form>
         </div>
@@ -1000,6 +1339,196 @@ export const GovManagementHub: React.FC = () => {
         </div>
       )}
 
+      {/* TAB: WEATHER API CONTROL (Davlat organi ob-havo manbasini belgilash) */}
+      {activeTab === 'weather_control' && (
+        <div className="bg-white p-6 sm:p-7 rounded-lg border border-[#E2E8F0] shadow-xs space-y-6" id="gov-weather-api-control-panel">
+          <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#E2E8F0]">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-blue-50 text-[#3B82F6] rounded-md border border-blue-200">
+                <Sun className="w-6 h-6 text-amber-500" />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-[#0F172A] uppercase tracking-tight flex items-center gap-2">
+                  <span>Dehqonlar Uchun Agro-Ob-havo API Meteorologiya Manbasini Belgilash</span>
+                </h3>
+                <p className="text-xs text-[#64748B] mt-0.5">
+                  Davlat organi tomonidan 33 ta MFY dehqonlari koʻradigan ob-havo va mikroiqlim manbasini tanlash
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-[#64748B]">Hozirda barcha dehqonlar uchun faol:</span>
+              <span className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-md text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                {weatherProvider === 'accuweather' ? 'AccuWeather API (Faol)' : 'Tomorrow.io API (Faol)'}
+              </span>
+            </div>
+          </div>
+
+          {weatherNotice && (
+            <div className="p-3.5 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-md text-xs font-semibold flex items-center justify-between animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{weatherNotice}</span>
+              </div>
+              <button onClick={() => setWeatherNotice(null)} className="text-emerald-700 hover:text-emerald-950">✕</button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Card 1: AccuWeather */}
+            <div className={`p-5 rounded-lg border transition-all ${
+              weatherProvider === 'accuweather'
+                ? 'border-amber-500 bg-amber-50/40 shadow-sm ring-2 ring-amber-400/20'
+                : 'border-[#E2E8F0] bg-white hover:border-[#CBD5E1]'
+            }`}>
+              <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0]">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-amber-100 text-amber-800 rounded">
+                    <Sun className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-[#0F172A]">AccuWeather International API</h4>
+                    <span className="text-[11px] text-[#64748B]">Global meteorologiya va mikroiqlim</span>
+                  </div>
+                </div>
+                {weatherProvider === 'accuweather' && (
+                  <span className="px-2 py-0.5 bg-amber-500 text-white rounded text-[10px] font-black uppercase tracking-wider">
+                    Faol Manba
+                  </span>
+                )}
+              </div>
+
+              <div className="py-4 space-y-2.5 text-xs text-[#334155]">
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="text-[#64748B]">Tuman stansiyasi:</span>
+                  <span className="font-bold font-mono text-[#0F172A]">Yaz'yavan (ID: 353257)</span>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="text-[#64748B]">Koordinatalar:</span>
+                  <span className="font-semibold text-[#0F172A]">40.6617° N, 71.6444° E</span>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="text-[#64748B]">Dehqonlar uchun imkoniyat:</span>
+                  <span className="font-semibold text-emerald-700">5 kunlik agro-prognoz, qulay purkash indeksi</span>
+                </div>
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-[#64748B]">Maʼlumot yangilanishi:</span>
+                  <span className="font-semibold text-[#0F172A]">Har 30 daqiqada avtomatik</span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  setWeatherProvider('accuweather');
+                  setWeatherNotice('Barcha dehqonlar uchun asosiy ob-havo manbasi sifatida AccuWeather API belgilandi!');
+                  setTimeout(() => setWeatherNotice(null), 4000);
+                }}
+                disabled={weatherProvider === 'accuweather'}
+                className={`w-full py-2.5 rounded-md font-bold text-xs flex items-center justify-center gap-2 transition-all ${
+                  weatherProvider === 'accuweather'
+                    ? 'bg-amber-600 text-white cursor-default'
+                    : 'bg-[#0F172A] hover:bg-[#1E293B] text-white active:scale-98 shadow-xs'
+                }`}
+              >
+                {weatherProvider === 'accuweather' ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Ushbu Manba Dehqonlarga Biriktirilgan</span>
+                  </>
+                ) : (
+                  <>
+                    <Radio className="w-4 h-4" />
+                    <span>AccuWeather'ni Dehqonlarga Tanlash</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Card 2: Tomorrow.io */}
+            <div className={`p-5 rounded-lg border transition-all ${
+              weatherProvider === 'tomorrow'
+                ? 'border-blue-500 bg-blue-50/40 shadow-sm ring-2 ring-blue-400/20'
+                : 'border-[#E2E8F0] bg-white hover:border-[#CBD5E1]'
+            }`}>
+              <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0]">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-blue-100 text-blue-800 rounded">
+                    <Globe className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-[#0F172A]">Tomorrow.io Weather API</h4>
+                    <span className="text-[11px] text-[#64748B]">Giperlokal stansiyalar & yogʻin radari</span>
+                  </div>
+                </div>
+                {weatherProvider === 'tomorrow' && (
+                  <span className="px-2 py-0.5 bg-blue-600 text-white rounded text-[10px] font-black uppercase tracking-wider">
+                    Faol Manba
+                  </span>
+                )}
+              </div>
+
+              <div className="py-4 space-y-2.5 text-xs text-[#334155]">
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="text-[#64748B]">API Versiyasi:</span>
+                  <span className="font-bold font-mono text-[#0F172A]">v4/weather/realtime</span>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="text-[#64748B]">Koordinatalar:</span>
+                  <span className="font-semibold text-[#0F172A]">40.6617° N, 71.6444° E</span>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-slate-100">
+                  <span className="text-[#64748B]">Dehqonlar uchun imkoniyat:</span>
+                  <span className="font-semibold text-blue-700">1-soatlik radar, UV indeks, bugʻlanish hisobi</span>
+                </div>
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-[#64748B]">Maʼlumot yangilanishi:</span>
+                  <span className="font-semibold text-[#0F172A]">Har 15 daqiqada real vaqt</span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  setWeatherProvider('tomorrow');
+                  setWeatherNotice('Barcha dehqonlar uchun asosiy ob-havo manbasi sifatida Tomorrow.io API belgilandi!');
+                  setTimeout(() => setWeatherNotice(null), 4000);
+                }}
+                disabled={weatherProvider === 'tomorrow'}
+                className={`w-full py-2.5 rounded-md font-bold text-xs flex items-center justify-center gap-2 transition-all ${
+                  weatherProvider === 'tomorrow'
+                    ? 'bg-blue-600 text-white cursor-default'
+                    : 'bg-[#0F172A] hover:bg-[#1E293B] text-white active:scale-98 shadow-xs'
+                }`}
+              >
+                {weatherProvider === 'tomorrow' ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Ushbu Manba Dehqonlarga Biriktirilgan</span>
+                  </>
+                ) : (
+                  <>
+                    <Radio className="w-4 h-4" />
+                    <span>Tomorrow.io'ni Dehqonlarga Tanlash</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Additional Info Box */}
+          <div className="p-4 rounded-md bg-[#F8FAFC] border border-[#E2E8F0] text-xs text-[#64748B] flex items-start gap-3">
+            <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold text-[#0F172A] block mb-0.5">Davlat Agro-Meteorologiya Qoidasi:</span>
+              <p className="leading-relaxed">
+                Bu yerdan belgilangan API barcha 33 ta MFYdagi dehqonlarning shaxsiy xoʻjaligi va "Agro-Ob-havo" boʻlimida avtomatik koʻrinadi. Dehqon foydalanuvchilar oʻzlari ob-havo manbasini almashtira olmaydilar, chunki agrotexnik koʻrsatmalar davlat tomonidan tasdiqlangan yagona manbadan olinadi.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* New Cert Modal */}
       {showNewCertModal && (
         <div className="fixed inset-0 z-50 bg-[#0F172A]/70 backdrop-blur-xs flex items-center justify-center p-4">
@@ -1079,6 +1608,14 @@ export const GovManagementHub: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Farmer - Gov Direct Chat & Document Sharing Modal */}
+      {selectedChatSubsidy && (
+        <FarmerGovChatModal
+          subsidy={selectedChatSubsidy}
+          onClose={() => setSelectedChatSubsidy(null)}
+        />
       )}
 
     </div>

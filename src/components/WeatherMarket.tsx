@@ -5,11 +5,7 @@ import {
   Wind, 
   Droplets, 
   Thermometer, 
-  TrendingUp, 
-  TrendingDown, 
-  Minus, 
   MapPin, 
-  Store, 
   Sparkles,
   Calendar,
   AlertCircle,
@@ -18,44 +14,57 @@ import {
   ShieldCheck,
   Zap,
   CheckCircle2,
-  Layers,
   RefreshCw,
-  Key,
   Globe,
-  Radio
+  Radio,
+  CloudRain,
+  Compass
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { 
   fetchTomorrowWeather, 
-  TomorrowWeatherValues, 
-  getStoredTomorrowApiKey, 
-  saveCustomTomorrowApiKey 
+  TomorrowWeatherValues 
 } from '../services/tomorrowWeather';
+import { 
+  fetchAccuWeather, 
+  AccuWeatherValues 
+} from '../services/accuWeather';
 
 export const WeatherMarket: React.FC = () => {
-  const { currentMfyWeather, mfyList, currentUser, getMfyWeather, marketPrices } = useApp();
+  const { currentMfyWeather, mfyList, currentUser, getMfyWeather, weatherProvider } = useApp();
   const [selectedMfyId, setSelectedMfyId] = useState<number>(currentUser.mfyId || 1);
-  const [selectedCategory, setSelectedCategory] = useState<'all' | 'meva' | 'chorva' | 'don'>('all');
+
+  // AccuWeather integration state
+  const [accuData, setAccuData] = useState<AccuWeatherValues | null>(null);
+  const [isLoadingAccu, setIsLoadingAccu] = useState(false);
 
   // Tomorrow.io integration state
   const [tomorrowData, setTomorrowData] = useState<TomorrowWeatherValues | null>(null);
   const [isLoadingTomorrow, setIsLoadingTomorrow] = useState(false);
-  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState(getStoredTomorrowApiKey());
-  const [apiKeySavedSuccess, setApiKeySavedSuccess] = useState(false);
 
   const activeWeather = getMfyWeather(selectedMfyId);
   const activeMfy = mfyList.find(m => m.id === selectedMfyId) || mfyList[0];
 
-  // Fetch real-time weather from Tomorrow.io for active MFY
+  // Fetch real-time weather from AccuWeather and Tomorrow.io for active MFY
   const loadWeatherData = async () => {
+    setIsLoadingAccu(true);
     setIsLoadingTomorrow(true);
     try {
-      const data = await fetchTomorrowWeather(activeMfy.center[0], activeMfy.center[1]);
-      setTomorrowData(data);
+      const [accuRes, tomorrowRes] = await Promise.allSettled([
+        fetchAccuWeather(activeMfy.center[0], activeMfy.center[1]),
+        fetchTomorrowWeather(activeMfy.center[0], activeMfy.center[1])
+      ]);
+
+      if (accuRes.status === 'fulfilled') {
+        setAccuData(accuRes.value);
+      }
+      if (tomorrowRes.status === 'fulfilled') {
+        setTomorrowData(tomorrowRes.value);
+      }
     } catch (err) {
-      console.warn("Tomorrow.io weather fetch error:", err);
+      console.warn("Weather fetch warning:", err);
     } finally {
+      setIsLoadingAccu(false);
       setIsLoadingTomorrow(false);
     }
   };
@@ -64,33 +73,47 @@ export const WeatherMarket: React.FC = () => {
     loadWeatherData();
   }, [selectedMfyId, activeMfy]);
 
-  const handleSaveApiKey = () => {
-    saveCustomTomorrowApiKey(apiKeyInput);
-    setApiKeySavedSuccess(true);
-    setTimeout(() => {
-      setApiKeySavedSuccess(false);
-      setIsApiKeyModalOpen(false);
-      loadWeatherData();
-    }, 1000);
-  };
+  // Calculate active values based on selected provider
+  const isAccuActive = weatherProvider === 'accuweather' && accuData !== null;
+  const isTomorrowActive = weatherProvider === 'tomorrow' && tomorrowData !== null;
 
-  const filteredPrices = marketPrices.filter(item => {
-    if (selectedCategory === 'all') return true;
-    return item.category === selectedCategory;
-  });
+  const displayTemp = isAccuActive 
+    ? accuData!.temperature 
+    : isTomorrowActive 
+    ? tomorrowData!.temperature 
+    : activeWeather.temp;
 
-  // Display temperature and conditions, preferring live tomorrowData
-  const displayTemp = tomorrowData ? tomorrowData.temperature : activeWeather.temp;
-  const displayFeelsLike = tomorrowData ? tomorrowData.temperatureApparent : activeWeather.feelsLike;
-  const displayHumidity = tomorrowData ? tomorrowData.humidity : activeWeather.humidity;
-  const displayWindSpeed = tomorrowData ? tomorrowData.windSpeed : activeWeather.windSpeed;
-  const displayCondition = tomorrowData ? tomorrowData.conditionText : activeWeather.condition;
+  const displayFeelsLike = isAccuActive 
+    ? accuData!.temperatureApparent 
+    : isTomorrowActive 
+    ? tomorrowData!.temperatureApparent 
+    : activeWeather.feelsLike;
+
+  const displayHumidity = isAccuActive 
+    ? accuData!.humidity 
+    : isTomorrowActive 
+    ? tomorrowData!.humidity 
+    : activeWeather.humidity;
+
+  const displayWindSpeed = isAccuActive 
+    ? accuData!.windSpeed 
+    : isTomorrowActive 
+    ? tomorrowData!.windSpeed 
+    : activeWeather.windSpeed;
+
+  const displayCondition = isAccuActive 
+    ? accuData!.conditionText 
+    : isTomorrowActive 
+    ? tomorrowData!.conditionText 
+    : activeWeather.condition;
 
   // Calculate Agricultural Spraying Index (Purkash qulayligi)
   const isSprayingSafe = displayWindSpeed < 5 && displayTemp < 32;
 
   // Evapotranspiration calculation (L/m2 daily water loss)
   const evapoRate = Math.round((displayTemp * 0.15 + (100 - displayHumidity) * 0.05) * 10) / 10;
+
+  const isCurrentLoading = weatherProvider === 'accuweather' ? isLoadingAccu : isLoadingTomorrow;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto" id="weather-and-market-view">
@@ -102,43 +125,48 @@ export const WeatherMarket: React.FC = () => {
             <Sun className="w-5 h-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-base font-bold text-[#0F172A] dark:text-white uppercase tracking-tight">
                 Yozyovon Tumani Agro-Meteorologik Monitoringi
               </h2>
-              <span className="bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-900 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                Tomorrow.io API
-              </span>
+              {weatherProvider === 'accuweather' ? (
+                <span className="bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border border-amber-200 dark:border-amber-900 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                  AccuWeather API (Faol)
+                </span>
+              ) : (
+                <span className="bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-900 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  Tomorrow.io API
+                </span>
+              )}
             </div>
             <p className="text-xs text-[#64748B] dark:text-slate-400 mt-0.5">
-              Tomorrow.io ob-havo tarmogʻi va agrometeorologik stansiyalar integratsiyasi
+              AccuWeather xalqaro meteorologiya va Tomorrow.io stansiyalaridan real vaqt maʼlumotlari
             </p>
           </div>
         </div>
 
         {/* Dynamic Controls */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Weather API Authority Indicator (Davlat organi tomonidan o'rnatilgan) */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#F1F5F9] dark:bg-slate-800 border border-[#CBD5E1] dark:border-slate-700 text-xs">
+            <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            <span className="text-[#64748B] dark:text-slate-400">Manba:</span>
+            <span className="font-bold text-[#0F172A] dark:text-white">
+              {weatherProvider === 'accuweather' ? 'AccuWeather API' : 'Tomorrow.io API'}
+            </span>
+          </div>
+
           {/* Refresh weather */}
           <button
             onClick={loadWeatherData}
-            disabled={isLoadingTomorrow}
+            disabled={isCurrentLoading}
             className="p-2 rounded-md bg-[#F8FAFC] dark:bg-slate-800 border border-[#CBD5E1] dark:border-slate-700 text-[#0F172A] dark:text-white hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50"
             title="Ob-havoni yangilash"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoadingTomorrow ? 'animate-spin text-blue-600' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${isCurrentLoading ? 'animate-spin text-amber-500' : ''}`} />
             <span className="hidden sm:inline">Yangilash</span>
-          </button>
-
-          {/* Tomorrow.io API Key modal trigger */}
-          <button
-            onClick={() => setIsApiKeyModalOpen(true)}
-            className="p-2 rounded-md bg-[#F8FAFC] dark:bg-slate-800 border border-[#CBD5E1] dark:border-slate-700 text-[#0F172A] dark:text-white hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors"
-            title="Tomorrow.io API kalitini sozlash"
-            id="tomorrow-api-key-btn"
-          >
-            <Key className="w-3.5 h-3.5 text-amber-500" />
-            <span className="hidden sm:inline">API Kalit</span>
           </button>
 
           {/* MFY Selector */}
@@ -166,21 +194,34 @@ export const WeatherMarket: React.FC = () => {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="p-3 bg-[#1E293B] rounded-md border border-[#334155]">
-                <Sun className="w-8 h-8 text-amber-400 animate-pulse" />
+                {displayCondition.toLowerCase().includes('yomg') ? (
+                  <CloudRain className="w-8 h-8 text-blue-400 animate-pulse" />
+                ) : displayCondition.toLowerCase().includes('bulut') ? (
+                  <CloudSun className="w-8 h-8 text-amber-300 animate-pulse" />
+                ) : (
+                  <Sun className="w-8 h-8 text-amber-400 animate-pulse" />
+                )}
               </div>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-lg sm:text-xl font-bold tracking-tight text-white">
                     {activeMfy.name} Mikroiqlimi
                   </h3>
-                  <span className="bg-blue-500/20 text-blue-300 border border-blue-400/30 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1">
-                    <Radio className="w-2.5 h-2.5 text-blue-400" />
-                    {tomorrowData?.source === 'tomorrow.io' ? 'Tomorrow.io Jonli' : 'Kesh / Agro-sensor'}
-                  </span>
+                  {weatherProvider === 'accuweather' ? (
+                    <span className="bg-amber-500/20 text-amber-300 border border-amber-400/30 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1">
+                      <Radio className="w-2.5 h-2.5 text-amber-400" />
+                      AccuWeather Jonli (Key: 353257 / Yaz'yavan)
+                    </span>
+                  ) : (
+                    <span className="bg-blue-500/20 text-blue-300 border border-blue-400/30 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded flex items-center gap-1">
+                      <Radio className="w-2.5 h-2.5 text-blue-400" />
+                      {tomorrowData?.source === 'tomorrow.io' ? 'Tomorrow.io Jonli' : 'Kesh / Agro-sensor'}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-[#94A3B8] mt-0.5 flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5 text-[#64748B]" />
-                  Koordinata: {activeMfy.center[0].toFixed(3)}°N, {activeMfy.center[1].toFixed(3)}°E • Yozyovon
+                  Koordinata: {activeMfy.center[0].toFixed(3)}°N, {activeMfy.center[1].toFixed(3)}°E • Yozyovon tuman markazi
                 </p>
               </div>
             </div>
@@ -224,7 +265,7 @@ export const WeatherMarket: React.FC = () => {
               </div>
               <div className="text-lg font-bold mt-1 text-white">{displayHumidity}%</div>
               <span className="text-[10px] text-[#64748B] block truncate">
-                Shudring: {tomorrowData?.dewPoint ?? activeWeather.dewPoint}°C
+                Shudring: {isAccuActive ? accuData!.dewPoint : (tomorrowData?.dewPoint ?? activeWeather.dewPoint)}°C
               </span>
             </div>
 
@@ -234,7 +275,12 @@ export const WeatherMarket: React.FC = () => {
                 <Wind className="w-4 h-4 text-slate-300" />
                 <span className="font-bold uppercase text-[10px] tracking-wider truncate">Shamol & Purkash</span>
               </div>
-              <div className="text-lg font-bold mt-1 text-white">{displayWindSpeed} m/s</div>
+              <div className="text-lg font-bold mt-1 text-white flex items-center gap-1">
+                <span>{displayWindSpeed} m/s</span>
+                {isAccuActive && accuData?.windDirection && (
+                  <span className="text-xs text-amber-400 font-normal">({accuData.windDirection})</span>
+                )}
+              </div>
               <span className={`text-[10px] block truncate font-medium ${isSprayingSafe ? 'text-emerald-400' : 'text-amber-400'}`}>
                 {isSprayingSafe ? 'Dori sepishga qulay' : 'Shamolli (Ehtiyot boʻling)'}
               </span>
@@ -250,17 +296,17 @@ export const WeatherMarket: React.FC = () => {
               <span className="text-[10px] text-[#64748B] block truncate">Sugʻorish: {Math.round(evapoRate * 10)} m³/ga</span>
             </div>
 
-            {/* 6. UV Indeksi & Quyosh */}
+            {/* 6. UV Indeksi & Bosim */}
             <div className="bg-[#1E293B] p-3 rounded-md border border-[#334155]">
               <div className="flex items-center gap-1.5 text-[#94A3B8] text-xs">
                 <Sun className="w-4 h-4 text-amber-300" />
                 <span className="font-bold uppercase text-[10px] tracking-wider truncate">UV & Bosim</span>
               </div>
               <div className="text-lg font-bold mt-1 text-white">
-                UV: {tomorrowData?.uvIndex ?? 4}
+                UV: {isAccuActive ? accuData!.uvIndex : (tomorrowData?.uvIndex ?? 4)}
               </div>
               <span className="text-[10px] text-emerald-400 block truncate">
-                Bosim: {tomorrowData?.pressureSurfaceLevel ? Math.round(tomorrowData.pressureSurfaceLevel) : 1013} hPa
+                Bosim: {isAccuActive ? Math.round(accuData!.pressureSurfaceLevel) : (tomorrowData?.pressureSurfaceLevel ? Math.round(tomorrowData.pressureSurfaceLevel) : 1013)} hPa
               </span>
             </div>
 
@@ -279,176 +325,57 @@ export const WeatherMarket: React.FC = () => {
             </div>
           </div>
 
-          {/* 7-Day Agricultural Forecast */}
+          {/* Agricultural Forecast Section */}
           <div className="mt-5">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8] block mb-2">
-              7 Kunlik Agrometeorologik Prognoz ({activeMfy.name}):
-            </span>
-            <div className="grid grid-cols-2 sm:grid-cols-7 gap-2">
-              {activeWeather.forecast.map((f, idx) => (
-                <div key={idx} className="bg-[#1E293B] p-2.5 rounded-md text-center border border-[#334155]">
-                  <span className="text-[11px] font-semibold block text-[#94A3B8]">{f.day}</span>
-                  <div className="my-1.5 text-amber-400 flex justify-center">
-                    {f.icon === 'Sun' ? <Sun className="w-4 h-4" /> : f.icon === 'Wind' ? <Wind className="w-4 h-4" /> : <CloudSun className="w-4 h-4" />}
-                  </div>
-                  <div className="font-bold text-xs text-white">{f.tempDay}° / {f.tempNight}°</div>
-                  <span className="text-[10px] text-[#64748B] block truncate mt-0.5">{f.condition}</span>
-                </div>
-              ))}
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#94A3B8] block">
+                {isAccuActive ? "AccuWeather 5 Kunlik Agrometeorologik Prognozi" : "7 Kunlik Agrometeorologik Prognoz"} ({activeMfy.name}):
+              </span>
+              <span className="text-[10px] text-amber-400 font-mono">
+                {isAccuActive ? "Manba: AccuWeather Inc." : "Manba: Yozyovon stansiyasi"}
+              </span>
             </div>
-          </div>
 
-        </div>
-      </div>
-
-      {/* Market Prices Section */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg p-5 sm:p-6 border border-[#E2E8F0] dark:border-slate-800 shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#E2E8F0] dark:border-slate-800">
-          <div>
-            <h3 className="text-base font-bold uppercase tracking-wider text-[#0F172A] dark:text-white flex items-center gap-2">
-              <Store className="w-4 h-4 text-[#3B82F6]" />
-              <span>Viloyat va Tuman Bozor Narxlari</span>
-            </h3>
-            <p className="text-xs text-[#64748B] dark:text-slate-400 mt-0.5">
-              Fargʻona, Qoʻqon ulgurji hamda Yozyovon dehqon bozorlaridagi monitoring narxlari
-            </p>
-          </div>
-
-          {/* Category Filters */}
-          <div className="flex items-center gap-1 bg-[#F8FAFC] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 p-1 rounded-md text-xs">
-            <button
-              onClick={() => setSelectedCategory('all')}
-              className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
-                selectedCategory === 'all' ? 'bg-[#0F172A] dark:bg-blue-600 text-white shadow-xs' : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
-              }`}
-            >
-              Barchasi
-            </button>
-            <button
-              onClick={() => setSelectedCategory('meva')}
-              className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
-                selectedCategory === 'meva' ? 'bg-[#0F172A] dark:bg-blue-600 text-white shadow-xs' : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
-              }`}
-            >
-              Meva & Sitrus
-            </button>
-            <button
-              onClick={() => setSelectedCategory('chorva')}
-              className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
-                selectedCategory === 'chorva' ? 'bg-[#0F172A] dark:bg-blue-600 text-white shadow-xs' : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
-              }`}
-            >
-              Chorva & Goʻsht
-            </button>
-            <button
-              onClick={() => setSelectedCategory('don')}
-              className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
-                selectedCategory === 'don' ? 'bg-[#0F172A] dark:bg-blue-600 text-white shadow-xs' : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
-              }`}
-            >
-              Don & Ozuqa
-            </button>
-          </div>
-        </div>
-
-        {/* Prices Table */}
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-[#F8FAFC] dark:bg-slate-800 border-b border-[#E2E8F0] dark:border-slate-700 text-[#64748B] dark:text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                <th className="py-3 px-4">Mahsulot Nomi</th>
-                <th className="py-3 px-4">Yozyovon Bozori</th>
-                <th className="py-3 px-4">Fargʻona Ulgurji</th>
-                <th className="py-3 px-4">Qoʻqon Bozori</th>
-                <th className="py-3 px-4">Oʻzgarish</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#E2E8F0] dark:divide-slate-800">
-              {filteredPrices.map(item => (
-                <tr key={item.id} className="hover:bg-[#F8FAFC] dark:hover:bg-slate-800/60 transition-colors">
-                  <td className="py-3.5 px-4 font-bold text-[#0F172A] dark:text-white flex items-center gap-2">
-                    <span>{item.product}</span>
-                  </td>
-                  <td className="py-3.5 px-4 font-bold text-[#3B82F6]">
-                    {item.yozyovonPrice.toLocaleString()} {item.unit}
-                  </td>
-                  <td className="py-3.5 px-4 text-[#334155] dark:text-slate-300">
-                    {item.ferganaPrice.toLocaleString()} {item.unit}
-                  </td>
-                  <td className="py-3.5 px-4 text-[#334155] dark:text-slate-300">
-                    {item.qoqonPrice.toLocaleString()} {item.unit}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className={`inline-flex items-center gap-1 font-semibold text-[11px] ${
-                      item.trend === 'up' 
-                        ? 'text-emerald-700 dark:text-emerald-400' 
-                        : item.trend === 'down' 
-                        ? 'text-rose-700 dark:text-rose-400' 
-                        : 'text-[#64748B] dark:text-slate-400'
-                    }`}>
-                      {item.trend === 'up' ? <TrendingUp className="w-3.5 h-3.5" /> : item.trend === 'down' ? <TrendingDown className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
-                      <span>{item.changePercent > 0 ? `+${item.changePercent}%` : `${item.changePercent}%`}</span>
+            {isAccuActive && accuData && accuData.dailyForecasts && accuData.dailyForecasts.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                {accuData.dailyForecasts.map((f, idx) => (
+                  <div key={idx} className="bg-[#1E293B] p-2.5 rounded-md text-center border border-amber-500/20 hover:border-amber-400/50 transition-colors">
+                    <span className="text-[11px] font-semibold block text-[#94A3B8]">{f.dayName}</span>
+                    <span className="text-[9px] text-[#64748B] block font-mono">{f.date}</span>
+                    <div className="my-1.5 text-amber-400 flex justify-center">
+                      {f.iconPhrase.toLowerCase().includes('yomg') ? (
+                        <CloudRain className="w-4 h-4 text-blue-400" />
+                      ) : f.iconPhrase.toLowerCase().includes('bulut') ? (
+                        <CloudSun className="w-4 h-4" />
+                      ) : (
+                        <Sun className="w-4 h-4" />
+                      )}
+                    </div>
+                    <div className="font-bold text-xs text-white">{f.tempMax}° / {f.tempMin}°</div>
+                    <span className="text-[10px] text-amber-200 block truncate mt-0.5" title={f.iconPhrase}>
+                      {f.iconPhrase}
                     </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Tomorrow.io API Key Configuration Modal */}
-      {isApiKeyModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-[#E2E8F0] dark:border-slate-800 rounded-lg p-6 max-w-md w-full shadow-2xl space-y-4">
-            <div className="flex items-center gap-2 text-[#0F172A] dark:text-white">
-              <Key className="w-5 h-5 text-amber-500" />
-              <h3 className="font-bold text-sm uppercase tracking-wider">Tomorrow.io API Kaliti</h3>
-            </div>
-
-            <p className="text-xs text-[#64748B] dark:text-slate-400 leading-relaxed">
-              Ob-havo maʻlumotlari <strong className="text-[#0F172A] dark:text-white">tomorrow.io</strong> xizmati orqali toʻgʻridan-toʻgʻri olinadi. Oʻzingizning shaxsiy API kalitingiz boʻlsa, uni quyiga kiriting:
-            </p>
-
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-[#0F172A] dark:text-white">
-                API Kalit (API Key):
-              </label>
-              <input
-                type="text"
-                value={apiKeyInput}
-                onChange={(e) => setApiKeyInput(e.target.value)}
-                placeholder="Masalan: YgR6q..."
-                className="w-full px-3 py-2 text-xs rounded-md border border-[#CBD5E1] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-[#0F172A] dark:text-white font-mono"
-              />
-            </div>
-
-            {apiKeySavedSuccess && (
-              <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>API kalit muvaffaqiyatli saqlandi!</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-7 gap-2">
+                {activeWeather.forecast.map((f, idx) => (
+                  <div key={idx} className="bg-[#1E293B] p-2.5 rounded-md text-center border border-[#334155]">
+                    <span className="text-[11px] font-semibold block text-[#94A3B8]">{f.day}</span>
+                    <div className="my-1.5 text-amber-400 flex justify-center">
+                      {f.icon === 'Sun' ? <Sun className="w-4 h-4" /> : f.icon === 'Wind' ? <Wind className="w-4 h-4" /> : <CloudSun className="w-4 h-4" />}
+                    </div>
+                    <div className="font-bold text-xs text-white">{f.tempDay}° / {f.tempNight}°</div>
+                    <span className="text-[10px] text-[#64748B] block truncate mt-0.5">{f.condition}</span>
+                  </div>
+                ))}
               </div>
             )}
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setIsApiKeyModalOpen(false)}
-                className="px-3.5 py-1.5 rounded-md border border-[#CBD5E1] dark:border-slate-700 text-xs font-semibold text-[#64748B] dark:text-slate-300 hover:bg-[#F8FAFC] dark:hover:bg-slate-800"
-              >
-                Bekor Qilish
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveApiKey}
-                className="px-4 py-1.5 rounded-md bg-[#3B82F6] hover:bg-blue-600 text-white text-xs font-bold shadow-xs"
-              >
-                Saqlash va Yangilash
-              </button>
-            </div>
           </div>
+
         </div>
-      )}
+      </div>
 
     </div>
   );

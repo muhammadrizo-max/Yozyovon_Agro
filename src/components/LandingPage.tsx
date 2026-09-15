@@ -19,24 +19,28 @@ import {
 import { AuthModal } from './AuthModal';
 
 interface LandingPageProps {
-  onEnterAsGuest: () => void;
+  onOpenAuth?: (mode: 'login' | 'register') => void;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onEnterAsGuest }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   const openAuth = (mode: 'login' | 'register') => {
-    setAuthMode(mode);
-    setIsAuthOpen(true);
+    if (onOpenAuth) {
+      onOpenAuth(mode);
+    } else {
+      setAuthMode(mode);
+      setIsAuthOpen(true);
+    }
   };
 
   const features = [
     {
       icon: <MapPin className="w-5 h-5" />,
       color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800',
-      title: '32 MFY Interaktiv Xaritasi',
-      desc: 'Haqiqiy tuman kadastr chegaralari asosida tuzilgan interaktiv xarita. Har bir MFY haqida batafsil ma\'lumot.',
+      title: '33 MFY Interaktiv Xaritasi',
+      desc: 'Haqiqiy tuman kadastr chegaralari va 4 ta sektor boʻyicha tuzilgan sputnik xaritasi. 33 ta MFY haqida toʻliq maʼlumot.',
     },
     {
       icon: <Sparkles className="w-5 h-5" />,
@@ -71,7 +75,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterAsGuest }) => {
   ];
 
   const stats = [
-    { value: '32', label: 'MFY', sub: 'Yozyovon tumani' },
+    { value: '33', label: 'MFY', sub: 'Yozyovon tumani (4 ta sektor)' },
     { value: '580+', label: 'Fermer', sub: 'Faol foydalanuvchi' },
     { value: '185K+', label: 'Limon', sub: 'Daraxt monitoringi' },
     { value: '14K+', label: 'ga', sub: 'Qishloq xo\'jaligi' },
@@ -96,21 +100,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterAsGuest }) => {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={onEnterAsGuest}
-              className="hidden sm:flex px-3 py-1.5 text-xs font-semibold text-[#64748B] dark:text-slate-300 hover:text-[#0F172A] dark:hover:text-white transition-colors"
-            >
-              Mehmon sifatida ko'rish
-            </button>
-            <button
               onClick={() => openAuth('login')}
-              className="px-3 py-1.5 text-xs font-bold bg-[#0F172A] dark:bg-slate-700 text-white rounded hover:bg-slate-800 transition-colors flex items-center gap-1.5"
+              className="px-3.5 py-1.5 text-xs font-bold bg-[#0F172A] dark:bg-slate-700 text-white rounded hover:bg-slate-800 transition-colors flex items-center gap-1.5"
             >
               <LogIn className="w-3.5 h-3.5" />
               Kirish
             </button>
             <button
               onClick={() => openAuth('register')}
-              className="px-3 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-colors flex items-center gap-1.5"
+              className="px-3.5 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-colors flex items-center gap-1.5"
             >
               <UserPlus className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Ro'yxatdan o'tish</span>
@@ -131,7 +129,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterAsGuest }) => {
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-[11px] font-bold tracking-wider uppercase text-emerald-300 mb-5">
               <Leaf className="w-3.5 h-3.5" />
-              Farg'ona Viloyati • Yozyovon Tumani
+              Farg'ona Viloyati • Yozyovon Tumani (33 ta MFY)
             </div>
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black leading-tight tracking-tight">
               Yozyovon Agrosanoat va<br />
@@ -139,7 +137,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterAsGuest }) => {
               Raqamli Portali
             </h1>
             <p className="mt-4 text-sm sm:text-base text-slate-300 leading-relaxed max-w-2xl">
-              32 ta MFY bo'yicha yagona monitoring tizimi. Interaktiv xarita, AI kasallik skaneri,
+              33 ta MFY bo'yicha yagona agro-monitoring tizimi. Sunʼiy yoʻldoshdan olingan xarita, AI kasallik skaneri,
               ob-havo ma'lumotlari, davlat subsidiyalari va tajribali dehqonlar tavsiyalari — barchasi bir platformada.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
@@ -157,12 +155,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterAsGuest }) => {
               >
                 <LogIn className="w-4 h-4" />
                 Tizimga Kirish
-              </button>
-              <button
-                onClick={onEnterAsGuest}
-                className="px-6 py-3 text-slate-300 hover:text-white text-sm font-medium transition-colors flex items-center gap-1.5"
-              >
-                Mehmon sifatida ko'rish →
               </button>
             </div>
           </div>
@@ -289,12 +281,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnterAsGuest }) => {
               Kirish
             </button>
           </div>
-          <button
-            onClick={onEnterAsGuest}
-            className="mt-4 text-emerald-200 hover:text-white text-xs transition-colors"
-          >
-            Yoki mehmon sifatida davom etish →
-          </button>
         </div>
       </section>
 

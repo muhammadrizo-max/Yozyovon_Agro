@@ -6,6 +6,7 @@ import {
   CheckCircle2, Download, Upload, Cpu, Zap, Radio, Globe, 
   Server, Key, X, Sliders, Edit3, Bug
 } from 'lucide-react';
+import { getStoredTomorrowApiKey, saveCustomTomorrowApiKey } from '../services/tomorrowWeather';
 
 export const DevEmergencyPanel: React.FC = () => {
   const {
@@ -28,13 +29,14 @@ export const DevEmergencyPanel: React.FC = () => {
     importDatabaseJson
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'cyber_defense' | 'live_editor' | 'security_logs' | 'db_vault'>('cyber_defense');
+  const [activeTab, setActiveTab] = useState<'cyber_defense' | 'live_editor' | 'security_logs' | 'db_vault' | 'api_keys'>('cyber_defense');
   const [selectedMfyEditId, setSelectedMfyEditId] = useState<number>(1);
   const [editLimon, setEditLimon] = useState<number>(14500);
   const [editChorva, setEditChorva] = useState<number>(2800);
   const [editGa, setEditGa] = useState<number>(520);
   const [editName, setEditName] = useState<string>('');
   const [jsonInput, setJsonInput] = useState<string>('');
+  const [tomorrowApiKeyInput, setTomorrowApiKeyInput] = useState<string>(() => getStoredTomorrowApiKey());
   const [statusMsg, setStatusMsg] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   if (!isDevModalOpen) return null;
@@ -231,6 +233,17 @@ export const DevEmergencyPanel: React.FC = () => {
           >
             <Database className="w-4 h-4" />
             JSON Baza Export / Import
+          </button>
+          <button
+            onClick={() => setActiveTab('api_keys')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg font-semibold border-b-2 transition ${
+              activeTab === 'api_keys'
+                ? 'bg-slate-800 text-emerald-400 border-emerald-500'
+                : 'text-slate-400 hover:text-slate-200 border-transparent'
+            }`}
+          >
+            <Key className="w-4 h-4" />
+            Ob-havo API Kaliti
           </button>
         </div>
 
@@ -533,6 +546,85 @@ export const DevEmergencyPanel: React.FC = () => {
                   >
                     <Upload className="w-3.5 h-3.5" />
                     JSON Bazani Saytga Yuklash
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: TOMORROW.IO API KEY MANAGEMENT (DEVELOPER EXCLUSIVE) */}
+          {activeTab === 'api_keys' && (
+            <div className="space-y-6">
+              <div className="p-5 bg-slate-900 border border-slate-700 rounded-xl space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-cyan-950/80 border border-cyan-500/40 rounded-lg text-cyan-400">
+                    <Key className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white font-mono flex items-center gap-2">
+                      Tomorrow.io Ob-havo & Sunʼiy Yoʻldosh Radar API Kaliti
+                    </h3>
+                    <p className="text-xs text-slate-400 font-mono mt-0.5">
+                      Faqat Dasturchi (developerpro@gamil.com) uchun vakolatli sozlama. Dehqonlar panelida bu ruxsat cheklangan.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-slate-300 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                    <span>Hozirgi saqlangan API kalit:</span>
+                  </div>
+                  <span className="text-cyan-400 font-bold tracking-wider">
+                    {tomorrowApiKeyInput ? `${tomorrowApiKeyInput.slice(0, 8)}...${tomorrowApiKeyInput.slice(-4)}` : 'Standart kalit faol'}
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-xs font-mono text-slate-300 font-semibold">
+                    Yangi Tomorrow.io API kalitini kiritish:
+                  </label>
+                  <input
+                    type="text"
+                    value={tomorrowApiKeyInput}
+                    onChange={(e) => setTomorrowApiKeyInput(e.target.value.trim())}
+                    placeholder="Tomorrow.io API kalitini kiriting (masalan, 32 ta belgili kod)"
+                    className="w-full p-3 bg-slate-950 border border-slate-700 rounded-xl font-mono text-xs text-slate-100 focus:border-cyan-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  <button
+                    onClick={() => {
+                      if (tomorrowApiKeyInput) {
+                        saveCustomTomorrowApiKey(tomorrowApiKeyInput);
+                        setStatusMsg({
+                          text: '✅ Tomorrow.io API kaliti muvaffaqiyatli saqlandi va butun tizim boʻyicha yangilandi!',
+                          type: 'success'
+                        });
+                        setTimeout(() => setStatusMsg(null), 3500);
+                      }
+                    }}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-slate-950 text-xs font-mono font-bold rounded-lg transition shadow-md"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    API Kalitni Saqlash
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      localStorage.removeItem('yozyovon_tomorrow_api_key');
+                      setTomorrowApiKeyInput(getStoredTomorrowApiKey());
+                      setStatusMsg({
+                        text: '🔄 Standart Tomorrow.io API kaliti tiklandi!',
+                        type: 'info'
+                      });
+                      setTimeout(() => setStatusMsg(null), 3000);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono rounded-lg transition"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Standart Kalitga Qaytish
                   </button>
                 </div>
               </div>

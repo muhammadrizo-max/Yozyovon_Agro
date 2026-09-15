@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
   User, UserRole, FarmType, MFYData, Crop, Livestock, AIScan, 
   WeatherInfo, MarketPrice, AppNotification, SubsidyApplication, ExportCertificate,
-  SecurityLog, CyberDefenseStatus, SiteSettings, UploadedGuide, FarmerAdvice
+  SecurityLog, CyberDefenseStatus, SiteSettings, UploadedGuide, FarmerAdvice,
+  ChatAttachment, ChatMessage
 } from '../types';
 import { 
   INITIAL_USERS, YOZYOVON_MFY_LIST, INITIAL_CROPS, 
@@ -50,6 +51,8 @@ interface AppContextType {
   notifications: AppNotification[];
   subsidies: SubsidyApplication[];
   exportCertificates: ExportCertificate[];
+  weatherProvider: 'accuweather' | 'tomorrow';
+  setWeatherProvider: (provider: 'accuweather' | 'tomorrow') => void;
   aiProvider: 'gemini' | 'openrouter';
   setAiProvider: (provider: 'gemini' | 'openrouter') => void;
   aiApiKey: string;
@@ -70,6 +73,7 @@ interface AppContextType {
   exportToCsv: (filename: string, headers: string[], rows: (string | number)[][]) => void;
   approveSubsidy: (id: string) => void;
   rejectSubsidy: (id: string) => void;
+  sendSubsidyMessage: (subsidyId: string, text: string, attachments?: ChatAttachment[]) => void;
   addSubsidyApplication: (app: Omit<SubsidyApplication, 'id' | 'submittedDate' | 'status'>) => void;
   issueExportCertificate: (cert: Omit<ExportCertificate, 'id' | 'issueDate'>) => void;
   sendGovBroadcastAlert: (title: string, message: string, severity: 'danger' | 'warning' | 'info') => void;
@@ -112,6 +116,8 @@ interface AppContextType {
   // Universal Navigation Sidebar
   isSidebarOpen: boolean;
   setIsSidebarOpen: (open: boolean) => void;
+  // User Profile Update
+  updateUserProfile: (updates: Partial<User>) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -133,9 +139,10 @@ const STORAGE_KEYS = {
   CUSTOM_GUIDES: 'yozyovon_custom_guides',
   REAL_VAULT: 'yozyovon_encrypted_real_vault',
   CYBER_STATUS: 'yozyovon_cyber_status',
-  FARMERS_REGISTRY: 'yozyovon_farmers_registry_v2',
-  FARMER_ADVICES: 'yozyovon_farmer_advices_v2',
-  DEMO_CLEANED_FLAG: 'yozyovon_cleaned_demo_v2'
+  FARMERS_REGISTRY: 'yozyovon_farmers_registry_v3',
+  FARMER_ADVICES: 'yozyovon_farmer_advices_v3',
+  WEATHER_PROVIDER: 'yozyovon_weather_provider_v1',
+  DEMO_CLEANED_FLAG: 'yozyovon_cleaned_demo_v4'
 };
 
 const DEFAULT_SITE_SETTINGS: SiteSettings = {
@@ -220,111 +227,36 @@ export const calculateMfyAgroWeather = (mfy: MFYData | undefined): WeatherInfo =
   };
 };
 
-// Boshlang'ich dehqonlar reestri (Davlat organi tasdiqlashi uchun)
-const INITIAL_FARMERS_REGISTRY: User[] = [
-  {
-    id: 101,
-    phone: '+998 90 123 45 67',
-    name: 'Rustamjon Qodirov',
-    email: 'rustam.dehqon@gmail.com',
-    role: 'dehqon',
-    mfyId: 1,
-    createdAt: '2023-04-12',
-    isVerified: true,
-    hasExperienceBadge: true,
-    badgeTitle: 'Davlat tomonidan tasdiqlangan tajribali dehqon',
-    experienceYears: 18,
-    badgeAwardedDate: '2025-05-10',
-    farmType: 'limon',
-    activityField: 'Issiqxonada sitrus yetishtirish'
-  },
-  {
-    id: 102,
-    phone: '+998 91 345 67 89',
-    name: 'Odilbek Mirzayev',
-    email: 'odilbek.agro@gmail.com',
-    role: 'dehqon',
-    mfyId: 3,
-    createdAt: '2022-09-18',
-    isVerified: true,
-    hasExperienceBadge: true,
-    badgeTitle: 'Davlat tomonidan tasdiqlangan tajribali dehqon',
-    experienceYears: 22,
-    badgeAwardedDate: '2024-11-05',
-    farmType: 'limon',
-    activityField: 'Meyeri va Toshkent navlari boʻyicha usta'
-  },
-  {
-    id: 103,
-    phone: '+998 93 456 78 90',
-    name: 'Shavkatbek Tojimatov',
-    email: 'shavkat.fermer@mail.uz',
-    role: 'dehqon',
-    mfyId: 5,
-    createdAt: '2024-02-14',
-    isVerified: true,
-    hasExperienceBadge: false,
-    experienceYears: 6,
-    farmType: 'limon',
-    activityField: 'Yangi koʻchatchilik xoʻjaligi'
-  },
-  {
-    id: 104,
-    phone: '+998 94 567 89 01',
-    name: 'Anvarjon Xolmatov',
-    email: 'anvar.xolmatov@inbox.uz',
-    role: 'dehqon',
-    mfyId: 8,
-    createdAt: '2024-05-20',
-    isVerified: true,
-    hasExperienceBadge: false,
-    experienceYears: 4,
-    farmType: 'bogdorchilik',
-    activityField: 'Uzumchilik va tomorqa'
-  }
-];
+// Boshlang'ich dehqonlar reestri va tajriba tavsiyalari bo'sh (Real tizim uchun ro'yxatdan o'tish orqali to'ldiriladi)
+const INITIAL_FARMERS_REGISTRY: User[] = [];
 
-// Tajribali dehqonlarning limonchilik qo'llanmasiga qo'ygan ko'rsatmalari
-const INITIAL_FARMER_ADVICES: FarmerAdvice[] = [
-  {
-    id: 'adv-1',
-    farmerId: 101,
-    farmerName: 'Rustamjon Qodirov',
-    farmerPhone: '+998 90 123 45 67',
-    mfyName: 'Yozyovon MFY',
-    experienceYears: 18,
-    badgeTitle: 'Davlat tomonidan tasdiqlangan tajribali dehqon',
-    title: 'Yozyovon qumloq tuproqlarida limon ildizini qishki sovuqdan (noyabr-fevral) asrash',
-    category: 'parvarish',
-    content: '18 yillik tajribamdan shuni aytamanki, Yozyovonda qishda havo quruq va ayozli boʻladi. Limon ildiz tizimi 0°C dan past haroratga chidamsiz. Noyabr oyining ikkinchi oʻn kunligida har bir daraxt tagiga 10-15 sm qalinlikda chirigan goʻng (gumus) yoki xazon solib mulchalash zarur. Bu nafaqat ildizni muzlashdan asraydi, balki bahorda organik ozuqa boʻlib xizmat qiladi. Issiqxonani har kecha 18:00 dan soʻng toʻliq germetik yopish va erta tongda shamollatishni unutmang.',
-    createdAt: '2026-08-25',
-    likes: 34
-  },
-  {
-    id: 'adv-2',
-    farmerId: 102,
-    farmerName: 'Odilbek Mirzayev',
-    farmerPhone: '+998 91 345 67 89',
-    mfyName: 'Guliston MFY',
-    experienceYears: 22,
-    badgeTitle: 'Davlat tomonidan tasdiqlangan tajribali dehqon',
-    title: 'Meyeri limonlarida gullash paytida toʻkilishning oldini olish va meva tugishini 30% ga oshirish',
-    category: 'hosil_yigish',
-    content: 'Koʻpchilik yosh dehqonlar limon gullagan paytda koʻp sugʻorib xato qilishadi. Gullash davrida ortiqcha suv berilsa, daraxt gullarni tashlab yuboradi! Shuning uchun kurtak chiqargan paytda oxirgi marta meʼyorida sugʻoring va gullash boshlanganda suv berishni 10-12 kunga toʻxtating. Gullashdan oldin bor kislotasi (10 litr suvga 5 gramm) bilan bargdan purkash gul toʻkilishini kamaytirib, meva tugishini keskin oshiradi.',
-    createdAt: '2026-08-28',
-    likes: 47
-  }
-];
+const INITIAL_FARMER_ADVICES: FarmerAdvice[] = [];
+
+const DEFAULT_REAL_USER: User = {
+  id: 101,
+  phone: '+998 90 123 45 67',
+  name: 'Dehqon Foydalanuvchi',
+  email: 'dehqon@yozyovon.uz',
+  role: 'dehqon',
+  mfyId: 1,
+  createdAt: '2026-09-01',
+  isVerified: true,
+  farmType: 'limon',
+  activityField: 'Issiqxonada sitruschilik'
+};
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Demo ma'lumotlarni tozalash (Foydalanuvchi talabi: faqat ob-havo va limonchilik qollanmasi qolsin)
+  // Demo ma'lumotlarni tozalash va to'liq real mahsulot holatiga keltirish
   useEffect(() => {
-    if (!localStorage.getItem(STORAGE_KEYS.DEMO_CLEANED_FLAG)) {
+    if (localStorage.getItem(STORAGE_KEYS.DEMO_CLEANED_FLAG) !== 'true') {
       localStorage.removeItem(STORAGE_KEYS.CROPS);
       localStorage.removeItem(STORAGE_KEYS.LIVESTOCK);
       localStorage.removeItem(STORAGE_KEYS.SCANS);
       localStorage.removeItem(STORAGE_KEYS.SUBSIDIES);
       localStorage.removeItem(STORAGE_KEYS.CERTS);
+      localStorage.removeItem(STORAGE_KEYS.NOTIFS);
+      localStorage.removeItem(STORAGE_KEYS.FARMERS_REGISTRY);
+      localStorage.removeItem(STORAGE_KEYS.FARMER_ADVICES);
       localStorage.setItem(STORAGE_KEYS.DEMO_CLEANED_FLAG, 'true');
     }
   }, []);
@@ -344,10 +276,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.error('Error parsing stored user', e);
       }
     }
-    return INITIAL_FARMERS_REGISTRY[0]; // Rustamjon Dehqon
+    return DEFAULT_REAL_USER;
   });
 
-  const [activeTab, setActiveTab] = useState<string>('lemon_academy');
+  // Weather Provider (Davlat organi belgilaydigan meteorologik manba: AccuWeather yoki Tomorrow.io)
+  const [weatherProvider, setWeatherProviderState] = useState<'accuweather' | 'tomorrow'>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.WEATHER_PROVIDER);
+    return saved === 'tomorrow' ? 'tomorrow' : 'accuweather';
+  });
+
+  const setWeatherProvider = (provider: 'accuweather' | 'tomorrow') => {
+    setWeatherProviderState(provider);
+    localStorage.setItem(STORAGE_KEYS.WEATHER_PROVIDER, provider);
+  };
+
+  const [activeTab, setActiveTabState] = useState<string>('profile');
+
+  const setActiveTab = (tab: string) => {
+    // MFY xaritasi faqat davlat organlari va adminlar uchun
+    if (tab === 'map' && currentUser.role !== 'davlat' && currentUser.role !== 'admin') {
+      setActiveTabState('profile');
+      return;
+    }
+    setActiveTabState(tab);
+  };
+
+  // Guard against dehqon viewing map if role changes or tab set directly
+  useEffect(() => {
+    if (activeTab === 'map' && currentUser.role !== 'davlat' && currentUser.role !== 'admin') {
+      setActiveTabState('profile');
+    }
+  }, [activeTab, currentUser.role]);
+
   const [selectedMfyId, setSelectedMfyId] = useState<number | null>(null);
 
   const [mfyList, setMfyList] = useState<MFYData[]>(YOZYOVON_MFY_LIST);
@@ -856,6 +816,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const lowerName = (name || '').toLowerCase().trim();
     const pwd = (password || '').trim();
 
+    // Maxsus Dasturchi Kirishi: developerpro@gamil.com / devpro17 (va developerpro@gmail.com)
+    if (lowerId === 'developerpro@gamil.com' || lowerId === 'developerpro@gmail.com') {
+      if (pwd === 'devpro17' || pwd === 'admin123') {
+        const devOfficial: User = {
+          id: 999902,
+          phone: '+998 90 000 17 17',
+          name: 'Bosh Dasturchi (Developer Pro)',
+          email: 'developerpro@gamil.com',
+          role: 'admin',
+          mfyId: 1,
+          createdAt: '2026-01-01',
+          isVerified: true,
+          farmType: 'limon',
+          activityField: 'Tizim Bosh Dasturchisi va Kiberxavfsizlik'
+        };
+        setCurrentUser(devOfficial);
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(devOfficial));
+        localStorage.setItem(STORAGE_KEYS.LOGGED_IN, 'true');
+        setIsLoggedIn(true);
+        setIsDevModalOpen(true);
+        setActiveTab('gov_hub');
+        return true;
+      } else {
+        return false;
+      }
+    }
+
     // Maxsus Davlat Organlari Kirishi: davlatorgan@gmail.com / agrocontrol14
     if (lowerId === 'davlatorgan@gmail.com') {
       if (pwd === 'agrocontrol14' || pwd === 'gov1234') {
@@ -1051,7 +1038,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsLoggedIn(false);
     localStorage.removeItem(STORAGE_KEYS.LOGGED_IN);
     localStorage.removeItem(STORAGE_KEYS.USER);
+    setSelectedMfyId(null);
+    setIsDevModalOpen(false);
     switchRole('dehqon');
+    setActiveTabState('lemon_guide');
   };
 
   const selectMfy = (id: number | null) => {
@@ -1127,6 +1117,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const rejectSubsidy = (id: string) => {
     setSubsidies(prev => prev.map(s => s.id === id ? { ...s, status: 'rad_etildi' } : s));
+  };
+
+  const sendSubsidyMessage = (subsidyId: string, text: string, attachments?: ChatAttachment[]) => {
+    const now = new Date();
+    const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    
+    const isGov = currentUser?.role === 'davlat';
+    const newMessage: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      senderRole: isGov ? 'davlat' : 'dehqon',
+      senderName: isGov ? 'Yozyovon Tuman Qishloq Xoʻjaligi Boʻlimi' : (currentUser?.name || 'Fermer / Dehqon'),
+      text,
+      timestamp,
+      attachments
+    };
+
+    setSubsidies(prev => prev.map(sub => {
+      if (sub.id === subsidyId) {
+        return {
+          ...sub,
+          messages: [...(sub.messages || []), newMessage]
+        };
+      }
+      return sub;
+    }));
   };
 
   const addSubsidyApplication = (app: Omit<SubsidyApplication, 'id' | 'submittedDate' | 'status'>) => {
@@ -1301,6 +1316,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     document.body.removeChild(link);
   };
 
+  // User profile update
+  const updateUserProfile = (updates: Partial<User>) => {
+    setCurrentUser(prev => {
+      const updated = { ...prev, ...updates };
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(updated));
+      return updated;
+    });
+    setRegisteredFarmers(prev => prev.map(f => f.id === currentUser.id ? { ...f, ...updates } : f));
+  };
+
   const getMfyWeather = (mfyId: number): WeatherInfo => {
     const targetMfy = mfyList.find(m => m.id === mfyId) || mfyList[0];
     return calculateMfyAgroWeather(targetMfy);
@@ -1329,6 +1354,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         notifications,
         subsidies,
         exportCertificates,
+        weatherProvider,
+        setWeatherProvider,
         aiProvider,
         setAiProvider,
         aiApiKey,
@@ -1349,6 +1376,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         exportToCsv,
         approveSubsidy,
         rejectSubsidy,
+        sendSubsidyMessage,
         addSubsidyApplication,
         issueExportCertificate,
         sendGovBroadcastAlert,
@@ -1383,7 +1411,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addFarmerAdvice,
         toggleLikeAdvice,
         isSidebarOpen,
-        setIsSidebarOpen
+        setIsSidebarOpen,
+        updateUserProfile
       }}
     >
       {children}

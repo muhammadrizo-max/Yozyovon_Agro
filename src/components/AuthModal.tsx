@@ -16,7 +16,9 @@ import {
   RefreshCw,
   FileText,
   HelpCircle,
-  KeyRound
+  KeyRound,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { FarmType, UserRole } from '../types';
@@ -37,8 +39,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [activeTab, setActiveTab] = useState<'login' | 'register'>(initialMode);
   
   // Login states (Telefon raqam yoki email + Parol + Meni eslab qol)
-  const [loginIdentifier, setLoginIdentifier] = useState('+998901234567');
-  const [loginPassword, setLoginPassword] = useState('test1234');
+  const [loginIdentifier, setLoginIdentifier] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
   // Register states
@@ -46,7 +49,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [regEmail, setRegEmail] = useState('');
   const [regPhone, setRegPhone] = useState('+998 ');
   const [regPassword, setRegPassword] = useState('');
+  const [showRegPassword, setShowRegPassword] = useState(false);
   const [regPasswordConfirm, setRegPasswordConfirm] = useState('');
+  const [showRegPasswordConfirm, setShowRegPasswordConfirm] = useState(false);
   const [regMfyId, setRegMfyId] = useState<number>(1);
   const [farmType, setFarmType] = useState<FarmType>('limon');
   const [customFarmType, setCustomFarmType] = useState('');
@@ -344,14 +349,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <div className="relative">
                       <Lock className="w-4 h-4 text-[#94A3B8] absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
-                        type="password"
+                        type={showLoginPassword ? "text" : "password"}
                         required
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
                         placeholder="••••••••"
-                        className="w-full pl-9 pr-3 py-2 border border-[#CBD5E1] dark:border-slate-700 rounded-md bg-[#F8FAFC] dark:bg-slate-800 text-[#0F172A] dark:text-white font-medium focus:outline-hidden focus:border-[#3B82F6]"
+                        className="w-full pl-9 pr-10 py-2 border border-[#CBD5E1] dark:border-slate-700 rounded-md bg-[#F8FAFC] dark:bg-slate-800 text-[#0F172A] dark:text-white font-medium focus:outline-hidden focus:border-[#3B82F6]"
                         id="login-password-input"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowLoginPassword(!showLoginPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#0F172A] dark:hover:text-white transition-colors focus:outline-hidden p-0.5"
+                        title={showLoginPassword ? "Parolni yashirish" : "Parolni koʻrsatish"}
+                        id="toggle-login-password-visibility-btn"
+                      >
+                        {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
                     </div>
                   </div>
 
@@ -389,24 +403,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <span>Kirish</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
-
-                  {/* Davlat Organi Tezkor Kirishi */}
-                  <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-lg p-2.5 text-center">
-                    <p className="text-[11px] text-amber-800 dark:text-amber-300 mb-1.5 font-medium">
-                      🏛️ Davlat organlari va inspektorlar uchun maxsus kirish:
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLoginIdentifier('davlatorgan@gmail.com');
-                        setLoginPassword('agrocontrol14');
-                      }}
-                      className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded text-[11px] inline-flex items-center gap-1.5 transition-colors"
-                    >
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                      <span>davlatorgan@gmail.com / agrocontrol14 ni toʻldirish</span>
-                    </button>
-                  </div>
 
                   {/* Kirish tugmasining tagida joylashgan matnli tugmalar / linklar */}
                   <div className="border-t border-[#E2E8F0] dark:border-slate-800 pt-3 flex items-center justify-between text-xs">
@@ -567,14 +563,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       <div className="relative">
                         <Lock className="w-4 h-4 text-[#94A3B8] absolute left-3 top-1/2 -translate-y-1/2" />
                         <input
-                          type="password"
+                          type={showRegPassword ? "text" : "password"}
                           required
                           value={regPassword}
                           onChange={(e) => setRegPassword(e.target.value)}
                           placeholder="••••••••"
-                          className="w-full pl-9 pr-3 py-2 border border-[#CBD5E1] dark:border-slate-700 rounded-md bg-[#F8FAFC] dark:bg-slate-800 text-[#0F172A] dark:text-white font-medium focus:outline-hidden focus:border-[#3B82F6]"
+                          className="w-full pl-9 pr-10 py-2 border border-[#CBD5E1] dark:border-slate-700 rounded-md bg-[#F8FAFC] dark:bg-slate-800 text-[#0F172A] dark:text-white font-medium focus:outline-hidden focus:border-[#3B82F6]"
                           id="reg-password-input"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowRegPassword(!showRegPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#0F172A] dark:hover:text-white transition-colors focus:outline-hidden p-0.5"
+                          title={showRegPassword ? "Parolni yashirish" : "Parolni koʻrsatish"}
+                          id="toggle-reg-password-visibility-btn"
+                        >
+                          {showRegPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
                       </div>
                     </div>
 
@@ -585,14 +590,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       <div className="relative">
                         <Lock className="w-4 h-4 text-[#94A3B8] absolute left-3 top-1/2 -translate-y-1/2" />
                         <input
-                          type="password"
+                          type={showRegPasswordConfirm ? "text" : "password"}
                           required
                           value={regPasswordConfirm}
                           onChange={(e) => setRegPasswordConfirm(e.target.value)}
                           placeholder="••••••••"
-                          className="w-full pl-9 pr-3 py-2 border border-[#CBD5E1] dark:border-slate-700 rounded-md bg-[#F8FAFC] dark:bg-slate-800 text-[#0F172A] dark:text-white font-medium focus:outline-hidden focus:border-[#3B82F6]"
+                          className="w-full pl-9 pr-10 py-2 border border-[#CBD5E1] dark:border-slate-700 rounded-md bg-[#F8FAFC] dark:bg-slate-800 text-[#0F172A] dark:text-white font-medium focus:outline-hidden focus:border-[#3B82F6]"
                           id="reg-password-confirm-input"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowRegPasswordConfirm(!showRegPasswordConfirm)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#0F172A] dark:hover:text-white transition-colors focus:outline-hidden p-0.5"
+                          title={showRegPasswordConfirm ? "Parolni yashirish" : "Parolni koʻrsatish"}
+                          id="toggle-reg-password-confirm-visibility-btn"
+                        >
+                          {showRegPasswordConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
                       </div>
                     </div>
                   </div>
