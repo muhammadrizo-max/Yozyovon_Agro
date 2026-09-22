@@ -39,11 +39,13 @@ export const DevEmergencyPanel: React.FC = () => {
     blockedIps,
     whitelistIps,
     mfyList,
-    userRole
+    userRole,
+    devActiveSubTab,
+    setDevActiveSubTab
   } = useApp();
 
-  // 3 ta asosiy bo'lim (Foydalanuvchi talabiga asosan)
-  const [panelTab, setPanelTab] = useState<'backup_restore' | 'traffic_monitor' | 'logs_and_rbac'>('traffic_monitor');
+  // 3 ta asosiy bo'lim to'g'ridan-to'g'ri yuqoridagi Header navigatsiyasi orqali boshqariladi
+  const activeDevTab = devActiveSubTab || 'traffic_monitor';
   
   // Backup & Restore State
   const [jsonInput, setJsonInput] = useState<string>('');
@@ -280,59 +282,10 @@ export const DevEmergencyPanel: React.FC = () => {
         </div>
       )}
 
-      {/* 3 Asosiy Bo'lim Tablari (To'liq Kenglikda) */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto pb-px text-xs sm:text-sm font-semibold">
-        <button
-          onClick={() => setPanelTab('traffic_monitor')}
-          className={`flex items-center gap-2.5 px-6 py-3.5 rounded-t-xl border-b-2 transition-all cursor-pointer ${
-            panelTab === 'traffic_monitor'
-              ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 border-emerald-500 shadow-xs font-bold'
-              : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 border-transparent hover:bg-slate-100 dark:hover:bg-slate-900/50'
-          }`}
-        >
-          <Activity className="w-4 h-4" />
-          <span>1. Trafikni Real Vaqtda Kuzatish</span>
-          <span className="px-2 py-0.5 text-[10px] font-mono bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 rounded-full border border-emerald-500/40 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-            JONLI
-          </span>
-        </button>
-
-        <button
-          onClick={() => setPanelTab('backup_restore')}
-          className={`flex items-center gap-2.5 px-6 py-3.5 rounded-t-xl border-b-2 transition-all cursor-pointer ${
-            panelTab === 'backup_restore'
-              ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 border-emerald-500 shadow-xs font-bold'
-              : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 border-transparent hover:bg-slate-100 dark:hover:bg-slate-900/50'
-          }`}
-        >
-          <Database className="w-4 h-4" />
-          <span>2. Bazani Zahiralash va Tiklash</span>
-          <span className="px-2 py-0.5 text-[10px] font-mono bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 rounded-full border border-blue-300 dark:border-blue-800">
-            SHA-256
-          </span>
-        </button>
-
-        <button
-          onClick={() => setPanelTab('logs_and_rbac')}
-          className={`flex items-center gap-2.5 px-6 py-3.5 rounded-t-xl border-b-2 transition-all cursor-pointer ${
-            panelTab === 'logs_and_rbac'
-              ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 border-emerald-500 shadow-xs font-bold'
-              : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 border-transparent hover:bg-slate-100 dark:hover:bg-slate-900/50'
-          }`}
-        >
-          <Shield className="w-4 h-4" />
-          <span>3. Tizim Loglari va Kirish Huquqlari (RBAC)</span>
-          <span className="px-2 py-0.5 text-[10px] font-mono bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 rounded-full border border-purple-300 dark:border-purple-800">
-            {securityAuditLogs.length}
-          </span>
-        </button>
-      </div>
-
       {/* ==================================================================== */}
       {/* BO'LIM 1: TRAFIKNI REAL VAQTDA KUZATISH (LIVE TRAFFIC MONITOR)        */}
       {/* ==================================================================== */}
-      {panelTab === 'traffic_monitor' && (
+      {activeDevTab === 'traffic_monitor' && (
         <div className="space-y-6">
           
           {/* Top Live Metrics Bar */}
@@ -559,7 +512,7 @@ export const DevEmergencyPanel: React.FC = () => {
               </span>
             </div>
 
-            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 max-h-72 overflow-y-auto">
+            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 max-h-[480px] overflow-y-auto">
               <table className="w-full text-left text-xs font-mono">
                 <thead className="bg-slate-50 dark:bg-slate-800/90 text-slate-600 dark:text-slate-400 sticky top-0 border-b border-slate-200 dark:border-slate-700">
                   <tr>
@@ -573,7 +526,7 @@ export const DevEmergencyPanel: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-                  {trafficHistory.slice(0, 30).map((req) => (
+                  {trafficHistory.slice(0, 80).map((req) => (
                     <tr key={req.id} className={req.isThreat ? 'bg-rose-50/50 dark:bg-rose-950/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'}>
                       <td className="px-4 py-2.5 font-bold text-slate-900 dark:text-slate-200">{req.timeLabel}</td>
                       <td className="px-4 py-2.5 font-semibold text-slate-600 dark:text-slate-400">{req.ip}</td>
@@ -611,7 +564,7 @@ export const DevEmergencyPanel: React.FC = () => {
       {/* ==================================================================== */}
       {/* BO'LIM 2: MA'LUMOTLAR BAZASINI ZAHIRALASH VA TIKLASH                     */}
       {/* ==================================================================== */}
-      {panelTab === 'backup_restore' && (
+      {activeDevTab === 'backup_restore' && (
         <div className="space-y-6">
           
           {/* Integrity status card */}
@@ -830,7 +783,7 @@ export const DevEmergencyPanel: React.FC = () => {
       {/* ==================================================================== */}
       {/* BO'LIM 3: TIZIM LOGLARI VA KIRISH HUQUQLARI (AUDIT & RBAC)               */}
       {/* ==================================================================== */}
-      {panelTab === 'logs_and_rbac' && (
+      {activeDevTab === 'logs_and_rbac' && (
         <div className="space-y-6">
 
           {/* Role-Based Access Control (RBAC) Section */}

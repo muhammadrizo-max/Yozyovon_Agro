@@ -182,11 +182,22 @@ const DEFAULT_SITE_SETTINGS: SiteSettings = {
   siteName: 'YOZYOVON AGRO',
   siteTagline: 'Dehqonchilik & Sitruschilik Portali',
   siteDescription: 'Yozyovon tumani qishloq xoʻjaligi, sitruschilik va chorvachilik raqamli monitoring tizimi. 33 ta MFY boʻyicha yagona maʼlumotlar portali.',
-  contactPhone: '+998 73 502-12-34',
+  contactPhone: '+998 (73) 502-12-34',
   contactEmail: 'info@yozyovon-agro.uz',
-  contactAddress: 'Yozyovon tumani, Mustaqillik shoh koʻchasi, 12-uy',
+  contactAddress: 'Yozyovon tumani, Mustaqillik shoh koʻchasi, 1-uy',
   telegramBot: '@YozyovonAgroBot',
-  workingHours: 'Dush - Shan: 08:30 - 18:00'
+  workingHours: 'Dush - Juma: 08:00 - 17:00',
+  statsDisplayMode: 'real',
+  customStats: {
+    mfyCount: '33',
+    mfySub: 'Yozyovon tumani (4 ta sektor)',
+    farmersCount: '580+',
+    farmersSub: 'Faol foydalanuvchi',
+    lemonTrees: '185K+',
+    lemonSub: 'Daraxt monitoringi',
+    landArea: '14K+',
+    landSub: "Qishloq xo'jaligi"
+  }
 };
 
 const DEFAULT_CUSTOM_GUIDES: UploadedGuide[] = [

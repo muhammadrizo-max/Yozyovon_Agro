@@ -228,10 +228,10 @@ class TrafficMonitorService {
     const paths = ['/api/mfy-query', '/api/subsidies', '/api/weather', '/api/verify-recaptcha', '/api/telemetry', '/api/gis-map'];
     const now = Date.now();
 
-    // Generate recent 15 records up to the exact current second
-    for (let i = 15; i >= 0; i--) {
-      const time = new Date(now - i * 1500);
-      const isMalicious = i === 4;
+    // Generate recent 35 records up to the exact current second (1 second resolution)
+    for (let i = 35; i >= 0; i--) {
+      const time = new Date(now - i * 1000);
+      const isMalicious = i === 7 || i === 22;
       this.requestsHistory.push({
         id: `req-${now}-${i}`,
         timestamp: time.toISOString(),
@@ -240,7 +240,7 @@ class TrafficMonitorService {
         path: paths[i % paths.length],
         method: i % 3 === 0 ? 'POST' : 'GET',
         status: isMalicious ? 403 : 200,
-        durationMs: Math.floor(Math.random() * 35) + 12,
+        durationMs: Math.floor(Math.random() * 32) + 12,
         isThreat: isMalicious,
         threatType: isMalicious ? 'SQLI' : undefined
       });
@@ -248,8 +248,8 @@ class TrafficMonitorService {
   }
 
   /**
-   * Real-time jonli sekundma-sekund puls (Heartbeat Ticker):
-   * Tizim har 1.5 - 2 soniyada real vaqtli agro-telemetriya va monitoring so'rovlarini 
+   * Real-time jonli 1-sekundlik puls (Heartbeat Ticker):
+   * Tizim har 1 soniyada real vaqtli agro-telemetriya va monitoring so'rovlarini 
    * joriy aniq sekundma-sekund vaqt bilan qayd etib boradi!
    */
   private startLiveHeartbeat() {
@@ -282,7 +282,7 @@ class TrafficMonitorService {
         isThreat,
         isThreat ? (Math.random() > 0.5 ? 'BOT_SCAN' : 'DDOS_BURST') : undefined
       );
-    }, 1800);
+    }, 1000);
   }
 
   public subscribe(listener: (stats: any, history: TrafficRecord[]) => void) {

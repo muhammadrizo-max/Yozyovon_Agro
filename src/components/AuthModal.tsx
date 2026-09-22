@@ -86,6 +86,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   } | null>(null);
 
   const [errorMsg, setErrorMsg] = useState('');
+  const [toastNotification, setToastNotification] = useState<{
+    text: string;
+    type: 'error' | 'warning' | 'info';
+  } | null>(null);
+
+  const showToast = (text: string, type: 'error' | 'warning' | 'info' = 'error') => {
+    setToastNotification({ text, type });
+  };
+
+  React.useEffect(() => {
+    if (toastNotification) {
+      const timer = setTimeout(() => {
+        setToastNotification(null);
+      }, 4500);
+      return () => clearTimeout(timer);
+    }
+  }, [toastNotification]);
+
   const [isVerifying, setIsVerifying] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
 
@@ -164,12 +182,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     e.preventDefault();
 
     if (isLoginBlocked) {
-      setErrorMsg(`🚨 Kiber-hujumlarni oldini olish maqsadida tizim bloklangan! Qolgan vaqt: ${formatLockTime(loginLockRemainingSeconds)}`);
+      showToast(`🚨 Kiber-hujumlarni oldini olish maqsadida tizim bloklangan! Qolgan vaqt: ${formatLockTime(loginLockRemainingSeconds)}`);
       return;
     }
 
     if (!loginIdentifier.trim() || !loginPassword.trim()) {
-      setErrorMsg('Iltimos, telefon raqam yoki email hamda parolni kiriting');
+      showToast('Iltimos, telefon raqam yoki email hamda parolni kiriting');
       return;
     }
     setErrorMsg('');
@@ -183,9 +201,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const ok = login(loginIdentifier.trim(), loginIdentifier.trim(), loginPassword.trim());
     if (!ok) {
       if (loginAttempts + 1 >= maxLoginAttempts) {
-        setErrorMsg('🚨 Diqqat: Ketma-ket 4 marta notoʻgʻri parol kiritildi! Kiber-hujum (Brute-Force) xavfsizlik protokoli boʻyicha tizim 5 daqiqaga toʻliq bloklandi.');
+        showToast('🚨 Diqqat: Ketma-ket 4 marta notoʻgʻri parol kiritildi! Kiber-hujum (Brute-Force) xavfsizlik protokoli boʻyicha tizim 5 daqiqaga toʻliq bloklandi.');
       } else {
-        setErrorMsg(`Login yoki parol notoʻgʻri kiritildi! (${loginAttempts + 1}/4 urinish sarflandi. Qolgan urinishlar: ${maxLoginAttempts - (loginAttempts + 1)} ta)`);
+        showToast(`Login yoki parol notoʻgʻri kiritildi! (${loginAttempts + 1}/4 urinish sarflandi. Qolgan urinishlar: ${maxLoginAttempts - (loginAttempts + 1)} ta)`);
       }
       return;
     }
@@ -202,36 +220,36 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const handleRegisterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim()) {
-      setErrorMsg('Toʻliq ism-sharifingizni kiriting');
+      showToast('Toʻliq ism-sharifingizni kiriting');
       return;
     }
     if (!regEmail.trim() || !regEmail.includes('@')) {
-      setErrorMsg('Haqiqiy email manzilini kiriting (masalan: dehqon@gmail.com)');
+      showToast('Haqiqiy email manzilini kiriting (masalan: dehqon@gmail.com)');
       return;
     }
     if (!regPhone.trim() || regPhone.length < 9) {
-      setErrorMsg('Telefon raqamingizni toʻliq kiriting');
+      showToast('Telefon raqamingizni toʻliq kiriting');
       return;
     }
     if (regPassword.length < 6) {
-      setErrorMsg('Parol kamida 6 ta belgidan iborat boʻlishi kerak');
+      showToast('Parol kamida 6 ta belgidan iborat boʻlishi kerak');
       return;
     }
     if (regPassword !== regPasswordConfirm) {
-      setErrorMsg('Kiritilgan parollar bir-biriga mos kelmadi');
+      showToast('Kiritilgan parollar bir-biriga mos kelmadi');
       return;
     }
     if (farmType === 'boshqa' && !customFarmType.trim()) {
-      setErrorMsg('Xoʻjaligingizning aniq faoliyat turini yozing');
+      showToast('Xoʻjaligingizning aniq faoliyat turini yozing');
       return;
     }
     // Google reCAPTCHA v2 tekshiruvi
     if (!recaptchaVerified) {
-      setErrorMsg('Iltimos, kiber-xavfsizlik uchun Google reCAPTCHA "Men robot emasman" tekshiruvini tasdiqlang');
+      showToast('Iltimos, kiber-xavfsizlik uchun Google reCAPTCHA "Men robot emasman" tekshiruvini tasdiqlang');
       return;
     }
     if (!agreedToTerms) {
-      setErrorMsg('Roʻyxatdan oʻtish uchun foydalanish shartlariga rozilik bildirishingiz lozim');
+      showToast('Roʻyxatdan oʻtish uchun foydalanish shartlariga rozilik bildirishingiz lozim');
       return;
     }
 
@@ -277,8 +295,39 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#0F172A]/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto" id="auth-modal-overlay">
-      <div className="bg-white dark:bg-slate-900 rounded-xl max-w-lg w-full p-5 sm:p-7 shadow-2xl border border-[#E2E8F0] dark:border-slate-800 relative my-auto max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 z-50 bg-[#0F172A]/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-hidden" id="auth-modal-overlay">
+      
+      {/* Qalqib chiquvchi xabarnoma (Floating Toast Notification) */}
+      {toastNotification && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] w-[92%] max-w-md pointer-events-auto transition-all animate-in fade-in slide-in-from-top-4 duration-300 shadow-2xl">
+          <div className="flex items-start gap-3 p-3.5 sm:p-4 rounded-xl bg-rose-600 text-white shadow-2xl border border-rose-400/40 backdrop-blur-md">
+            <div className="p-1 rounded-lg bg-white/20 text-white shrink-0 mt-0.5">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-rose-100">
+                Xavfsizlik Ogohlantirishi
+              </p>
+              <p className="text-xs font-medium mt-0.5 text-white leading-relaxed">
+                {toastNotification.text}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setToastNotification(null)}
+              className="p-1 text-white/80 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className={`bg-white dark:bg-slate-900 rounded-2xl w-full p-5 sm:p-6 shadow-2xl border border-[#E2E8F0] dark:border-slate-800 relative my-auto transition-all ${
+        activeTab === 'login' 
+          ? 'max-w-md overflow-hidden' 
+          : 'max-w-lg max-h-[92vh] flex flex-col'
+      }`}>
         
         {/* Close Button */}
         <button
@@ -289,8 +338,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <X className="w-4 h-4" />
         </button>
 
-        {/* Scrollable Body */}
-        <div className="overflow-y-auto pr-1 space-y-4 custom-modal-scrollbar">
+        {/* Scrollable Body - Login rejimida scrolldan butunlay xoli */}
+        <div className={`space-y-3.5 ${
+          activeTab === 'login' 
+            ? 'overflow-visible' 
+            : 'overflow-y-auto pr-1 custom-modal-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'
+        }`}>
 
           {/* Verification Success View (After register) */}
           {verificationResult ? (
@@ -370,7 +423,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {/* Tab Switcher: Ro'yxatdan o'tish (ilk marta kirganda default) vs Tizimga Kirish */}
               <div className="grid grid-cols-2 gap-1 bg-[#F8FAFC] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 p-1 rounded-md text-xs font-semibold">
                 <button
-                  onClick={() => { setActiveTab('register'); setErrorMsg(''); }}
+                  onClick={() => { setActiveTab('register'); setErrorMsg(''); setToastNotification(null); }}
                   className={`py-2 rounded transition-colors ${
                     activeTab === 'register' 
                       ? 'bg-emerald-600 text-white shadow-xs font-bold' 
@@ -381,7 +434,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   Roʻyxatdan Oʻtish
                 </button>
                 <button
-                  onClick={() => { setActiveTab('login'); setErrorMsg(''); }}
+                  onClick={() => { setActiveTab('login'); setErrorMsg(''); setToastNotification(null); }}
                   className={`py-2 rounded transition-colors ${
                     activeTab === 'login' 
                       ? 'bg-[#0F172A] dark:bg-blue-600 text-white shadow-xs font-bold' 
@@ -411,12 +464,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       </p>
                     </div>
                   </div>
-                </div>
-              )}
-
-              {errorMsg && !isLoginBlocked && (
-                <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs rounded-md">
-                  {errorMsg}
                 </div>
               )}
 

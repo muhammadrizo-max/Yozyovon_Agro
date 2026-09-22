@@ -16,6 +16,7 @@ import {
   Mail,
   CheckCircle2,
 } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 import { AuthModal } from './AuthModal';
 
 interface LandingPageProps {
@@ -23,6 +24,7 @@ interface LandingPageProps {
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
+  const { siteSettings, mfyList, registeredFarmers } = useApp();
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
@@ -74,11 +76,36 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
     },
   ];
 
+  // Hisoblangan real ko'rsatkichlar (Baza bo'yicha)
+  const totalMfy = (mfyList || []).length || 33;
+  const totalLimonCount = (mfyList || []).reduce((sum, m) => sum + (m.limonDaraxtlari || 0), 0);
+  const totalGaArea = (mfyList || []).reduce((sum, m) => sum + (m.dehqonchilikGa || 0), 0);
+  const totalFarmersCount = 580 + (registeredFarmers || []).length;
+
+  const isCustomStats = siteSettings?.statsDisplayMode === 'custom';
+  const custom = siteSettings?.customStats;
+
   const stats = [
-    { value: '33', label: 'MFY', sub: 'Yozyovon tumani (4 ta sektor)' },
-    { value: '580+', label: 'Fermer', sub: 'Faol foydalanuvchi' },
-    { value: '185K+', label: 'Limon', sub: 'Daraxt monitoringi' },
-    { value: '14K+', label: 'ga', sub: 'Qishloq xo\'jaligi' },
+    { 
+      value: isCustomStats ? (custom?.mfyCount || '33') : `${totalMfy}`, 
+      label: 'MFY', 
+      sub: isCustomStats ? (custom?.mfySub || 'Yozyovon tumani (4 ta sektor)') : 'Yozyovon tumani (4 ta sektor)' 
+    },
+    { 
+      value: isCustomStats ? (custom?.farmersCount || '580+') : `${totalFarmersCount}+`, 
+      label: 'Fermer', 
+      sub: isCustomStats ? (custom?.farmersSub || 'Faol foydalanuvchi') : 'Faol foydalanuvchi' 
+    },
+    { 
+      value: isCustomStats ? (custom?.lemonTrees || '185K+') : `${Math.round(totalLimonCount / 1000)}K+`, 
+      label: 'Limon', 
+      sub: isCustomStats ? (custom?.lemonSub || 'Daraxt monitoringi') : 'Daraxt monitoringi' 
+    },
+    { 
+      value: isCustomStats ? (custom?.landArea || '14K+') : `${Math.round(totalGaArea / 1000)}K+`, 
+      label: 'ga', 
+      sub: isCustomStats ? (custom?.landSub || 'Qishloq xo\'jaligi') : 'Qishloq xo\'jaligi' 
+    },
   ];
 
   return (
@@ -294,15 +321,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
               </div>
               <span className="font-bold text-white text-sm">YOZYOVON AGRO</span>
             </div>
-            <div className="hidden sm:flex items-center gap-3 text-slate-500">
-              <div className="flex items-center gap-1">
-                <Phone className="w-3 h-3" />
-                <span>+998 (73) 502-12-34</span>
+            <div className="hidden sm:flex items-center gap-4 text-slate-400">
+              <div className="flex items-center gap-1.5 hover:text-white transition-colors">
+                <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{siteSettings?.contactPhone || '+998 (73) 502-12-34'}</span>
               </div>
-              <div className="flex items-center gap-1">
-                <Mail className="w-3 h-3" />
-                <span>info@yozyovon-agro.uz</span>
+              <div className="flex items-center gap-1.5 hover:text-white transition-colors">
+                <Mail className="w-3.5 h-3.5 text-blue-400" />
+                <span>{siteSettings?.contactEmail || 'info@yozyovon-agro.uz'}</span>
               </div>
+              {siteSettings?.contactAddress && (
+                <div className="hidden lg:flex items-center gap-1.5 text-slate-500">
+                  <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="truncate max-w-xs">{siteSettings.contactAddress}</span>
+                </div>
+              )}
             </div>
           </div>
           <p>© 2026 Yozyovon Tumani QX Boshqarmasi</p>

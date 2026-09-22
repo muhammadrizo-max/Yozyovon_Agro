@@ -70,6 +70,17 @@ export interface SiteSettings {
   contactAddress: string;
   telegramBot: string;
   workingHours: string;
+  statsDisplayMode?: 'real' | 'custom';
+  customStats?: {
+    mfyCount: string;
+    mfySub: string;
+    farmersCount: string;
+    farmersSub: string;
+    lemonTrees: string;
+    lemonSub: string;
+    landArea: string;
+    landSub: string;
+  };
 }
 
 export interface UploadedGuide {
@@ -351,6 +362,25 @@ export interface CyberDefenseStatus {
   lastAttackTime: string | null;
   rateLimitRpm: number;
   lastBackupTime: string | null;
+}
+
+export interface SiteAppearanceSettings {
+  phone: string;
+  email: string;
+  address: string;
+  workingHours: string;
+  telegramBot: string;
+  statsDisplayMode: 'real' | 'custom';
+  customStats: {
+    mfyCount: string;
+    mfySub: string;
+    farmersCount: string;
+    farmersSub: string;
+    lemonTrees: string;
+    lemonSub: string;
+    landArea: string;
+    landSub: string;
+  };
 }
 
 

@@ -17,7 +17,10 @@ import {
   Sparkles,
   ExternalLink,
   Phone,
-  Terminal
+  Terminal,
+  Activity,
+  Database,
+  Shield
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -38,14 +41,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenAuth })
     toggleDarkMode, 
     logout,
     currentMfyWeather,
-    siteSettings
+    siteSettings,
+    devActiveSubTab,
+    setDevActiveSubTab
   } = useApp();
 
   if (!isOpen) return null;
 
-  const handleNav = (tab: string, mfyId: number | null = null) => {
+  const handleNav = (tab: string, mfyId: number | null = null, devSubTab?: 'traffic_monitor' | 'backup_restore' | 'logs_and_rbac') => {
     selectMfy(mfyId);
     setActiveTab(tab);
+    if (devSubTab) {
+      setDevActiveSubTab(devSubTab);
+    }
     onClose();
   };
 
@@ -54,12 +62,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenAuth })
   const navItems = [
     ...(userRole === 'admin' ? [
       {
-        id: 'dev_hub',
-        label: 'Dasturchi Konsoli (SOC)',
-        desc: 'Zaxira, real vaqtli trafik va RBAC matritsasi',
-        icon: Terminal,
+        id: 'dev_traffic',
+        tab: 'dev_hub',
+        devSubTab: 'traffic_monitor' as const,
+        label: '1. Trafikni Real Kuzatish',
+        desc: 'Sekundma-sekund tarmoq oqimi va DDoS monitoring',
+        icon: Activity,
         color: 'text-emerald-500 dark:text-emerald-400',
         activeBg: 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+      },
+      {
+        id: 'dev_database',
+        tab: 'dev_hub',
+        devSubTab: 'backup_restore' as const,
+        label: '2. Bazani Tiklash & Zaxira',
+        desc: 'SHA-256 zaxiralar, snapshotlar va import/export',
+        icon: Database,
+        color: 'text-blue-500 dark:text-blue-400',
+        activeBg: 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800'
+      },
+      {
+        id: 'dev_logs',
+        tab: 'dev_hub',
+        devSubTab: 'logs_and_rbac' as const,
+        label: '3. Tizim Loglari & RBAC',
+        desc: 'Audit jurnali va rollar ruxsat matritsasi',
+        icon: Shield,
+        color: 'text-purple-500 dark:text-purple-400',
+        activeBg: 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-800'
       }
     ] : []),
     {
@@ -197,13 +227,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenAuth })
               Tizim Boʻlimlari
             </span>
 
-            {navItems.map((item) => {
+            {navItems.map((item: any) => {
               const Icon = item.icon;
-              const isActive = activeTab === item.id;
+              const targetTab = item.tab || item.id;
+              const devSub = item.devSubTab;
+              const isActive = activeTab === targetTab && (!devSub || devActiveSubTab === devSub);
               return (
                 <button
                   key={item.id}
-                  onClick={() => handleNav(item.id)}
+                  onClick={() => handleNav(targetTab, null, devSub)}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-all ${
                     isActive 
                       ? `${item.activeBg} font-bold shadow-xs` 
