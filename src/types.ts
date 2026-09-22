@@ -138,6 +138,7 @@ export interface MFYData {
   geojsonId: string;
   referendumNum?: number; // 1-rasmdagi Referendum / Saylov uchastkasi raqami (#551-#583)
   sektorNum?: 1 | 2 | 3 | 4; // 1-rasmdagi 4 ta Sektor (1-ko'k, 2-sariq, 3-qizil, 4-yashil)
+  sektor?: number;
   dehqonchilikGa: number;
   limonDaraxtlari: number;
   chorvaBoshlari: number;
@@ -248,7 +249,18 @@ export interface AppNotification {
   message: string;
   date: string;
   unread: boolean;
-  targetRole: 'dehqon' | 'davlat' | 'all';
+  targetRole: 'dehqon' | 'davlat' | 'admin' | 'all';
+}
+
+export interface SiteSettings {
+  siteName: string;
+  siteTagline: string;
+  siteDescription: string;
+  contactPhone: string;
+  contactEmail: string;
+  contactAddress: string;
+  telegramBot: string;
+  workingHours: string;
 }
 
 export interface ChatAttachment {

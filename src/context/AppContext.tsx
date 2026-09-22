@@ -125,6 +125,9 @@ interface AppContextType {
   unblockIp: (ip: string) => void;
   blockedIps: string[];
   whitelistIps: string[];
+  // Dasturchi Paneli Sub-Tablari
+  devActiveSubTab: 'traffic_monitor' | 'backup_restore' | 'logs_and_rbac';
+  setDevActiveSubTab: (tab: 'traffic_monitor' | 'backup_restore' | 'logs_and_rbac') => void;
   // Farmer Badges & Verification by Gov
   registeredFarmers: User[];
   grantFarmerBadge: (userId: number, years: number, title?: string) => void;
@@ -171,7 +174,8 @@ const STORAGE_KEYS = {
   DEMO_CLEANED_FLAG: 'yozyovon_cleaned_demo_v4',
   FAILED_LOGIN_ATTEMPTS: 'yozyovon_failed_login_attempts_v1',
   LOGIN_LOCKOUT_UNTIL: 'yozyovon_login_lockout_until_v1',
-  REGISTERED_USERS_DB: 'yozyovon_registered_users_db_v1'
+  REGISTERED_USERS_DB: 'yozyovon_registered_users_db_v1',
+  LAST_VISIT_TIMESTAMP: 'yozyovon_last_visit_timestamp_v1'
 };
 
 const DEFAULT_SITE_SETTINGS: SiteSettings = {
@@ -290,10 +294,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  // Login status: first-time visitors have false so login modal opens
+  const TEN_DAYS_MS = 10 * 24 * 60 * 60 * 1000; // 10 kun
+
+  // Login status: yangi kelganlar yoki so'nggi 10 kundan buyon kirmaganlar uchun qayta kirish/ro'yxatdan o'tish talab qilinadi
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    return localStorage.getItem(STORAGE_KEYS.LOGGED_IN) === 'true';
+    const isSavedLoggedIn = localStorage.getItem(STORAGE_KEYS.LOGGED_IN) === 'true';
+    const lastVisit = localStorage.getItem(STORAGE_KEYS.LAST_VISIT_TIMESTAMP);
+    const now = Date.now();
+
+    // Yangi, ilk marotaba kelayotgan foydalanuvchi
+    if (!isSavedLoggedIn) {
+      localStorage.setItem(STORAGE_KEYS.LAST_VISIT_TIMESTAMP, String(now));
+      return false;
+    }
+
+    // Avval ro'yxatdan o'tgan, lekin so'nggi marta tashrif buyurganiga 10 kundan oshgan bo'lsa
+    if (lastVisit) {
+      const diff = now - Number(lastVisit);
+      if (diff > TEN_DAYS_MS) {
+        localStorage.removeItem(STORAGE_KEYS.LOGGED_IN);
+        localStorage.removeItem(STORAGE_KEYS.USER);
+        localStorage.setItem(STORAGE_KEYS.LAST_VISIT_TIMESTAMP, String(now));
+        return false;
+      }
+    }
+
+    localStorage.setItem(STORAGE_KEYS.LAST_VISIT_TIMESTAMP, String(now));
+    return true;
   });
+
+  // Dasturchi Konsoli Sub-Tab holati
+  const [devActiveSubTab, setDevActiveSubTab] = useState<'traffic_monitor' | 'backup_restore' | 'logs_and_rbac'>('traffic_monitor');
 
   // Current user state
   const [currentUser, setCurrentUser] = useState<User>(() => {
@@ -1847,6 +1878,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         unblockIp,
         blockedIps,
         whitelistIps,
+        devActiveSubTab,
+        setDevActiveSubTab,
         registeredFarmers,
         grantFarmerBadge,
         revokeFarmerBadge,

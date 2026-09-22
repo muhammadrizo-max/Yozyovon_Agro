@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Sprout, 
   MapPin, 
@@ -29,7 +30,9 @@ import {
   Check,
   Building,
   Calendar,
-  Sparkles
+  Sparkles,
+  Activity,
+  Database
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { UserRole } from '../types';
@@ -61,7 +64,9 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
     isSidebarOpen,
     setIsSidebarOpen,
     mfyList,
-    updateUserProfile
+    updateUserProfile,
+    devActiveSubTab,
+    setDevActiveSubTab
   } = useApp();
 
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -78,6 +83,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
   const [saveSuccessMsg, setSaveSuccessMsg] = useState(false);
 
   const notifRef = useRef<HTMLDivElement>(null);
+  const notifListRef = useRef<HTMLDivElement>(null);
   const roleDropdownRef = useRef<HTMLDivElement>(null);
   const desktopProfileRef = useRef<HTMLDivElement>(null);
 
@@ -109,6 +115,31 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
 
   const currentMfy = mfyList.find(m => m.id === currentUser.mfyId) || mfyList[0];
 
+  // Rolga mos xabarnomalar (bir panelga kelgan xabar boshqalarida ko'rinmasin!)
+  const panelNotifications = useMemo(() => {
+    return notifications.filter(n => {
+      if (n.targetRole === 'all') return true;
+      return n.targetRole === userRole;
+    });
+  }, [notifications, userRole]);
+
+  const unreadCount = panelNotifications.filter(n => n.unread).length;
+
+  // Xabarnomalar menyusi ochilgach, foydalanuvchi ko'rganini tasdiqlash uchun 1.5 soniya (1500ms) kechikish bilan o'qilmagan xabarlar o'qilgan deb belgilanadi
+  useEffect(() => {
+    if (!isNotifOpen) return;
+
+    const timer = setTimeout(() => {
+      panelNotifications.forEach(notif => {
+        if (notif.unread) {
+          markNotificationAsRead(notif.id);
+        }
+      });
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [isNotifOpen, panelNotifications, markNotificationAsRead]);
+
   // Close notifications and profile dropdown when clicking outside or tapping anywhere else on screen
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent | TouchEvent) => {
@@ -134,8 +165,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
       document.removeEventListener('touchstart', handleOutsideClick);
     };
   }, [isNotifOpen, isRoleDropdownOpen, isDesktopProfileOpen]);
-
-  const unreadCount = notifications.filter(n => n.unread).length;
 
   return (
     <header className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-[#E2E8F0] dark:border-slate-800 shadow-xs transition-colors duration-200" id="app-header">
@@ -213,51 +242,40 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
             {userRole === 'admin' ? (
               <>
                 <button
-                  id="nav-admin-console"
-                  onClick={() => { selectMfy(null); setActiveTab('dev_hub'); }}
+                  id="nav-dev-traffic"
+                  onClick={() => { selectMfy(null); setActiveTab('dev_hub'); setDevActiveSubTab('traffic_monitor'); }}
                   className={`pb-1 border-b-2 text-xs font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${
-                    activeTab === 'dev_hub'
+                    activeTab === 'dev_hub' && devActiveSubTab === 'traffic_monitor'
                       ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500 font-bold'
                       : 'text-[#64748B] dark:text-slate-400 border-transparent hover:text-emerald-600 dark:hover:text-emerald-400'
                   }`}
                 >
-                  <Terminal className="w-4 h-4" />
-                  <span>Dasturchi Konsoli</span>
+                  <Activity className="w-4 h-4 text-emerald-500" />
+                  <span>Trafikni Real Vaqtda Kuzatish</span>
                 </button>
                 <button
-                  id="nav-gov-hub"
-                  onClick={() => { selectMfy(null); setActiveTab('gov_hub'); }}
+                  id="nav-dev-database"
+                  onClick={() => { selectMfy(null); setActiveTab('dev_hub'); setDevActiveSubTab('backup_restore'); }}
                   className={`pb-1 border-b-2 text-xs font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${
-                    activeTab === 'gov_hub' 
-                      ? 'text-[#3B82F6] border-[#3B82F6]' 
-                      : 'text-[#64748B] dark:text-slate-400 border-transparent hover:text-[#3B82F6]'
+                    activeTab === 'dev_hub' && devActiveSubTab === 'backup_restore'
+                      ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500 font-bold'
+                      : 'text-[#64748B] dark:text-slate-400 border-transparent hover:text-emerald-600 dark:hover:text-emerald-400'
                   }`}
                 >
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Boshqaruv Markazi</span>
+                  <Database className="w-4 h-4 text-emerald-500" />
+                  <span>Bazani Tiklash va Zaxiralash</span>
                 </button>
                 <button
-                  id="nav-gov-map"
-                  onClick={() => { selectMfy(null); setActiveTab('map'); }}
+                  id="nav-dev-logs"
+                  onClick={() => { selectMfy(null); setActiveTab('dev_hub'); setDevActiveSubTab('logs_and_rbac'); }}
                   className={`pb-1 border-b-2 text-xs font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${
-                    activeTab === 'map' 
-                      ? 'text-[#3B82F6] border-[#3B82F6]' 
-                      : 'text-[#64748B] dark:text-slate-400 border-transparent hover:text-[#3B82F6]'
+                    activeTab === 'dev_hub' && devActiveSubTab === 'logs_and_rbac'
+                      ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500 font-bold'
+                      : 'text-[#64748B] dark:text-slate-400 border-transparent hover:text-emerald-600 dark:hover:text-emerald-400'
                   }`}
                 >
-                  <Layers className="w-4 h-4" />
-                  <span>33 MFY Xaritasi</span>
-                </button>
-                <button
-                  id="nav-farmer-lemon-guide"
-                  onClick={() => setActiveTab('lemon_guide')}
-                  className={`pb-1 border-b-2 text-xs font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${
-                    activeTab === 'lemon_guide' 
-                      ? 'text-amber-600 border-amber-500 font-bold' 
-                      : 'text-[#64748B] dark:text-slate-400 border-transparent hover:text-amber-600'
-                  }`}
-                >
-                  <span>🍋 Limon Qoʻllanmasi</span>
+                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                  <span>Tizim Loglari va Kirish Huquqlari</span>
                 </button>
               </>
             ) : userRole === 'davlat' ? (
@@ -391,43 +409,122 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
                 title="Xabarnomalar"
               >
                 <Bell className="w-4 h-4" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-600 text-white rounded-full text-[10px] font-bold flex items-center justify-center">
-                    {unreadCount}
-                  </span>
-                )}
+                <AnimatePresence>
+                  {unreadCount > 0 && (
+                    <motion.span
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: 'easeOut' }}
+                      className="absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-rose-600 text-white rounded-full text-[10px] font-bold flex items-center justify-center shadow-xs"
+                    >
+                      {unreadCount}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
               </button>
 
-              {isNotifOpen && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-800 rounded-lg border border-[#E2E8F0] dark:border-slate-700 shadow-xl z-50 p-4 space-y-3">
-                  <div className="flex items-center justify-between border-b border-[#E2E8F0] dark:border-slate-700 pb-2">
-                    <span className="font-bold text-xs uppercase tracking-wider text-[#0F172A] dark:text-white">Xabarnomalar & Ogohlantirishlar</span>
-                    <span className="text-[10px] text-[#64748B] dark:text-slate-400">{notifications.length} ta xabar</span>
-                  </div>
-                  <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
-                    {notifications.map(notif => (
-                      <div 
-                        key={notif.id}
-                        onClick={() => markNotificationAsRead(notif.id)}
-                        className={`p-2.5 rounded-md text-xs border cursor-pointer transition-colors ${
-                          notif.unread 
-                            ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800' 
-                            : 'bg-[#F8FAFC] dark:bg-slate-900/60 border-[#E2E8F0] dark:border-slate-700'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className={`font-bold ${notif.type === 'danger' ? 'text-rose-700 dark:text-rose-400' : notif.type === 'warning' ? 'text-amber-800 dark:text-amber-300' : 'text-blue-800 dark:text-blue-400'}`}>
-                            {notif.title}
-                          </span>
-                          {notif.unread && <span className="w-2 h-2 rounded-full bg-[#3B82F6]"></span>}
-                        </div>
-                        <p className="text-[#334155] dark:text-slate-300 mt-1 text-[11px] leading-relaxed">{notif.message}</p>
-                        <span className="text-[10px] text-[#64748B] dark:text-slate-400 mt-1 block">{notif.date}</span>
+              <AnimatePresence>
+                {isNotifOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                    transition={{ duration: 0.2, ease: 'easeOut' }}
+                    className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-xl border border-[#E2E8F0] dark:border-slate-700 shadow-2xl z-50 p-4 space-y-3"
+                    id="notification-dropdown-panel"
+                  >
+                    <div className="flex items-center justify-between border-b border-[#E2E8F0] dark:border-slate-800 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs uppercase tracking-wider text-[#0F172A] dark:text-white">
+                          Xabarnomalar
+                        </span>
+                        <AnimatePresence>
+                          {unreadCount > 0 && (
+                            <motion.span
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.8 }}
+                              transition={{ duration: 0.2 }}
+                              className="px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 text-[10px] font-bold"
+                            >
+                              {unreadCount} yangi
+                            </motion.span>
+                          )}
+                        </AnimatePresence>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                      <span className="text-[10px] text-[#64748B] dark:text-slate-400">
+                        {panelNotifications.length} ta xabar
+                      </span>
+                    </div>
+
+                    {/* Vertical Scroll Container with Fixed Max-Height */}
+                    <div 
+                      ref={notifListRef}
+                      className="max-h-72 sm:max-h-80 overflow-y-auto space-y-2 pr-1.5 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700"
+                      id="notifications-scroll-container"
+                    >
+                      {panelNotifications.length === 0 ? (
+                        <div className="py-8 text-center text-xs text-[#64748B] dark:text-slate-400">
+                          Hozircha yangi bildirishnomalar mavjud emas
+                        </div>
+                      ) : (
+                        <AnimatePresence mode="popLayout">
+                          {panelNotifications.map(notif => (
+                            <motion.div 
+                              key={notif.id}
+                              data-notif-id={notif.id}
+                              data-unread={notif.unread}
+                              layout
+                              initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.94, y: -4 }}
+                              transition={{ duration: 0.25, ease: 'easeOut' }}
+                              onClick={() => markNotificationAsRead(notif.id)}
+                              className={`p-3 rounded-lg text-xs border cursor-pointer transition-colors duration-300 ease-in-out relative ${
+                                notif.unread 
+                                  ? 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/80 shadow-xs' 
+                                  : 'bg-[#F8FAFC]/90 dark:bg-slate-900/60 border-slate-200/80 dark:border-slate-800 hover:bg-slate-100/70 dark:hover:bg-slate-800/70'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span className={`font-bold ${
+                                  notif.type === 'danger' ? 'text-rose-700 dark:text-rose-400' : 
+                                  notif.type === 'warning' ? 'text-amber-700 dark:text-amber-400' : 
+                                  'text-blue-700 dark:text-blue-400'
+                                }`}>
+                                  {notif.title}
+                                </span>
+                                <AnimatePresence>
+                                  {notif.unread && (
+                                    <motion.span 
+                                      initial={{ scale: 0, opacity: 0 }}
+                                      animate={{ scale: 1, opacity: 1 }}
+                                      exit={{ scale: 0, opacity: 0 }}
+                                      transition={{ duration: 0.35, ease: 'easeInOut' }}
+                                      className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-xs shrink-0 ring-2 ring-blue-200 dark:ring-blue-900"
+                                      title="Yangi xabar"
+                                    />
+                                  )}
+                                </AnimatePresence>
+                              </div>
+                              <p className="text-[#334155] dark:text-slate-300 mt-1.5 text-[11px] leading-relaxed">
+                                {notif.message}
+                              </p>
+                              <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-200/50 dark:border-slate-800/50 text-[10px] text-[#64748B] dark:text-slate-400">
+                                <span>{notif.date}</span>
+                                <span className={`font-medium ${notif.unread ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`}>
+                                  {notif.unread ? 'Oʻqilmagan' : 'Oʻqilgan'}
+                                </span>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Role Switcher & User Profile Menu (Desktop: Full Details & Edit; Mobile: Navigation Menu) */}
@@ -711,66 +808,110 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
 
                   {/* Mobile Navigation Links */}
                   <div className="space-y-1 pt-1">
-                    <button
-                      onClick={() => {
-                        setActiveTab(userRole === 'davlat' ? 'gov_hub' : 'profile');
-                        setIsRoleDropdownOpen(false);
-                      }}
-                      className="w-full text-left p-2 rounded-md hover:bg-[#F8FAFC] dark:hover:bg-slate-800 text-[#0F172A] dark:text-slate-200 font-medium flex items-center gap-2"
-                      id="mobile-menu-farm-btn"
-                    >
-                      <Sprout className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>{userRole === 'davlat' ? 'Davlat Boshqaruv Markazi' : 'Mening Xoʻjaligim & Profil'}</span>
-                    </button>
+                    {userRole === 'admin' ? (
+                      <>
+                        <button
+                          onClick={() => {
+                            setActiveTab('dev_hub');
+                            setDevActiveSubTab('traffic_monitor');
+                            setIsRoleDropdownOpen(false);
+                          }}
+                          className="w-full text-left p-2 rounded-md hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-medium flex items-center gap-2"
+                        >
+                          <Activity className="w-4 h-4 text-emerald-500 shrink-0" />
+                          <span>Trafikni Real Vaqtda Kuzatish</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setActiveTab('dev_hub');
+                            setDevActiveSubTab('backup_restore');
+                            setIsRoleDropdownOpen(false);
+                          }}
+                          className="w-full text-left p-2 rounded-md hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-medium flex items-center gap-2"
+                        >
+                          <Database className="w-4 h-4 text-emerald-500 shrink-0" />
+                          <span>Bazani Tiklash va Zaxiralash</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setActiveTab('dev_hub');
+                            setDevActiveSubTab('logs_and_rbac');
+                            setIsRoleDropdownOpen(false);
+                          }}
+                          className="w-full text-left p-2 rounded-md hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 font-medium flex items-center gap-2"
+                        >
+                          <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                          <span>Tizim Loglari va Kirish Huquqlari</span>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => {
+                            setActiveTab(userRole === 'davlat' ? 'gov_hub' : 'profile');
+                            setIsRoleDropdownOpen(false);
+                          }}
+                          className="w-full text-left p-2 rounded-md hover:bg-[#F8FAFC] dark:hover:bg-slate-800 text-[#0F172A] dark:text-slate-200 font-medium flex items-center gap-2"
+                          id="mobile-menu-farm-btn"
+                        >
+                          <Sprout className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span>{userRole === 'davlat' ? 'Davlat Boshqaruv Markazi' : 'Mening Xoʻjaligim & Profil'}</span>
+                        </button>
 
-                    <button
-                      onClick={() => {
-                        setActiveTab('lemon_guide');
-                        setIsRoleDropdownOpen(false);
-                      }}
-                      className="w-full text-left p-2 rounded-md hover:bg-[#F8FAFC] dark:hover:bg-slate-800 text-[#0F172A] dark:text-slate-200 font-medium flex items-center gap-2"
-                      id="mobile-menu-lemon-btn"
-                    >
-                      <BookOpen className="w-4 h-4 text-amber-500 shrink-0" />
-                      <span>Limonchilik Qoʻllanmasi</span>
-                    </button>
+                        <button
+                          onClick={() => {
+                            setActiveTab('lemon_guide');
+                            setIsRoleDropdownOpen(false);
+                          }}
+                          className="w-full text-left p-2 rounded-md hover:bg-[#F8FAFC] dark:hover:bg-slate-800 text-[#0F172A] dark:text-slate-200 font-medium flex items-center gap-2"
+                          id="mobile-menu-lemon-btn"
+                        >
+                          <BookOpen className="w-4 h-4 text-amber-500 shrink-0" />
+                          <span>Limonchilik Qoʻllanmasi</span>
+                        </button>
 
-                    <button
-                      onClick={() => {
-                        setActiveTab('scanner');
-                        setIsRoleDropdownOpen(false);
-                      }}
-                      className="w-full text-left p-2 rounded-md hover:bg-[#F8FAFC] dark:hover:bg-slate-800 text-[#0F172A] dark:text-slate-200 font-medium flex items-center gap-2"
-                      id="mobile-menu-scanner-btn"
-                    >
-                      <ScanLine className="w-4 h-4 text-blue-500 shrink-0" />
-                      <span>AI Agro-Skaner</span>
-                    </button>
+                        {userRole === 'dehqon' && (
+                          <button
+                            onClick={() => {
+                              setActiveTab('scanner');
+                              setIsRoleDropdownOpen(false);
+                            }}
+                            className="w-full text-left p-2 rounded-md hover:bg-[#F8FAFC] dark:hover:bg-slate-800 text-[#0F172A] dark:text-slate-200 font-medium flex items-center gap-2"
+                            id="mobile-menu-scanner-btn"
+                          >
+                            <ScanLine className="w-4 h-4 text-blue-500 shrink-0" />
+                            <span>AI Agro-Skaner</span>
+                          </button>
+                        )}
 
-                    <button
-                      onClick={() => {
-                        selectMfy(null);
-                        setActiveTab('map');
-                        setIsRoleDropdownOpen(false);
-                      }}
-                      className="w-full text-left p-2 rounded-md hover:bg-[#F8FAFC] dark:hover:bg-slate-800 text-[#0F172A] dark:text-slate-200 font-medium flex items-center gap-2"
-                      id="mobile-menu-map-btn"
-                    >
-                      <Layers className="w-4 h-4 text-[#3B82F6] shrink-0" />
-                      <span>33 MFY Xaritasi</span>
-                    </button>
+                        {userRole === 'davlat' && (
+                          <button
+                            onClick={() => {
+                              selectMfy(null);
+                              setActiveTab('map');
+                              setIsRoleDropdownOpen(false);
+                            }}
+                            className="w-full text-left p-2 rounded-md hover:bg-[#F8FAFC] dark:hover:bg-slate-800 text-[#0F172A] dark:text-slate-200 font-medium flex items-center gap-2"
+                            id="mobile-menu-map-btn"
+                          >
+                            <Layers className="w-4 h-4 text-[#3B82F6] shrink-0" />
+                            <span>33 MFY Xaritasi</span>
+                          </button>
+                        )}
 
-                    <button
-                      onClick={() => {
-                        setActiveTab('weather_market');
-                        setIsRoleDropdownOpen(false);
-                      }}
-                      className="w-full text-left p-2 rounded-md hover:bg-[#F8FAFC] dark:hover:bg-slate-800 text-[#0F172A] dark:text-slate-200 font-medium flex items-center gap-2"
-                      id="mobile-menu-weather-btn"
-                    >
-                      <Sun className="w-4 h-4 text-amber-600 shrink-0" />
-                      <span>Agro-Ob-havo & Bozor</span>
-                    </button>
+                        <button
+                          onClick={() => {
+                            setActiveTab('weather_market');
+                            setIsRoleDropdownOpen(false);
+                          }}
+                          className="w-full text-left p-2 rounded-md hover:bg-[#F8FAFC] dark:hover:bg-slate-800 text-[#0F172A] dark:text-slate-200 font-medium flex items-center gap-2"
+                          id="mobile-menu-weather-btn"
+                        >
+                          <Sun className="w-4 h-4 text-amber-600 shrink-0" />
+                          <span>Agro-Ob-havo & Bozor</span>
+                        </button>
+                      </>
+                    )}
 
                     {/* Mobile Edit Profile Trigger */}
                     <button

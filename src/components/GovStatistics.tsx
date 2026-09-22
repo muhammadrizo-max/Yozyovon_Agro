@@ -3,6 +3,7 @@ import {
   BarChart3, 
   FileSpreadsheet, 
   Printer, 
+  FileDown,
   Layers, 
   Users, 
   ArrowUpDown, 
@@ -35,6 +36,7 @@ import {
 } from 'recharts';
 import { useApp } from '../context/AppContext';
 import { MFYData } from '../types';
+import { exportGovStatisticsPdf } from '../utils/pdfExport';
 
 export const GovStatistics: React.FC = () => {
   const { mfyList, selectMfy, exportToCsv, registeredFarmers, subsidies } = useApp();
@@ -138,6 +140,48 @@ export const GovStatistics: React.FC = () => {
     }
   };
 
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [lineMetricView, setLineMetricView] = useState<'both' | 'limon' | 'chorva'>('both');
+
+  // Ko'p oylik limon hosildorligi va chorvachilik o'sish dinamikasi (Recharts LineChart ma'lumotlari)
+  const multiMonthTrendData = useMemo(() => [
+    { oy: 'Yanvar', qisqaOy: 'Yan', limonHosil: 420, chorvaBosh: 84.2, chorvaYillik: 80.1 },
+    { oy: 'Fevral', qisqaOy: 'Fev', limonHosil: 580, chorvaBosh: 85.6, chorvaYillik: 81.0 },
+    { oy: 'Mart', qisqaOy: 'Mar', limonHosil: 890, chorvaBosh: 87.1, chorvaYillik: 82.3 },
+    { oy: 'Aprel', qisqaOy: 'Apr', limonHosil: 1250, chorvaBosh: 88.8, chorvaYillik: 83.5 },
+    { oy: 'May', qisqaOy: 'May', limonHosil: 1780, chorvaBosh: 90.4, chorvaYillik: 84.9 },
+    { oy: 'Iyun', qisqaOy: 'Iyn', limonHosil: 2400, chorvaBosh: 92.1, chorvaYillik: 86.2 },
+    { oy: 'Iyul', qisqaOy: 'Iyl', limonHosil: 2950, chorvaBosh: 93.9, chorvaYillik: 87.8 },
+    { oy: 'Avgust', qisqaOy: 'Avg', limonHosil: 3400, chorvaBosh: 95.2, chorvaYillik: 89.1 },
+    { oy: 'Sentabr', qisqaOy: 'Sen', limonHosil: 4100, chorvaBosh: 96.8, chorvaYillik: 90.5 },
+    { oy: 'Oktabr', qisqaOy: 'Okt', limonHosil: 4850, chorvaBosh: 98.1, chorvaYillik: 92.0 },
+    { oy: 'Noyabr', qisqaOy: 'Noy', limonHosil: 5400, chorvaBosh: 99.4, chorvaYillik: 93.4 },
+    { oy: 'Dekabr', qisqaOy: 'Dek', limonHosil: 5900, chorvaBosh: 101.2, chorvaYillik: 94.8 },
+  ], []);
+
+  const handleExportPdf = () => {
+    setIsExportingPdf(true);
+    try {
+      exportGovStatisticsPdf({
+        totalLimon,
+        totalChorva,
+        totalMaydon,
+        totalFarmers,
+        pendingSubsidiesCount,
+        topMfyList: sortedMfyList,
+        monthlyData: multiMonthTrendData.map(d => ({
+          oy: d.oy,
+          limonHosil: d.limonHosil,
+          chorvaBosh: d.chorvaBosh
+        }))
+      });
+    } catch (err) {
+      console.error('PDF export error:', err);
+    } finally {
+      setTimeout(() => setIsExportingPdf(false), 600);
+    }
+  };
+
   const handleExportAll = () => {
     const headers = ['MFY Nomi', 'Sektor', 'Dehqonchilik Maydoni (ga)', 'Limon Daraxtlari (dona)', 'Chorva Boshlari (bosh)', 'Fermer Xo\'jaliklari'];
     const rows = sortedMfyList.map(m => [
@@ -168,14 +212,24 @@ export const GovStatistics: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={handleExportPdf}
+            disabled={isExportingPdf}
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-lg text-xs font-bold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+            id="export-pdf-statistics-btn"
+            title="Rasmiy davlat monitoring hisobotini PDF formatida yuklab olish"
+          >
+            <FileDown className="w-4 h-4" />
+            <span>{isExportingPdf ? 'PDF Tayyorlanmoqda...' : 'Export to PDF (Hisobot)'}</span>
+          </button>
           <button
             onClick={handleExportAll}
-            className="px-3.5 py-2 bg-white dark:bg-slate-800 border border-[#CBD5E1] dark:border-slate-700 text-[#0F172A] dark:text-white hover:bg-[#F8FAFC] rounded-lg text-xs font-bold flex items-center gap-2 shadow-xs transition-colors"
+            className="px-3.5 py-2 bg-white dark:bg-slate-800 border border-[#CBD5E1] dark:border-slate-700 text-[#0F172A] dark:text-white hover:bg-[#F8FAFC] dark:hover:bg-slate-700 rounded-lg text-xs font-bold flex items-center gap-2 shadow-xs transition-colors"
             id="export-statistics-btn"
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-            <span>Excel / CSV Eksport</span>
+            <span>Excel / CSV</span>
           </button>
           <button
             onClick={() => window.print()}
@@ -511,6 +565,148 @@ export const GovStatistics: React.FC = () => {
           </div>
         </div>
 
+      </div>
+
+      {/* ======================================================== */}
+      {/* 📈 KO'P OYLIK LIMON HOSILDORLIGI VA CHORVA O'SISH DINAMIKASI (LINECHART) */}
+      {/* ======================================================== */}
+      <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-xl border border-[#E2E8F0] dark:border-slate-800 shadow-xs" id="multi-month-trends-linechart-card">
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#E2E8F0] dark:border-slate-800">
+          <div>
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 rounded-lg">
+                <TrendingUp className="w-4 h-4" />
+              </div>
+              <h3 className="font-bold text-sm text-[#0F172A] dark:text-white">
+                Koʻp Oylik Limon Hosildorligi va Chorvachilik Oʻsish Dinamikasi
+              </h3>
+            </div>
+            <p className="text-[11px] text-[#64748B] dark:text-slate-400 mt-1">
+              Yil davomida oylik limon hosili (tonna) va chorva sonining (ming bosh) oʻsish tendentsiyasi (Recharts LineChart)
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="inline-flex p-1 bg-[#F1F5F9] dark:bg-slate-800 rounded-lg text-xs font-semibold">
+              <button
+                onClick={() => setLineMetricView('both')}
+                className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
+                  lineMetricView === 'both' 
+                    ? 'bg-white dark:bg-slate-900 text-[#0F172A] dark:text-white shadow-xs font-bold' 
+                    : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
+                }`}
+              >
+                Barchasi (Ikkalasi)
+              </button>
+              <button
+                onClick={() => setLineMetricView('limon')}
+                className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
+                  lineMetricView === 'limon' 
+                    ? 'bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-xs font-bold' 
+                    : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
+                }`}
+              >
+                Faqat Limon Hosili
+              </button>
+              <button
+                onClick={() => setLineMetricView('chorva')}
+                className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
+                  lineMetricView === 'chorva' 
+                    ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs font-bold' 
+                    : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
+                }`}
+              >
+                Faqat Chorva Soni
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Highlights Bar */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 my-4">
+          <div className="p-3 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 rounded-lg flex items-center justify-between">
+            <span className="text-xs text-amber-900 dark:text-amber-300 font-medium">Limon Hosili Dinamikasi:</span>
+            <span className="text-xs font-bold text-amber-700 dark:text-amber-400">420 t → 5,900 t (+1,304%)</span>
+          </div>
+          <div className="p-3 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 rounded-lg flex items-center justify-between">
+            <span className="text-xs text-blue-900 dark:text-blue-300 font-medium">Chorva Bosh Soni:</span>
+            <span className="text-xs font-bold text-blue-700 dark:text-blue-400">84.2k → 101.2k (+20.2%)</span>
+          </div>
+          <div className="p-3 bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/60 dark:border-emerald-900/40 rounded-lg flex items-center justify-between">
+            <span className="text-xs text-emerald-900 dark:text-emerald-300 font-medium">Eng Faol Terim Oylari:</span>
+            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">Sentabr - Dekabr</span>
+          </div>
+        </div>
+
+        <div className="h-80 w-full pt-2">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={multiMonthTrendData} margin={{ top: 15, right: 25, left: 0, bottom: 10 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" opacity={0.6} />
+              <XAxis dataKey="qisqaOy" tick={{ fontSize: 11, fill: '#64748B' }} />
+              <YAxis 
+                yAxisId="left" 
+                orientation="left" 
+                tick={{ fontSize: 10, fill: '#D97706' }} 
+                unit=" t"
+                stroke="#F59E0B"
+              />
+              <YAxis 
+                yAxisId="right" 
+                orientation="right" 
+                tick={{ fontSize: 10, fill: '#2563EB' }} 
+                unit=" k"
+                stroke="#3B82F6"
+                domain={[70, 110]}
+              />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: '#0F172A', 
+                  color: '#fff', 
+                  borderRadius: '8px', 
+                  fontSize: '12px',
+                  border: 'none',
+                  boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)'
+                }} 
+                formatter={(val: any, name: string) => {
+                  if (name.includes('Limon')) return [`${val} tonna`, name];
+                  if (name.includes('Chorva')) return [`${val} ming bosh`, name];
+                  return [val, name];
+                }}
+                labelFormatter={(label) => {
+                  const item = multiMonthTrendData.find(d => d.qisqaOy === label);
+                  return item ? `${item.oy} oyi monitoringi` : label;
+                }}
+              />
+              <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+              {(lineMetricView === 'both' || lineMetricView === 'limon') && (
+                <Line 
+                  yAxisId="left" 
+                  type="monotone" 
+                  dataKey="limonHosil" 
+                  name="Limon Hosildorligi (tonna)" 
+                  stroke="#F59E0B" 
+                  strokeWidth={3} 
+                  dot={{ r: 4, fill: '#F59E0B', strokeWidth: 1, stroke: '#fff' }} 
+                  activeDot={{ r: 7, stroke: '#D97706', strokeWidth: 2, fill: '#FDE68A' }} 
+                  animationDuration={1000}
+                />
+              )}
+              {(lineMetricView === 'both' || lineMetricView === 'chorva') && (
+                <Line 
+                  yAxisId="right" 
+                  type="monotone" 
+                  dataKey="chorvaBosh" 
+                  name="Chorva Bosh Soni (ming bosh)" 
+                  stroke="#3B82F6" 
+                  strokeWidth={3} 
+                  dot={{ r: 4, fill: '#3B82F6', strokeWidth: 1, stroke: '#fff' }} 
+                  activeDot={{ r: 7, stroke: '#1D4ED8', strokeWidth: 2, fill: '#BFDBFE' }} 
+                  animationDuration={1000}
+                />
+              )}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       {/* ======================================================== */}

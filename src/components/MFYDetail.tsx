@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { MFYData } from '../types';
+import { exportMfyPassportPdf } from '../utils/pdfExport';
 
 interface MFYDetailProps {
   mfyId: number;
@@ -62,7 +63,21 @@ export const MFYDetail: React.FC<MFYDetailProps> = ({ mfyId, onBack }) => {
     setTimeout(() => setIsExporting(false), 500);
   };
 
-  // Handle PDF Export (Opens custom styled print view)
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  // Handle PDF Export (Downloads clean official MFY Passport PDF)
+  const handlePdfExport = () => {
+    setIsExportingPdf(true);
+    try {
+      exportMfyPassportPdf(mfy);
+    } catch (err) {
+      console.error('MFY PDF Export error:', err);
+    } finally {
+      setTimeout(() => setIsExportingPdf(false), 500);
+    }
+  };
+
+  // Handle PDF Print (Opens print dialog)
   const handlePdfPrint = () => {
     window.print();
   };
@@ -101,14 +116,24 @@ export const MFYDetail: React.FC<MFYDetailProps> = ({ mfyId, onBack }) => {
         </div>
 
         {/* Export Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            id="export-official-pdf-btn"
+            onClick={handlePdfExport}
+            disabled={isExportingPdf}
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-md text-xs font-semibold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+            title="MFY rasmiy pasportini PDF formatida yuklab olish"
+          >
+            <FileDown className="w-4 h-4" />
+            <span>{isExportingPdf ? 'Tayyorlanmoqda...' : 'Export to PDF'}</span>
+          </button>
           <button
             id="export-csv-btn"
             onClick={handleExcelExport}
             className="px-3.5 py-2 bg-[#3B82F6] hover:bg-blue-600 text-white rounded-md text-xs font-semibold flex items-center gap-2 shadow-xs transition-colors"
           >
             <FileSpreadsheet className="w-4 h-4" />
-            <span>Excel / CSV Eksport</span>
+            <span>Excel / CSV</span>
           </button>
           <button
             id="export-pdf-btn"
@@ -116,7 +141,7 @@ export const MFYDetail: React.FC<MFYDetailProps> = ({ mfyId, onBack }) => {
             className="px-3.5 py-2 bg-[#0F172A] hover:bg-slate-800 text-white rounded-md text-xs font-semibold flex items-center gap-2 shadow-xs transition-colors"
           >
             <Printer className="w-4 h-4" />
-            <span>PDF Chop etish</span>
+            <span>Chop etish</span>
           </button>
         </div>
       </div>

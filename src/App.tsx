@@ -41,7 +41,8 @@ const AppContent: React.FC = () => {
   } = useApp();
 
   // Auth modal state (Kirish yoki Roʻyxatdan oʻtish)
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  // Agar foydalanuvchi yangi bo'lsa yoki 10 kundan oshgan bo'lsa, sahifa yangilanganida (reload) mehmon/kirish oynasi avtomatik ochiladi
+  const [isAuthOpen, setIsAuthOpen] = useState<boolean>(() => !isLoggedIn);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   const handleOpenAuth = (mode: 'login' | 'register' = 'login') => {
