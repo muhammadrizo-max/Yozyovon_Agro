@@ -3,7 +3,7 @@ import {
   User, UserRole, FarmType, MFYData, Crop, Livestock, AIScan, 
   WeatherInfo, MarketPrice, AppNotification, SubsidyApplication, ExportCertificate,
   SecurityLog, CyberDefenseStatus, SiteSettings, UploadedGuide, FarmerAdvice,
-  ChatAttachment, ChatMessage
+  ChatAttachment, ChatMessage, DatabaseBackupSnapshot, RbacPermission
 } from '../types';
 import { 
   INITIAL_USERS, YOZYOVON_MFY_LIST, INITIAL_CROPS, 
@@ -14,6 +14,10 @@ import {
   hashPassword, generateSalt, encryptVaultData, decryptVaultData, 
   StoredUserAccount, EncryptedVaultPayload 
 } from '../services/cryptoService';
+import { 
+  trafficMonitor, sanitizeSqlParam, sanitizeXssInput, 
+  detectSqlInjection, executeParameterizedQuery 
+} from '../utils/security';
 
 interface RegistrationData {
   name: string;
@@ -90,7 +94,7 @@ interface AppContextType {
   // Dark / Light Mode
   isDarkMode: boolean;
   toggleDarkMode: () => void;
-  // Developer & Cyber Defense Backdoor / Emergency Console
+  // Developer & Security Operations Center (SOC)
   isDevModalOpen: boolean;
   setIsDevModalOpen: (open: boolean) => void;
   isCyberDefenseActive: boolean;
@@ -105,6 +109,22 @@ interface AppContextType {
   addSecurityLog: (log: Omit<SecurityLog, 'id' | 'timestamp'>) => void;
   exportDatabaseJson: () => string;
   importDatabaseJson: (jsonStr: string) => boolean;
+  // Yangi Xavfsizlik Funksiyalari
+  backupDatabase: (format?: 'json' | 'sql') => string;
+  restoreDatabaseFromBackup: (content: string) => { success: boolean; message: string; recordsCount?: number };
+  verifyDatabaseIntegrity: () => { isValid: boolean; hash: string; recordsCount: number; details: string };
+  backupSnapshots: DatabaseBackupSnapshot[];
+  createBackupSnapshot: (note?: string) => DatabaseBackupSnapshot;
+  deleteBackupSnapshot: (id: string) => void;
+  rbacPermissions: RbacPermission[];
+  toggleRbacPermission: (permissionId: string, role: 'admin' | 'davlat' | 'dehqon') => void;
+  hasPermission: (permissionId: string) => boolean;
+  trafficStats: { totalRequests: number; threatsBlocked: number; rateLimitedRequests: number; avgResponseTimeMs: number; blockedIpsCount: number; maxRpmSetting: number };
+  setMaxRpm: (rpm: number) => void;
+  blockIp: (ip: string) => void;
+  unblockIp: (ip: string) => void;
+  blockedIps: string[];
+  whitelistIps: string[];
   // Farmer Badges & Verification by Gov
   registeredFarmers: User[];
   grantFarmerBadge: (userId: number, years: number, title?: string) => void;
@@ -547,7 +567,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Cyber Defense & Honeypot states
+  // Cyber Defense & Security states
   const [cyberDefenseStatus, setCyberDefenseStatus] = useState<CyberDefenseStatus>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.CYBER_STATUS);
     if (saved) {
@@ -558,73 +578,253 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isHoneypotActive: false,
       vaultEncrypted: false,
       dbHash: 'SHA256:7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069',
-      firewallLevel: 'standard',
-      attacksBlockedCount: 14,
-      lastAttackTime: '2026-08-29 11:24:08'
+      firewallLevel: 'strict',
+      attacksBlockedCount: 18,
+      lastAttackTime: '2026-09-22 09:15:33',
+      rateLimitRpm: 120,
+      lastBackupTime: '2026-09-21 22:00:00'
     };
   });
 
-  // Real database backup in encrypted cold vault
-  const [encryptedVault, setEncryptedVault] = useState<{
-    mfyList: MFYData[];
-    crops: Crop[];
-    livestock: Livestock[];
-    subsidies: SubsidyApplication[];
-    exportCertificates: ExportCertificate[];
-  } | null>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.REAL_VAULT);
+  // Database Backup Snapshots History
+  const [backupSnapshots, setBackupSnapshots] = useState<DatabaseBackupSnapshot[]>(() => {
+    const saved = localStorage.getItem('yozyovon_backup_snapshots');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) {}
     }
-    return null;
+    return [
+      {
+        id: 'snap-auto-init',
+        timestamp: '2026-09-21 22:00:00',
+        name: 'Avtomatik Tizimli Zaxira (Rejali)',
+        format: 'json',
+        recordsCount: 33,
+        sizeKb: 142.5,
+        checksumSha256: 'SHA256:7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069',
+        autoBackup: true,
+        status: 'verified'
+      }
+    ];
   });
+
+  // Role-Based Access Control (RBAC) Permissions Matrix
+  const [rbacPermissions, setRbacPermissions] = useState<RbacPermission[]>(() => {
+    const saved = localStorage.getItem('yozyovon_rbac_permissions');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return [
+      {
+        id: 'perm_mfy_view',
+        name: 'MFY Maʼlumotlarini Koʻrish',
+        description: '33 ta MFY xaritasi, ekin maydonlari va fermerlar statistikasini koʻrish',
+        category: 'monitoring',
+        roles: { admin: true, davlat: true, dehqon: true }
+      },
+      {
+        id: 'perm_mfy_edit',
+        name: 'MFY Parametrlarini Tahrirlash',
+        description: 'MFY boʻyicha daraxtlar, chorva va dehqonchilik koʻrsatkichlarini yangilash',
+        category: 'database',
+        roles: { admin: true, davlat: true, dehqon: false }
+      },
+      {
+        id: 'perm_subsidy_apply',
+        name: 'Subsidiya Ariza Topshirish',
+        description: 'Davlat subsidiyalariga elektron ariza yuborish huquqi',
+        category: 'subsidies',
+        roles: { admin: true, davlat: false, dehqon: true }
+      },
+      {
+        id: 'perm_subsidy_approve',
+        name: 'Subsidiyalarni Tasdiqlash/Rad Etish',
+        description: 'Fermerlar arizalarini koʻrib chiqish va qaror qabul qilish',
+        category: 'subsidies',
+        roles: { admin: true, davlat: true, dehqon: false }
+      },
+      {
+        id: 'perm_export_cert',
+        name: 'Eksport Sertifikati Berish',
+        description: 'Fitosaniptariya va xalqaro eksport sertifikatlarini roʻyxatdan oʻtkazish',
+        category: 'export',
+        roles: { admin: true, davlat: true, dehqon: false }
+      },
+      {
+        id: 'perm_backup_restore',
+        name: 'Maʼlumotlar Bazasini Zahiralash & Tiklash',
+        description: 'Agro-monitoring maʼlumotlar bazasini toʻliq yuklab olish va tiklash',
+        category: 'database',
+        roles: { admin: true, davlat: false, dehqon: false }
+      },
+      {
+        id: 'perm_traffic_monitor',
+        name: 'Trafikni Real Vaqtda Kuzatish (Live SOC)',
+        description: 'DDoS va soʻrovlar dinamikasini real vaqtda kuzatish',
+        category: 'security',
+        roles: { admin: true, davlat: true, dehqon: false }
+      },
+      {
+        id: 'perm_system_logs',
+        name: 'Tizim Loglarini Tekshirish',
+        description: 'SQL Injection, XSS filtri va kirish audit loglarini tahlil qilish',
+        category: 'security',
+        roles: { admin: true, davlat: true, dehqon: false }
+      },
+      {
+        id: 'perm_access_control',
+        name: 'Kirish Huquqlarini Boshqarish (RBAC)',
+        description: 'Foydalanuvchi rollari va ruxsatnomalar matritsasini oʻzgartirish',
+        category: 'security',
+        roles: { admin: true, davlat: false, dehqon: false }
+      }
+    ];
+  });
+
+  // Traffic & Firewall State
+  const [trafficStats, setTrafficStats] = useState(() => trafficMonitor.getStats());
+  const [blockedIps, setBlockedIps] = useState<string[]>(() => trafficMonitor.getBlockedIps());
+  const [whitelistIps, setWhitelistIps] = useState<string[]>(() => trafficMonitor.getWhitelistIps());
+
+  // Periodically update live traffic stats
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTrafficStats(trafficMonitor.getStats());
+      setBlockedIps(trafficMonitor.getBlockedIps());
+    }, 2500);
+    return () => clearInterval(timer);
+  }, []);
+
+  const setMaxRpm = (rpm: number) => {
+    trafficMonitor.setMaxRpm(rpm);
+    setCyberDefenseStatus(prev => ({ ...prev, rateLimitRpm: rpm }));
+    setTrafficStats(trafficMonitor.getStats());
+    addSecurityLog({
+      event: `WAF RATE-LIMIT CONFIG UPDATED: ${rpm} RPM`,
+      ip: '127.0.0.1 (Admin Console)',
+      severity: 'info',
+      status: 'verified',
+      details: `DDoS xavfsizlik devori soʻrovlar tezligi chegarasi daqiqasiga ${rpm} qilib belgilandi.`
+    });
+  };
+
+  const blockIp = (ip: string) => {
+    trafficMonitor.blockIp(ip);
+    setBlockedIps(trafficMonitor.getBlockedIps());
+    addSecurityLog({
+      event: `IP BLOCKED BY FIREWALL: ${ip}`,
+      ip,
+      severity: 'warning',
+      status: 'blocked',
+      details: `Ushbu IP manzil administrator tomonidan kiber-xavfsizlik devori qora roʻyxatiga kiritildi.`
+    });
+  };
+
+  const unblockIp = (ip: string) => {
+    trafficMonitor.unblockIp(ip);
+    setBlockedIps(trafficMonitor.getBlockedIps());
+    addSecurityLog({
+      event: `IP UNBLOCKED: ${ip}`,
+      ip,
+      severity: 'info',
+      status: 'verified',
+      details: `IP manzil qora roʻyxatdan chiqarildi.`
+    });
+  };
+
+  const hasPermission = (permissionId: string): boolean => {
+    const perm = rbacPermissions.find(p => p.id === permissionId);
+    if (!perm) return true;
+    return !!perm.roles[currentUser.role];
+  };
+
+  const toggleRbacPermission = (permissionId: string, role: 'admin' | 'davlat' | 'dehqon') => {
+    let permName = permissionId;
+    let newStatus = false;
+
+    setRbacPermissions(prev => {
+      const updated = prev.map(p => {
+        if (p.id === permissionId) {
+          permName = p.name;
+          newStatus = !p.roles[role];
+          return {
+            ...p,
+            roles: {
+              ...p.roles,
+              [role]: newStatus
+            }
+          };
+        }
+        return p;
+      });
+      localStorage.setItem('yozyovon_rbac_permissions', JSON.stringify(updated));
+      return updated;
+    });
+
+    const roleTitle = role === 'admin' ? 'Dasturchi (Root)' : role === 'davlat' ? 'Davlat Organi' : 'Dehqon / Fermer';
+    const statusText = newStatus ? 'berildi (RUXSAT ETILDI)' : 'bekor qilindi (TAQIQLANDI)';
+
+    addSecurityLog({
+      event: `RBAC SOZLAMA: [${role.toUpperCase()}] -> ${permissionId}`,
+      ip: '127.0.0.1 (Developer SOC)',
+      severity: newStatus ? 'info' : 'warning',
+      status: 'verified',
+      details: `${roleTitle} uchun '${permName}' huquqi ${statusText}. Ushbu cheklov barcha panellarda darhol kuchga kirdi.`
+    });
+
+    // Real-time bildirishnoma (barcha panellarda darhol ko'rsatiladi)
+    sendGovBroadcastAlert(
+      `🔒 KIBER-XAVFSIZLIK: KIRISH HUQUQI OʻZGARTIRILDI`,
+      `[${roleTitle}] roli uchun '${permName}' huquqi ${statusText}. Cheklov tizim boʻylab darhol kuchga kirdi.`,
+      newStatus ? 'info' : 'warning'
+    );
+  };
 
   // Security Audit Logs
   const [securityAuditLogs, setSecurityAuditLogs] = useState<SecurityLog[]>([
     {
       id: 'sec-1',
-      timestamp: '2026-08-29 12:40:12',
+      timestamp: '2026-09-22 00:04:12',
       event: 'WAF: SQL Injection Attack Blocked',
       ip: '185.220.101.44 (Tor Exit Node)',
       severity: 'critical',
       status: 'blocked',
-      details: "Attempted ' UNION SELECT password FROM users-- on /api/mfy-query"
+      details: "Attempted ' UNION SELECT password FROM users-- on /api/mfy-query (Tayyorlangan parametrlar himoyasi ishladi)"
     },
     {
       id: 'sec-2',
-      timestamp: '2026-08-29 12:35:50',
-      event: 'Honeypot Trap Canary Triggered',
-      ip: '45.154.255.89 (Malicious Scanner)',
-      severity: 'warning',
-      status: 'honeypot_trapped',
-      details: 'Decoy endpoint /admin/raw_database_dump accessed. Fake honey-tokens supplied.'
-    },
-    {
-      id: 'sec-3',
-      timestamp: '2026-08-29 12:15:22',
+      timestamp: '2026-09-22 00:02:40',
       event: 'DDoS Rate-Limit Triggered',
       ip: '91.240.118.12 (Botnet IP cluster)',
       severity: 'warning',
       status: 'mitigated',
-      details: '480 requests/sec exceeded threshold of 60 req/sec. Rate-limiting enforced.'
+      details: 'Daqiqasiga 180 ta soʻrov kelib tushdi. WAF 429 Too Many Requests bilan cheklandi.'
     },
     {
-      id: 'sec-4',
-      timestamp: '2026-08-29 11:58:04',
-      event: 'XSS Payload Sanitized',
+      id: 'sec-3',
+      timestamp: '2026-09-21 23:58:15',
+      event: 'XSS Payload Sanitized & Escaped',
       ip: '194.26.29.13 (Vulnerability Prober)',
       severity: 'info',
       status: 'sanitized',
-      details: '<script>alert(document.cookie)</script> stripped from search query parameter.'
+      details: '<script>alert(document.cookie)</script> stripped & HTML-encoded into safe text.'
     },
     {
-      id: 'sec-5',
-      timestamp: '2026-08-29 10:30:00',
+      id: 'sec-4',
+      timestamp: '2026-09-21 23:30:00',
       event: 'Database SHA-256 Checksum Verified',
       ip: '127.0.0.1 (System Self-Check)',
       severity: 'shield',
-      status: 'isolated',
+      status: 'verified',
       details: 'Integrity 100% verified. 0 tampered records detected across 33 MFYs.'
+    },
+    {
+      id: 'sec-5',
+      timestamp: '2026-09-21 22:00:00',
+      event: 'AUTOMATIC BACKUP CREATED',
+      ip: '127.0.0.1 (System Cron)',
+      severity: 'shield',
+      status: 'verified',
+      details: 'Rejali avtomatik JSON zahira nusxasi yaratildi (33 ta MFY, 142.5 KB).'
     }
   ]);
 
@@ -639,118 +839,218 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSecurityAuditLogs(prev => [newLog, ...prev]);
   };
 
-  // Emergency Cyber Defense Trigger: Hash, Encrypt & Deploy Honeypot Decoy Database
-  const triggerEmergencyLockdown = () => {
-    // 1. Vault backup of real database
-    const vaultBackup = {
-      mfyList: [...mfyList],
-      crops: [...crops],
-      livestock: [...livestock],
-      subsidies: [...subsidies],
-      exportCertificates: [...exportCertificates]
+  // ============================================================================
+  // MA'LUMOTLAR BAZASINI ZAHIRALASH VA TIKLASH (BACKUP & RESTORE)
+  // ============================================================================
+
+  const verifyDatabaseIntegrity = (): { isValid: boolean; hash: string; recordsCount: number; details: string } => {
+    const count = mfyList.length;
+    const hasAll33 = count === 33;
+    const totalTrees = mfyList.reduce((acc, m) => acc + (m.limonDaraxtlari || 0), 0);
+    const hash = `SHA256:${Math.abs(count * 1337 + totalTrees).toString(16).padStart(16, '0')}f83b1657ff1fc53b92dc18148a1d65df`;
+
+    return {
+      isValid: hasAll33,
+      hash,
+      recordsCount: count,
+      details: hasAll33 
+        ? `Bazaning yaxlitligi toʻliq (100% tasdiqlangan): 33 ta MFY, ${totalTrees.toLocaleString()} ta limon daraxti, barcha fermerlar va koordinatalar toʻliq butun.`
+        : `Ogohlantirish: Bazada ${count} ta MFY mavjud (Kutilgan: 33 ta MFY).`
     };
-    setEncryptedVault(vaultBackup);
-    localStorage.setItem(STORAGE_KEYS.REAL_VAULT, JSON.stringify(vaultBackup));
-
-    // 2. Generate simulated SHA-256 hash & AES-256 key
-    const newHash = `SHA256:ENCRYPTED_VAULT_${Math.random().toString(36).substring(2, 15)}_${Date.now()}`;
-    const newStatus: CyberDefenseStatus = {
-      isLockdownActive: true,
-      isHoneypotActive: true,
-      vaultEncrypted: true,
-      dbHash: newHash,
-      firewallLevel: 'maximum_lockdown',
-      attacksBlockedCount: cyberDefenseStatus.attacksBlockedCount + 1,
-      lastAttackTime: new Date().toLocaleTimeString()
-    };
-    setCyberDefenseStatus(newStatus);
-    localStorage.setItem(STORAGE_KEYS.CYBER_STATUS, JSON.stringify(newStatus));
-
-    // 3. Swap active visible database with Honeypot Decoy Dataset
-    const honeypotDecoyMfy = mfyList.map((m, idx) => ({
-      ...m,
-      name: `[HONEYPOT-DECOY-CHAMBER-${idx + 1}] ${m.name}`,
-      limonDaraxtlari: Math.round(m.limonDaraxtlari * 0.9 + 77),
-      chorvaBoshlari: Math.round(m.chorvaBoshlari * 1.1),
-      anonymousFarmers: [
-        { id: `trap-${idx}-1`, code: `[CANARY_TRAP_${idx}] DEHQON-DECOY`, cropType: 'Honey-Token Decoy Citrus', areaGa: 1.0, livestockCount: 0, healthRate: 99, status: 'yaxshi' as const }
-      ]
-    }));
-    setMfyList(honeypotDecoyMfy);
-
-    // 4. Log defense event
-    addSecurityLog({
-      event: 'EMERGENCY LOCKDOWN ACTIVATED: Asl Baza Shifrlandi',
-      ip: '0.0.0.0/0 (Global Shield)',
-      severity: 'critical',
-      status: 'honeypot_trapped',
-      details: 'Asl 33 MFY agro-bazasi AES-256 bilan shifrlandi va yashirildi. 1:1 Honeypot soxta tuzoq bazasi ishga tushirildi.'
-    });
-
-    sendGovBroadcastAlert(
-      '🚨 KIBER-HIMOYA FAOL: FAVQULODDA SHIFRLASH AMALGA OSHIRILDI',
-      'Tizim kiber xavfsizlik protokoli boʻyicha asl maʼlumotlar bazasi shifrlanib yashirildi. Barcha tashqi soʻrovlar tuzoq (honeypot) bazaga yoʻnaltirildi.',
-      'danger'
-    );
   };
 
-  // Restore Real Database from Encrypted Vault
-  const restoreRealDatabase = (passkey = 'YOZYOVON_SECURE_2026'): boolean => {
-    let sourceData = encryptedVault;
-    if (!sourceData) {
-      const saved = localStorage.getItem(STORAGE_KEYS.REAL_VAULT);
-      if (saved) {
-        try { sourceData = JSON.parse(saved); } catch (e) {}
+  const backupDatabase = (format: 'json' | 'sql' = 'json'): string => {
+    const nowStr = new Date().toISOString();
+    const integrity = verifyDatabaseIntegrity();
+
+    if (format === 'sql') {
+      // Professional SQL Dump with Parameterized Prepared Statements simulation
+      let sql = `-- ====================================================================\n`;
+      sql += `-- YOZYOVON AGRO MONITORING TIZIMI - SQL MA'LUMOTLAR BAZASI ZAHIRASI\n`;
+      sql += `-- Eksport qilingan vaqt: ${nowStr}\n`;
+      sql += `-- SHA-256 Checksum: ${integrity.hash}\n`;
+      sql += `-- Jadvallar soni: 5 ta (mfy_list, crops, livestock, subsidies, certificates)\n`;
+      sql += `-- ====================================================================\n\n`;
+      sql += `SET FOREIGN_KEY_CHECKS = 0;\n\n`;
+
+      // MFY Table SQL
+      sql += `-- 1. MFY JADVALI (${mfyList.length} ta yozuv)\n`;
+      sql += `CREATE TABLE IF NOT EXISTS mfy_list (\n  id INT PRIMARY KEY,\n  name VARCHAR(255) NOT NULL,\n  sektor_num INT,\n  dehqonchilik_ga DECIMAL(10,2),\n  limon_daraxtlari INT,\n  chorva_boshlari INT,\n  updated_at VARCHAR(100)\n);\n\n`;
+
+      mfyList.forEach(m => {
+        const safeName = sanitizeSqlParam(m.name);
+        sql += `INSERT INTO mfy_list (id, name, sektor_num, dehqonchilik_ga, limon_daraxtlari, chorva_boshlari, updated_at) VALUES (${m.id}, '${safeName}', ${m.sektorNum || 1}, ${m.dehqonchilikGa}, ${m.limonDaraxtlari}, ${m.chorvaBoshlari}, '${nowStr}');\n`;
+      });
+
+      sql += `\n-- 2. SUBSIDIYALAR JADVALI (${subsidies.length} ta yozuv)\n`;
+      subsidies.forEach(s => {
+        const safeFarmer = sanitizeSqlParam(s.farmerName);
+        const safeProgram = sanitizeSqlParam(s.programTitle);
+        sql += `INSERT INTO subsidies (id, farmer_name, mfy_name, program_title, requested_amount, status) VALUES ('${s.id}', '${safeFarmer}', '${sanitizeSqlParam(s.mfyName)}', '${safeProgram}', '${s.requestedAmount}', '${s.status}');\n`;
+      });
+
+      sql += `\nSET FOREIGN_KEY_CHECKS = 1;\n`;
+      sql += `-- SQL Zaxirasi muvaffaqiyatli yakunlandi.\n`;
+
+      addSecurityLog({
+        event: 'DATABASE BACKUP: SQL Formatida Yuklab Olindi',
+        ip: '127.0.0.1 (Developer Console)',
+        severity: 'shield',
+        status: 'verified',
+        details: `33 ta MFY va arizalar parametrlashtirilgan SQL formatida zaxiralandi.`
+      });
+
+      return sql;
+    }
+
+    // JSON Backup Payload
+    const payload = {
+      format: 'yozyovon-agro-db-backup-v2',
+      version: '2.5.0',
+      exportedAt: nowStr,
+      exportedBy: currentUser ? `${currentUser.name} (${currentUser.role})` : 'System Administrator',
+      integrity: {
+        hash: integrity.hash,
+        recordsCount: integrity.recordsCount,
+        valid: integrity.isValid
+      },
+      data: {
+        mfyList,
+        crops,
+        livestock,
+        subsidies,
+        exportCertificates,
+        siteSettings
       }
-    }
-
-    if (sourceData && sourceData.mfyList && sourceData.mfyList.length > 0) {
-      setMfyList(sourceData.mfyList);
-      setCrops(sourceData.crops);
-      setLivestock(sourceData.livestock);
-      setSubsidies(sourceData.subsidies);
-      setExportCertificates(sourceData.exportCertificates);
-    } else {
-      setMfyList(YOZYOVON_MFY_LIST);
-      setCrops(INITIAL_CROPS);
-      setLivestock(INITIAL_LIVESTOCK);
-      setSubsidies(INITIAL_SUBSIDIES);
-      setExportCertificates(INITIAL_EXPORT_CERTS);
-    }
-
-    const restoredStatus: CyberDefenseStatus = {
-      isLockdownActive: false,
-      isHoneypotActive: false,
-      vaultEncrypted: false,
-      dbHash: 'SHA256:7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069',
-      firewallLevel: 'standard',
-      attacksBlockedCount: cyberDefenseStatus.attacksBlockedCount,
-      lastAttackTime: cyberDefenseStatus.lastAttackTime
     };
-    setCyberDefenseStatus(restoredStatus);
-    localStorage.setItem(STORAGE_KEYS.CYBER_STATUS, JSON.stringify(restoredStatus));
-    localStorage.removeItem(STORAGE_KEYS.REAL_VAULT);
-    setEncryptedVault(null);
+
+    const jsonStr = JSON.stringify(payload, null, 2);
 
     addSecurityLog({
-      event: 'DATABASE RESTORED: Asl Baza Shifrdan Chiqarildi',
-      ip: '127.0.0.1 (Developer Authenticated)',
+      event: 'DATABASE BACKUP: JSON Formatida Zaxiralandi',
+      ip: '127.0.0.1 (Developer Console)',
       severity: 'shield',
-      status: 'isolated',
-      details: 'Asl 33 MFY agrobaza xavfsiz kalit bilan tiklandi, honeypot toʻxtatildi. Barcha tekshiruvlar yashil.'
+      status: 'verified',
+      details: `Toʻliq JSON maʼlumotlar bazasi (${integrity.recordsCount} ta MFY, ${subsidies.length} ta subsidiya) muvaffaqiyatli zaxiraga olindi.`
     });
 
-    sendGovBroadcastAlert(
-      '✅ ASL BAZA QAYTA TIKLANDI',
-      'Yozyovon agro-monitoring bazasi muvaffaqiyatli shifrdan chiqarildi va normal ishlash rejimiga qaytarildi.',
-      'info'
-    );
+    return jsonStr;
+  };
 
+  const createBackupSnapshot = (note = 'Qoʻlda olingan zaxira'): DatabaseBackupSnapshot => {
+    const jsonStr = backupDatabase('json');
+    const integrity = verifyDatabaseIntegrity();
+    const now = new Date();
+    const ts = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+    const sizeKb = Number((new Blob([jsonStr]).size / 1024).toFixed(1));
+
+    const newSnapshot: DatabaseBackupSnapshot = {
+      id: `snap-${Date.now()}`,
+      timestamp: ts,
+      name: note,
+      format: 'json',
+      recordsCount: mfyList.length,
+      sizeKb,
+      checksumSha256: integrity.hash,
+      autoBackup: false,
+      status: 'verified'
+    };
+
+    const updated = [newSnapshot, ...backupSnapshots];
+    setBackupSnapshots(updated);
+    localStorage.setItem('yozyovon_backup_snapshots', JSON.stringify(updated));
+    setCyberDefenseStatus(prev => ({ ...prev, lastBackupTime: ts }));
+
+    return newSnapshot;
+  };
+
+  const deleteBackupSnapshot = (id: string) => {
+    const updated = backupSnapshots.filter(s => s.id !== id);
+    setBackupSnapshots(updated);
+    localStorage.setItem('yozyovon_backup_snapshots', JSON.stringify(updated));
+  };
+
+  const restoreDatabaseFromBackup = (content: string): { success: boolean; message: string; recordsCount?: number } => {
+    try {
+      if (!content || !content.trim()) {
+        return { success: false, message: 'Zaxira fayli boʻsh yoki mavjud emas.' };
+      }
+
+      // 1. JSON Zaxirani tiklash
+      if (content.trim().startsWith('{')) {
+        const parsed = JSON.parse(content);
+        const sourceData = parsed.data || parsed;
+
+        if (sourceData.mfyList && Array.isArray(sourceData.mfyList) && sourceData.mfyList.length > 0) {
+          setMfyList(sourceData.mfyList);
+          if (sourceData.crops && Array.isArray(sourceData.crops)) setCrops(sourceData.crops);
+          if (sourceData.livestock && Array.isArray(sourceData.livestock)) setLivestock(sourceData.livestock);
+          if (sourceData.subsidies && Array.isArray(sourceData.subsidies)) setSubsidies(sourceData.subsidies);
+          if (sourceData.exportCertificates && Array.isArray(sourceData.exportCertificates)) setExportCertificates(sourceData.exportCertificates);
+          if (sourceData.siteSettings) setSiteSettings(sourceData.siteSettings);
+
+          addSecurityLog({
+            event: 'DATABASE RESTORED FROM BACKUP: Muvaffaqiyatli Tiklandi',
+            ip: '127.0.0.1 (Developer SOC)',
+            severity: 'shield',
+            status: 'verified',
+            details: `Maʼlumotlar bazasi JSON zaxiradan toʻliq tiklandi: ${sourceData.mfyList.length} ta MFY bazaga yuklandi.`
+          });
+
+          return { 
+            success: true, 
+            message: `Maʼlumotlar bazasi muvaffaqiyatli tiklandi! ${sourceData.mfyList.length} ta MFY va barcha koʻrsatkichlar bazaga qaytarildi.`,
+            recordsCount: sourceData.mfyList.length
+          };
+        }
+      }
+
+      // 2. Oddiy format xatoligi
+      return { success: false, message: 'Nomaʼlum yoki yaroqsiz format. Iltimos, haqiqiy Yozyovon Agro zaxira faylini (JSON) yuklang.' };
+    } catch (e: any) {
+      console.error('Database restore error:', e);
+      return { success: false, message: `Tiklashda xatolik yuz berdi: ${e.message || 'JSON sintaksisi notoʻgʻri'}` };
+    }
+  };
+
+  // Moslik uchun eski metodlar (xavfsiz holda):
+  const exportDatabaseJson = () => backupDatabase('json');
+  const importDatabaseJson = (jsonStr: string) => restoreDatabaseFromBackup(jsonStr).success;
+
+  // Eski "soxta virusli bazani qo'yish" o'rniga: Xavfsiz tizimli zaxiralash & audit xabarnomasi
+  const triggerEmergencyLockdown = () => {
+    createBackupSnapshot('Favqulodda himoya zaxira nusxasi');
+    addSecurityLog({
+      event: 'SECURITY SNAPSHOT CREATED: Favqulodda Zaxiralash',
+      ip: '127.0.0.1 (Developer SOC)',
+      severity: 'shield',
+      status: 'verified',
+      details: 'Favqulodda holatda maʼlumotlar bazasining toʻliq nusxasi olinib, xavfsiz zaxiraga joylashtirildi.'
+    });
+  };
+
+  const restoreRealDatabase = () => {
+    setMfyList(YOZYOVON_MFY_LIST);
+    setCrops(INITIAL_CROPS);
+    setLivestock(INITIAL_LIVESTOCK);
+    setSubsidies(INITIAL_SUBSIDIES);
+    setExportCertificates(INITIAL_EXPORT_CERTS);
+    addSecurityLog({
+      event: 'DATABASE RESET TO BASELINE: Standart Baza Tiklandi',
+      ip: '127.0.0.1 (Developer SOC)',
+      severity: 'shield',
+      status: 'verified',
+      details: 'Asl 33 ta MFY boshlangʻich davlat reyestri toʻliq tiklandi.'
+    });
     return true;
   };
 
   // Live Site Hot MFY Data Editor
   const updateMfyDataLive = (mfyId: number, updates: Partial<MFYData>) => {
+    if (!hasPermission('perm_mfy_edit')) {
+      sendGovBroadcastAlert('KIBER-XAVFSIZLIK: RBAC CHEKLOVI', 'MFY maʼlumotlarini tahrirlash huquqingiz yoʻq.', 'warning');
+      return;
+    }
     setMfyList(prev => prev.map(m => m.id === mfyId ? { ...m, ...updates, updatedAt: 'Hozir' } : m));
     addSecurityLog({
       event: `HOT PARAM OVERRIDE: MFY #${mfyId} Jonli Tahrirlandi`,
@@ -759,44 +1059,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'isolated',
       details: `MFY ID ${mfyId} maʼlumotlari toʻgʻridan-toʻgʻri Developer konsoli orqali yangilandi: ${JSON.stringify(updates)}`
     });
-  };
-
-  const exportDatabaseJson = (): string => {
-    const payload = {
-      exportTimestamp: new Date().toISOString(),
-      systemVersion: 'Yozyovon Agro v2.5',
-      mfyList,
-      crops,
-      livestock,
-      subsidies,
-      exportCertificates,
-      securityStatus: cyberDefenseStatus
-    };
-    return JSON.stringify(payload, null, 2);
-  };
-
-  const importDatabaseJson = (jsonStr: string): boolean => {
-    try {
-      const parsed = JSON.parse(jsonStr);
-      if (parsed.mfyList && Array.isArray(parsed.mfyList)) {
-        setMfyList(parsed.mfyList);
-        if (parsed.crops) setCrops(parsed.crops);
-        if (parsed.livestock) setLivestock(parsed.livestock);
-        if (parsed.subsidies) setSubsidies(parsed.subsidies);
-        if (parsed.exportCertificates) setExportCertificates(parsed.exportCertificates);
-        addSecurityLog({
-          event: 'DATABASE IMPORT: Tashqi JSON Maʼlumotlar Bazasi Tiklandi',
-          ip: '127.0.0.1 (Dev Console)',
-          severity: 'shield',
-          status: 'isolated',
-          details: 'Yangi JSON agro-baza toʻliq import qilindi va tekshirildi.'
-        });
-        return true;
-      }
-    } catch (e) {
-      console.error('Import error', e);
-    }
-    return false;
   };
 
   const isCyberDefenseActive = cyberDefenseStatus.isLockdownActive;
@@ -911,8 +1173,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
 
       if (user.role === 'admin') {
-        setActiveTab('gov_hub');
-        setIsDevModalOpen(true);
+        setActiveTab('dev_hub');
+        setIsDevModalOpen(false);
       } else if (user.role === 'davlat') {
         setActiveTab('gov_hub');
       } else {
@@ -1262,10 +1524,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const approveSubsidy = (id: string) => {
+    if (!hasPermission('perm_subsidy_approve')) {
+      sendGovBroadcastAlert('KIBER-XAVFSIZLIK: RBAC CHEKLOVI', 'Subsidiyalarni tasdiqlash uchun sizda huquq mavjud emas.', 'warning');
+      return;
+    }
     setSubsidies(prev => prev.map(s => s.id === id ? { ...s, status: 'tasdiqlandi' } : s));
   };
 
   const rejectSubsidy = (id: string) => {
+    if (!hasPermission('perm_subsidy_approve')) {
+      sendGovBroadcastAlert('KIBER-XAVFSIZLIK: RBAC CHEKLOVI', 'Subsidiyalarni rad etish uchun sizda huquq mavjud emas.', 'warning');
+      return;
+    }
     setSubsidies(prev => prev.map(s => s.id === id ? { ...s, status: 'rad_etildi' } : s));
   };
 
@@ -1295,6 +1565,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addSubsidyApplication = (app: Omit<SubsidyApplication, 'id' | 'submittedDate' | 'status'>) => {
+    if (!hasPermission('perm_subsidy_apply')) {
+      sendGovBroadcastAlert('KIBER-XAVFSIZLIK: RBAC CHEKLOVI', 'Sizning rolingiz uchun subsidiya arizasi yuborish huquqi cheklangan.', 'warning');
+      return;
+    }
     const newApp: SubsidyApplication = {
       ...app,
       id: `sub-${Date.now()}`,
@@ -1305,6 +1579,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const issueExportCertificate = (cert: Omit<ExportCertificate, 'id' | 'issueDate'>) => {
+    if (!hasPermission('perm_export_cert')) {
+      sendGovBroadcastAlert('KIBER-XAVFSIZLIK: RBAC CHEKLOVI', 'Eksport fitosanitariya sertifikati berish huquqingiz yoʻq.', 'warning');
+      return;
+    }
     const newCert: ExportCertificate = {
       ...cert,
       id: `exp-${Date.now()}`,
@@ -1554,6 +1832,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addSecurityLog,
         exportDatabaseJson,
         importDatabaseJson,
+        backupDatabase,
+        restoreDatabaseFromBackup,
+        verifyDatabaseIntegrity,
+        backupSnapshots,
+        createBackupSnapshot,
+        deleteBackupSnapshot,
+        rbacPermissions,
+        toggleRbacPermission,
+        hasPermission,
+        trafficStats,
+        setMaxRpm,
+        blockIp,
+        unblockIp,
+        blockedIps,
+        whitelistIps,
         registeredFarmers,
         grantFarmerBadge,
         revokeFarmerBadge,

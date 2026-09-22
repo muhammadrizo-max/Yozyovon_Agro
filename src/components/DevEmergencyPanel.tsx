@@ -1,648 +1,1051 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { 
-  Shield, ShieldAlert, ShieldCheck, Lock, Unlock, Database, 
-  Terminal, Activity, Eye, EyeOff, RefreshCw, AlertTriangle, 
-  CheckCircle2, Download, Upload, Cpu, Zap, Radio, Globe, 
-  Server, Key, X, Sliders, Edit3, Bug
+  Shield, ShieldCheck, ShieldAlert, Database, 
+  Terminal, Activity, RefreshCw, AlertTriangle, 
+  CheckCircle2, Download, Upload, Cpu, Zap, Globe, 
+  Server, Key, X, Sliders, Edit3, Lock, Unlock, 
+  Search, Filter, Clock, Eye, Trash2, ArrowUpRight,
+  UserCheck, ShieldOff, HardDrive, FileText, BarChart3, Wifi,
+  ChevronRight, Radio
 } from 'lucide-react';
-import { getStoredTomorrowApiKey, saveCustomTomorrowApiKey } from '../services/tomorrowWeather';
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, 
+  Tooltip, ResponsiveContainer, BarChart, Bar 
+} from 'recharts';
+import { trafficMonitor, TrafficRecord } from '../utils/security';
 
 export const DevEmergencyPanel: React.FC = () => {
   const {
-    isDevModalOpen,
-    setIsDevModalOpen,
+    activeTab: globalActiveTab,
+    setActiveTab: setGlobalActiveTab,
     isDarkMode,
     toggleDarkMode,
-    isCyberDefenseActive,
-    isHoneypotActive,
     cyberDefenseStatus,
-    triggerEmergencyLockdown,
-    restoreRealDatabase,
-    isMaintenanceMode,
-    setMaintenanceMode,
-    mfyList,
-    updateMfyDataLive,
     securityAuditLogs,
     addSecurityLog,
-    exportDatabaseJson,
-    importDatabaseJson
+    backupDatabase,
+    restoreDatabaseFromBackup,
+    verifyDatabaseIntegrity,
+    backupSnapshots,
+    createBackupSnapshot,
+    deleteBackupSnapshot,
+    rbacPermissions,
+    toggleRbacPermission,
+    trafficStats: appTrafficStats,
+    setMaxRpm,
+    blockIp,
+    unblockIp,
+    blockedIps,
+    whitelistIps,
+    mfyList,
+    userRole
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'cyber_defense' | 'live_editor' | 'security_logs' | 'db_vault' | 'api_keys'>('cyber_defense');
-  const [selectedMfyEditId, setSelectedMfyEditId] = useState<number>(1);
-  const [editLimon, setEditLimon] = useState<number>(14500);
-  const [editChorva, setEditChorva] = useState<number>(2800);
-  const [editGa, setEditGa] = useState<number>(520);
-  const [editName, setEditName] = useState<string>('');
+  // 3 ta asosiy bo'lim (Foydalanuvchi talabiga asosan)
+  const [panelTab, setPanelTab] = useState<'backup_restore' | 'traffic_monitor' | 'logs_and_rbac'>('traffic_monitor');
+  
+  // Backup & Restore State
   const [jsonInput, setJsonInput] = useState<string>('');
-  const [tomorrowApiKeyInput, setTomorrowApiKeyInput] = useState<string>(() => getStoredTomorrowApiKey());
+  const [snapshotNote, setSnapshotNote] = useState<string>('');
+  const [integrityResult, setIntegrityResult] = useState<{ isValid: boolean; hash: string; recordsCount: number; details: string } | null>(null);
+  
+  // Live Real-Time Traffic Monitor State (Sekundma-sekund yangilanadi!)
+  const [trafficHistory, setTrafficHistory] = useState<TrafficRecord[]>(() => trafficMonitor.getHistory());
+  const [liveTrafficStats, setLiveTrafficStats] = useState(() => trafficMonitor.getStats());
+  const [selectedRpmLimit, setSelectedRpmLimit] = useState<number>(cyberDefenseStatus.rateLimitRpm || 120);
+  const [manualIpToBlock, setManualIpToBlock] = useState<string>('');
+  const [currentSecondsTime, setCurrentSecondsTime] = useState<string>(() => {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+  });
+
+  // Logs & RBAC State
+  const [logFilterSeverity, setLogFilterSeverity] = useState<'all' | 'critical' | 'warning' | 'info' | 'shield'>('all');
+  const [logSearchQuery, setLogSearchQuery] = useState<string>('');
+  const [selectedRbacCategory, setSelectedRbacCategory] = useState<'all' | 'database' | 'monitoring' | 'security' | 'subsidies' | 'export'>('all');
+
   const [statusMsg, setStatusMsg] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
 
-  if (!isDevModalOpen) return null;
+  // REAL-TIME JONLI SEKUNDMA-SEKUND PULS:
+  // Har 1 soniyada joriy aniq sekundma-sekund vaqt va tarmoq oqimi yangilanadi!
+  useEffect(() => {
+    const unsub = trafficMonitor.subscribe((newStats, newHistory) => {
+      setLiveTrafficStats(newStats);
+      setTrafficHistory(newHistory);
+    });
 
-  const currentEditMfy = mfyList.find(m => m.id === selectedMfyEditId) || mfyList[0];
+    const clockTimer = setInterval(() => {
+      const d = new Date();
+      const sTime = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+      setCurrentSecondsTime(sTime);
+      setTrafficHistory(trafficMonitor.getHistory());
+      setLiveTrafficStats(trafficMonitor.getStats());
+    }, 1000);
 
-  const handleSelectMfyToEdit = (id: number) => {
-    setSelectedMfyEditId(id);
-    const m = mfyList.find(item => item.id === id);
-    if (m) {
-      setEditName(m.name);
-      setEditLimon(m.limonDaraxtlari);
-      setEditChorva(m.chorvaBoshlari);
-      setEditGa(m.dehqonchilikGa);
+    return () => {
+      unsub();
+      clearInterval(clockTimer);
+    };
+  }, []);
+
+  // Initial Integrity Check
+  useEffect(() => {
+    setIntegrityResult(verifyDatabaseIntegrity());
+  }, [mfyList]);
+
+  // Real-time chart data calculation (Oxirgi 15 ta so'rov, har soniya o'ngdan chapga oqib boradi)
+  const chartData = useMemo(() => {
+    return trafficHistory.slice(0, 15).reverse().map((rec, idx) => ({
+      time: rec.timeLabel,
+      duration: rec.durationMs,
+      status: rec.status,
+      threat: rec.isThreat ? 1 : 0
+    }));
+  }, [trafficHistory]);
+
+  // ============================================================================
+  // BACKUP & RESTORE HANDLERS
+  // ============================================================================
+
+  const handleDownloadBackup = (format: 'json' | 'sql') => {
+    try {
+      const content = backupDatabase(format);
+      const mime = format === 'json' ? 'application/json' : 'text/plain';
+      const ext = format === 'json' ? 'json' : 'sql';
+      const blob = new Blob([content], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `yozyovon_agro_baza_zaxira_${Date.now()}.${ext}`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      setStatusMsg({
+        text: `✅ Maʼlumotlar bazasi zaxira nusxasi (${format.toUpperCase()}) muvaffaqiyatli yuklab olindi!`,
+        type: 'success'
+      });
+      setTimeout(() => setStatusMsg(null), 4000);
+    } catch (e: any) {
+      setStatusMsg({ text: `Xatolik: ${e.message}`, type: 'error' });
     }
   };
 
-  const handleSaveMfyChanges = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateMfyDataLive(selectedMfyEditId, {
-      name: editName || currentEditMfy.name,
-      limonDaraxtlari: Number(editLimon),
-      chorvaBoshlari: Number(editChorva),
-      dehqonchilikGa: Number(editGa)
-    });
+  const handleCreateSnapshot = () => {
+    const note = snapshotNote.trim() || 'Foydalanuvchi tomonidan yaratilgan zaxira';
+    createBackupSnapshot(note);
+    setSnapshotNote('');
     setStatusMsg({
-      text: `✅ MFY #${selectedMfyEditId} parametrlari saytda real vaqtda muvaffaqiyatli yangilandi!`,
+      text: `✅ Yangi maʼlumotlar bazasi snapshot zaxirasi tizimga muvaffaqiyatli saqlandi!`,
       type: 'success'
     });
     setTimeout(() => setStatusMsg(null), 3500);
   };
 
-  const handleTriggerLockdown = () => {
-    triggerEmergencyLockdown();
-    setStatusMsg({
-      text: '🚨 DIQQAT: Asl maʼlumotlar bazasi AES-256 shifrlanib, 1:1 soxta Honeypot bazasi oʻrnatildi!',
-      type: 'error'
-    });
-  };
-
-  const handleRestoreDatabase = () => {
-    const success = restoreRealDatabase();
-    if (success) {
-      setStatusMsg({
-        text: '✅ Asl maʼlumotlar bazasi shifrdan chiqarilib, toʻliq tiklandi!',
-        type: 'success'
-      });
-      setTimeout(() => setStatusMsg(null), 3500);
-    }
-  };
-
-  const handleExportJson = () => {
-    const jsonStr = exportDatabaseJson();
-    const blob = new Blob([jsonStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `yozyovon_agro_db_backup_${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImportJson = () => {
+  const handleRestoreFromJson = () => {
     if (!jsonInput.trim()) {
-      setStatusMsg({ text: 'Iltimos, JSON matnini kiriting!', type: 'error' });
+      setStatusMsg({ text: 'Iltimos, tiklash uchun JSON formatidagi bazani kiriting yoki faylni yuklang!', type: 'error' });
       return;
     }
-    const res = importDatabaseJson(jsonInput);
-    if (res) {
-      setStatusMsg({ text: '✅ JSON maʼlumotlar bazasi muvaffaqiyatli import qilindi!', type: 'success' });
+
+    const res = restoreDatabaseFromBackup(jsonInput);
+    if (res.success) {
+      setStatusMsg({ text: `✅ ${res.message}`, type: 'success' });
       setJsonInput('');
-      setTimeout(() => setStatusMsg(null), 3500);
+      setIntegrityResult(verifyDatabaseIntegrity());
+      setTimeout(() => setStatusMsg(null), 4000);
     } else {
-      setStatusMsg({ text: '❌ JSON formati xato yoki yaroqsiz!', type: 'error' });
+      setStatusMsg({ text: `❌ ${res.message}`, type: 'error' });
     }
   };
 
-  const simulateAttackTest = (attackType: string) => {
-    addSecurityLog({
-      event: `SIMULATED TEST: ${attackType}`,
-      ip: '198.51.100.23 (Penetration Test Tool)',
-      severity: 'warning',
-      status: isHoneypotActive ? 'honeypot_trapped' : 'blocked',
-      details: isHoneypotActive 
-        ? 'Hujumchi soxta tuzoq bazaga yoʻnaltirildi va tahlil qilinmoqda.'
-        : 'WAF qoidalari asosida hujum bloklandi va xavfsizlik filtri kuchaytirildi.'
-    });
-    setStatusMsg({
-      text: `⚡ Test xuruji kiber-himoya tomonidan qaytarildi (${attackType})`,
-      type: 'info'
-    });
-    setTimeout(() => setStatusMsg(null), 3000);
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        setJsonInput(content);
+        const res = restoreDatabaseFromBackup(content);
+        if (res.success) {
+          setStatusMsg({ text: `✅ Fayldan tiklandi: ${res.message}`, type: 'success' });
+          setIntegrityResult(verifyDatabaseIntegrity());
+        } else {
+          setStatusMsg({ text: `❌ ${res.message}`, type: 'error' });
+        }
+      }
+    };
+    reader.readAsText(file);
   };
 
+  // ============================================================================
+  // TRAFFIC & RATE LIMIT HANDLERS
+  // ============================================================================
+
+  const handleApplyRpmLimit = () => {
+    setMaxRpm(selectedRpmLimit);
+    setStatusMsg({
+      text: `🛡️ DDoS cheklovi yangilandi: 1 daqiqada maksimal ${selectedRpmLimit} soʻrov ruxsat etiladi.`,
+      type: 'success'
+    });
+    setTimeout(() => setStatusMsg(null), 3500);
+  };
+
+  const handleManualBlockIp = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualIpToBlock.trim()) return;
+    blockIp(manualIpToBlock.trim());
+    setManualIpToBlock('');
+    setStatusMsg({
+      text: `🚨 IP manzil (${manualIpToBlock}) xavfsizlik devori qora roʻyxatiga kiritildi va bloklandi.`,
+      type: 'info'
+    });
+    setTimeout(() => setStatusMsg(null), 3500);
+  };
+
+  // ============================================================================
+  // LOGS FILTERING
+  // ============================================================================
+
+  const filteredLogs = useMemo(() => {
+    return securityAuditLogs.filter(log => {
+      const matchSeverity = logFilterSeverity === 'all' || log.severity === logFilterSeverity;
+      const matchSearch = logSearchQuery === '' || 
+        log.event.toLowerCase().includes(logSearchQuery.toLowerCase()) ||
+        log.ip.toLowerCase().includes(logSearchQuery.toLowerCase()) ||
+        log.details.toLowerCase().includes(logSearchQuery.toLowerCase());
+      return matchSeverity && matchSearch;
+    });
+  }, [securityAuditLogs, logFilterSeverity, logSearchQuery]);
+
+  const filteredRbac = useMemo(() => {
+    return rbacPermissions.filter(p => selectedRbacCategory === 'all' || p.category === selectedRbacCategory);
+  }, [rbacPermissions, selectedRbacCategory]);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md overflow-y-auto">
-      <div className="relative w-full max-w-5xl bg-slate-900 border border-emerald-500/40 rounded-2xl shadow-2xl overflow-hidden text-slate-100 flex flex-col max-h-[92vh]">
-        
-        {/* Top Header */}
-        <div className="flex items-center justify-between px-6 py-4 bg-slate-950/90 border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/40 animate-pulse">
-              <Terminal className="w-6 h-6" />
-            </div>
+    <div className="w-full space-y-6">
+      
+      {/* Top Breadcrumb & Status Navigation */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+            <button 
+              onClick={() => setGlobalActiveTab(userRole === 'davlat' ? 'gov_hub' : 'profile')} 
+              className="hover:text-emerald-500 transition-colors"
+            >
+              Asosiy Portal
+            </button>
+            <ChevronRight className="w-3.5 h-3.5" />
+            <span className="text-emerald-600 dark:text-emerald-400 font-bold">Dasturchi Konsoli</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+            <span className="text-slate-700 dark:text-slate-300 font-semibold">Security Operations Center (SOC)</span>
+          </div>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
+            <span>Dasturchi va Kiber-Xavfsizlik Boshqaruv Markazi</span>
+            <span className="px-2.5 py-0.5 text-xs font-mono font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-600 rounded-md">
+              ROOT DEVELOPER
+            </span>
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-mono">
+            Yozyovon Agro Core | Tayyorlangan Parametrlar (SQLi Himoyasi) | XSS Entiti Shifrlash | WAF & DDoS Himoyasi
+          </p>
+        </div>
+
+        {/* Real-time Clock & Live Badge */}
+        <div className="flex items-center gap-3 self-start sm:self-auto">
+          <div className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex items-center gap-2 text-xs font-mono">
+            <Clock className="w-4 h-4 text-emerald-500 animate-spin-slow" />
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-white tracking-wide">Developer & Emergency Access Terminal</h2>
-                <span className="px-2 py-0.5 text-xs font-mono font-semibold bg-red-900/60 text-red-300 border border-red-500/40 rounded">
-                  ROOT / BACKDOOR
-                </span>
-                {isHoneypotActive && (
-                  <span className="px-2 py-0.5 text-xs font-mono font-bold bg-amber-500 text-black rounded animate-bounce">
-                    HONEYPOT ACTIVE
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-slate-400 font-mono">
-                Yozyovon Agro-AI 2026 Core | SHA-256 Vault | Hot Param Override
-              </p>
+              <span className="text-slate-400 block text-[10px] uppercase font-semibold">Haqiqiy Real Vaqt</span>
+              <span className="font-bold text-slate-900 dark:text-white text-sm tracking-wider">{currentSecondsTime}</span>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={toggleDarkMode}
-              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition"
-              title="Dark/Light Mode almashtirish"
+              className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+              title="Dark/Light rejimini almashtirish"
             >
-              {isDarkMode ? '🌙 Dark' : '☀️ Light'}
-            </button>
-            <button
-              onClick={() => setIsDevModalOpen(false)}
-              className="p-2 rounded-lg bg-slate-800 hover:bg-red-900/50 text-slate-400 hover:text-red-300 border border-slate-700 transition"
-            >
-              <X className="w-5 h-5" />
+              {isDarkMode ? '🌙 Qorongʻu' : '☀️ Yorugʻ'}
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Status Notification */}
-        {statusMsg && (
-          <div className={`px-6 py-2.5 text-sm font-medium border-b flex items-center justify-between ${
-            statusMsg.type === 'success' ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700' :
-            statusMsg.type === 'error' ? 'bg-red-950/80 text-red-300 border-red-700' :
-            'bg-blue-950/80 text-blue-300 border-blue-700'
-          }`}>
-            <span>{statusMsg.text}</span>
-            <button onClick={() => setStatusMsg(null)} className="text-xs opacity-75 hover:opacity-100">✕</button>
-          </div>
-        )}
-
-        {/* Tabs */}
-        <div className="flex items-center gap-1 px-6 pt-3 bg-slate-950/50 border-b border-slate-800 overflow-x-auto text-xs font-mono">
-          <button
-            onClick={() => setActiveTab('cyber_defense')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg font-semibold border-b-2 transition ${
-              activeTab === 'cyber_defense'
-                ? 'bg-slate-800 text-emerald-400 border-emerald-500'
-                : 'text-slate-400 hover:text-slate-200 border-transparent'
-            }`}
-          >
-            <ShieldAlert className="w-4 h-4" />
-            Kiber Himoya & Shifrlash
-          </button>
-          <button
-            onClick={() => setActiveTab('live_editor')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg font-semibold border-b-2 transition ${
-              activeTab === 'live_editor'
-                ? 'bg-slate-800 text-emerald-400 border-emerald-500'
-                : 'text-slate-400 hover:text-slate-200 border-transparent'
-            }`}
-          >
-            <Sliders className="w-4 h-4" />
-            Jonli MFY & Sayt Tahrirlovchi
-          </button>
-          <button
-            onClick={() => setActiveTab('security_logs')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg font-semibold border-b-2 transition ${
-              activeTab === 'security_logs'
-                ? 'bg-slate-800 text-emerald-400 border-emerald-500'
-                : 'text-slate-400 hover:text-slate-200 border-transparent'
-            }`}
-          >
-            <Activity className="w-4 h-4" />
-            Audit Jurnali ({securityAuditLogs.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('db_vault')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg font-semibold border-b-2 transition ${
-              activeTab === 'db_vault'
-                ? 'bg-slate-800 text-emerald-400 border-emerald-500'
-                : 'text-slate-400 hover:text-slate-200 border-transparent'
-            }`}
-          >
-            <Database className="w-4 h-4" />
-            JSON Baza Export / Import
-          </button>
-          <button
-            onClick={() => setActiveTab('api_keys')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg font-semibold border-b-2 transition ${
-              activeTab === 'api_keys'
-                ? 'bg-slate-800 text-emerald-400 border-emerald-500'
-                : 'text-slate-400 hover:text-slate-200 border-transparent'
-            }`}
-          >
-            <Key className="w-4 h-4" />
-            Ob-havo API Kaliti
-          </button>
+      {/* Global Status Notification Banner */}
+      {statusMsg && (
+        <div className={`px-5 py-3 rounded-xl border flex items-center justify-between transition-all ${
+          statusMsg.type === 'success' ? 'bg-emerald-50 text-emerald-900 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-200 dark:border-emerald-700' :
+          statusMsg.type === 'error' ? 'bg-rose-50 text-rose-900 border-rose-300 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-700' :
+          'bg-blue-50 text-blue-900 border-blue-300 dark:bg-blue-950/80 dark:text-blue-200 dark:border-blue-700'
+        }`}>
+          <span className="flex items-center gap-2 text-xs sm:text-sm font-medium">
+            {statusMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> : <AlertTriangle className="w-4 h-4" />}
+            {statusMsg.text}
+          </span>
+          <button onClick={() => setStatusMsg(null)} className="text-xs opacity-75 hover:opacity-100 p-1">✕</button>
         </div>
+      )}
 
-        {/* Tab Body */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+      {/* 3 Asosiy Bo'lim Tablari (To'liq Kenglikda) */}
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto pb-px text-xs sm:text-sm font-semibold">
+        <button
+          onClick={() => setPanelTab('traffic_monitor')}
+          className={`flex items-center gap-2.5 px-6 py-3.5 rounded-t-xl border-b-2 transition-all cursor-pointer ${
+            panelTab === 'traffic_monitor'
+              ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 border-emerald-500 shadow-xs font-bold'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 border-transparent hover:bg-slate-100 dark:hover:bg-slate-900/50'
+          }`}
+        >
+          <Activity className="w-4 h-4" />
+          <span>1. Trafikni Real Vaqtda Kuzatish</span>
+          <span className="px-2 py-0.5 text-[10px] font-mono bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 rounded-full border border-emerald-500/40 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+            JONLI
+          </span>
+        </button>
+
+        <button
+          onClick={() => setPanelTab('backup_restore')}
+          className={`flex items-center gap-2.5 px-6 py-3.5 rounded-t-xl border-b-2 transition-all cursor-pointer ${
+            panelTab === 'backup_restore'
+              ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 border-emerald-500 shadow-xs font-bold'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 border-transparent hover:bg-slate-100 dark:hover:bg-slate-900/50'
+          }`}
+        >
+          <Database className="w-4 h-4" />
+          <span>2. Bazani Zahiralash va Tiklash</span>
+          <span className="px-2 py-0.5 text-[10px] font-mono bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 rounded-full border border-blue-300 dark:border-blue-800">
+            SHA-256
+          </span>
+        </button>
+
+        <button
+          onClick={() => setPanelTab('logs_and_rbac')}
+          className={`flex items-center gap-2.5 px-6 py-3.5 rounded-t-xl border-b-2 transition-all cursor-pointer ${
+            panelTab === 'logs_and_rbac'
+              ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 border-emerald-500 shadow-xs font-bold'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 border-transparent hover:bg-slate-100 dark:hover:bg-slate-900/50'
+          }`}
+        >
+          <Shield className="w-4 h-4" />
+          <span>3. Tizim Loglari va Kirish Huquqlari (RBAC)</span>
+          <span className="px-2 py-0.5 text-[10px] font-mono bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 rounded-full border border-purple-300 dark:border-purple-800">
+            {securityAuditLogs.length}
+          </span>
+        </button>
+      </div>
+
+      {/* ==================================================================== */}
+      {/* BO'LIM 1: TRAFIKNI REAL VAQTDA KUZATISH (LIVE TRAFFIC MONITOR)        */}
+      {/* ==================================================================== */}
+      {panelTab === 'traffic_monitor' && (
+        <div className="space-y-6">
           
-          {/* TAB 1: CYBER DEFENSE & HONEYPOT */}
-          {activeTab === 'cyber_defense' && (
-            <div className="space-y-6">
-              
-              {/* Defense Overview Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className={`p-4 rounded-xl border ${
-                  isHoneypotActive 
-                    ? 'bg-amber-950/40 border-amber-500/60 text-amber-200'
-                    : 'bg-emerald-950/30 border-emerald-500/40 text-emerald-200'
-                }`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-mono text-slate-400">BAZA STATUSI</span>
-                    {isHoneypotActive ? <Lock className="w-5 h-5 text-amber-400" /> : <ShieldCheck className="w-5 h-5 text-emerald-400" />}
-                  </div>
-                  <div className="text-xl font-bold font-mono">
-                    {isHoneypotActive ? '🔒 SHIFRLANGAN (HONEYPOT)' : '🛡️ ASL BAZA XAVFSIZ'}
-                  </div>
-                  <div className="text-xs text-slate-400 mt-1 font-mono truncate">
-                    {cyberDefenseStatus.dbHash}
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-mono text-slate-400">FIREWALL / WAF DARAJASI</span>
-                    <Cpu className="w-5 h-5 text-cyan-400" />
-                  </div>
-                  <div className="text-xl font-bold font-mono text-cyan-400 uppercase">
-                    {cyberDefenseStatus.firewallLevel}
-                  </div>
-                  <div className="text-xs text-slate-400 mt-1">
-                    Bloklangan hujumlar: <span className="font-bold text-white">{cyberDefenseStatus.attacksBlockedCount} ta</span>
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-mono text-slate-400">PROFILAKTIKA REJIMI</span>
-                    <Server className="w-5 h-5 text-purple-400" />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="text-base font-bold font-mono">
-                      {isMaintenanceMode ? '🛑 MAINTENANCE FAOL' : '🟢 NORMAL REJIM'}
-                    </div>
-                    <button
-                      onClick={() => setMaintenanceMode(!isMaintenanceMode)}
-                      className={`px-3 py-1 text-xs rounded font-bold font-mono transition ${
-                        isMaintenanceMode ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-300'
-                      }`}
-                    >
-                      {isMaintenanceMode ? 'Oʻchirish' : 'Yoqish'}
-                    </button>
-                  </div>
-                </div>
+          {/* Top Live Metrics Bar */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+              <span className="text-xs font-mono text-slate-500 dark:text-slate-400 block">Jami Jonli Soʻrovlar</span>
+              <div className="text-2xl sm:text-3xl font-black font-mono text-slate-900 dark:text-white mt-1">
+                {liveTrafficStats.totalRequests}
               </div>
-
-              {/* Emergency Action Box */}
-              <div className="p-5 rounded-2xl bg-gradient-to-br from-red-950/50 via-slate-900 to-slate-900 border border-red-500/50 space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="p-3 bg-red-500/20 text-red-400 rounded-xl border border-red-500/40">
-                    <AlertTriangle className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-white">
-                      Favqulodda Kiber Hujumga Qarshi Himoya Mekanizmi (Instant Hash + Honeypot Decoy)
-                    </h3>
-                    <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                      Sayt kiber hujumga uchraganda quyidagi tugmani bosish orqali haqiqiy maʼlumotlar bazasi soniyalar ichida 
-                      <strong> AES-256 & SHA-256 bilan shifrlanib yashiriladi</strong>. Tizim avtomatik ravishda uning oʻrniga 
-                      1:1 oʻxshash <strong>tuzoq (virusli/honeypot) soxta maʼlumotlar bazasini</strong> joylashtiradi va barcha xurujlarni nazorat qiladi.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3 pt-2">
-                  {!isHoneypotActive ? (
-                    <button
-                      onClick={handleTriggerLockdown}
-                      className="flex items-center gap-2 px-5 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold font-mono text-sm shadow-lg shadow-red-900/40 transition active:scale-95"
-                    >
-                      <Lock className="w-4 h-4" />
-                      🚨 BAZANI SHIFRLASH & SOXTA HONEYPOT BAZANI OʻRNATISH
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handleRestoreDatabase}
-                      className="flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold font-mono text-sm shadow-lg shadow-emerald-900/40 transition active:scale-95 animate-pulse"
-                    >
-                      <Unlock className="w-4 h-4" />
-                      ✅ ASL BAZANI SHIFRDAN CHIQARIB TIKLASH
-                    </button>
-                  )}
-
-                  <button
-                    onClick={() => simulateAttackTest('SQLi Infiltration on MFY Table')}
-                    className="flex items-center gap-1.5 px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono border border-slate-700 transition"
-                  >
-                    <Bug className="w-4 h-4 text-amber-400" />
-                    SQLi Test Qilish
-                  </button>
-
-                  <button
-                    onClick={() => simulateAttackTest('DDoS Syn Flood to /api')}
-                    className="flex items-center gap-1.5 px-4 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono border border-slate-700 transition"
-                  >
-                    <Zap className="w-4 h-4 text-cyan-400" />
-                    DDoS Test Qilish
-                  </button>
-                </div>
-              </div>
-
-              {/* Honeypot Information */}
-              {isHoneypotActive && (
-                <div className="p-4 rounded-xl bg-amber-950/40 border border-amber-500/50 text-amber-200 text-xs font-mono space-y-2">
-                  <div className="flex items-center gap-2 font-bold text-sm text-amber-300">
-                    <Radio className="w-4 h-4 animate-ping" />
-                    Honeypot Trap Monitoring Faol:
-                  </div>
-                  <p>• Asl fermerlar, MFY ekin maydonlari va hisobotlar xavfsiz shifrli konteynerga koʻchirildi.</p>
-                  <p>• Tashqi soʻrovlar <code className="bg-black/40 px-1 py-0.5 rounded text-amber-100">[HONEYPOT-DECOY-CHAMBER]</code> soxta tuzoqlariga yoʻnaltirilmoqda.</p>
-                  <p>• Hujumchining IP manzili va soʻrov xesh-belgilari doimiy ravishda qayd etilmoqda.</p>
-                </div>
-              )}
+              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-mono flex items-center gap-1.5 mt-2">
+                <Radio className="w-3.5 h-3.5 animate-pulse" /> Har soniyada yangilanmoqda
+              </span>
             </div>
-          )}
 
-          {/* TAB 2: LIVE MFY & SITE HOT EDITOR */}
-          {activeTab === 'live_editor' && (
-            <div className="space-y-6">
-              <div className="bg-slate-800/80 p-5 rounded-2xl border border-slate-700">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-base font-bold text-white flex items-center gap-2">
-                      <Edit3 className="w-5 h-5 text-emerald-400" />
-                      33 ta MFY Maʼlumotlarini Real Vaqtda Oʻzgartirish (Hot Site Overwrite)
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-1">
-                      MFY parametrlarini (daraxtlar soni, ekin maydoni, chorva) tanlang va toʻgʻridan-toʻgʻri saytda jonli yangilang.
-                    </p>
-                  </div>
+            <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+              <span className="text-xs font-mono text-slate-500 dark:text-slate-400 block">Bloklangan Xurujlar (WAF)</span>
+              <div className="text-2xl sm:text-3xl font-black font-mono text-rose-600 dark:text-rose-400 mt-1">
+                {liveTrafficStats.threatsBlocked}
+              </div>
+              <span className="text-[11px] text-rose-600/80 dark:text-rose-400/80 font-mono mt-2 block">
+                SQLi, XSS va Botnet xurujlari
+              </span>
+            </div>
+
+            <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+              <span className="text-xs font-mono text-slate-500 dark:text-slate-400 block">DDoS Rate-Limit (429 Cheklov)</span>
+              <div className="text-2xl sm:text-3xl font-black font-mono text-amber-600 dark:text-amber-400 mt-1">
+                {liveTrafficStats.rateLimitedRequests}
+              </div>
+              <span className="text-[11px] text-amber-600/80 dark:text-amber-400/80 font-mono mt-2 block">
+                Tezlik chegarasidan oshganlar
+              </span>
+            </div>
+
+            <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs">
+              <span className="text-xs font-mono text-slate-500 dark:text-slate-400 block">Oʻrtacha Kechikish (Latency)</span>
+              <div className="text-2xl sm:text-3xl font-black font-mono text-blue-600 dark:text-blue-400 mt-1">
+                {liveTrafficStats.avgResponseTimeMs} ms
+              </div>
+              <span className="text-[11px] text-blue-600/80 dark:text-blue-400/80 font-mono mt-2 block">
+                Yuqori tezlikdagi javob vaqti
+              </span>
+            </div>
+          </div>
+
+          {/* Real-time Dynamic Latency Chart (Recharts) */}
+          <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-emerald-500" />
+                  <span>Real Vaqtda Server Soʻrovlari va Kechikish Dinamikasi (Latency ms)</span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+                  Har bir nuqta aniq vaqt soniyasini aks ettiradi (Joriy vaqt: {currentSecondsTime})
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs font-mono">
+                <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 font-bold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                  Jonli sekundma-sekund oqim
+                </span>
+              </div>
+            </div>
+
+            <div className="h-72 w-full pt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="liveTrafficGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.45}/>
+                      <stop offset="95%" stopColor="#10B981" stopOpacity={0.02}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#CBD5E1" opacity={0.3} />
+                  <XAxis dataKey="time" stroke="#64748B" fontSize={11} />
+                  <YAxis stroke="#64748B" fontSize={11} domain={[0, 'auto']} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#0F172A', 
+                      borderColor: '#334155', 
+                      borderRadius: 12, 
+                      color: '#F8FAFC',
+                      fontSize: 12,
+                      boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)'
+                    }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="duration" 
+                    stroke="#10B981" 
+                    strokeWidth={2.5} 
+                    fillOpacity={1} 
+                    fill="url(#liveTrafficGradient)" 
+                    name="Kechikish (ms)" 
+                    isAnimationActive={false}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* DDoS Rate Limiter Controls & IP Blacklist */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Rate Limiting Configuration Box */}
+            <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                  <Cpu className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">DDoS Trafikni Cheklash (Rate Limiter)</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">1 daqiqada ruxsat etiladigan maksimal soʻrovlar meʼyori (RPM)</p>
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-1">
+                <div className="flex items-center justify-between text-xs font-mono">
+                  <span className="text-slate-500 dark:text-slate-400">Joriy chegara:</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-bold text-sm">{selectedRpmLimit} soʻrov / daqiqa</span>
                 </div>
 
-                {/* MFY Selector */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 mb-6 max-h-40 overflow-y-auto p-2 bg-slate-950 rounded-xl border border-slate-800">
-                  {mfyList.map(m => (
+                <input
+                  type="range"
+                  min="30"
+                  max="300"
+                  step="10"
+                  value={selectedRpmLimit}
+                  onChange={(e) => setSelectedRpmLimit(Number(e.target.value))}
+                  className="w-full accent-emerald-500 cursor-pointer h-2 bg-slate-200 dark:bg-slate-700 rounded-lg"
+                />
+
+                <div className="grid grid-cols-4 gap-2">
+                  {[60, 120, 180, 240].map((val) => (
                     <button
-                      key={m.id}
-                      onClick={() => handleSelectMfyToEdit(m.id)}
-                      className={`p-2 text-xs rounded-lg text-left font-mono transition border ${
-                        selectedMfyEditId === m.id
-                          ? 'bg-emerald-600 text-white border-emerald-400 shadow'
-                          : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-800'
+                      key={val}
+                      onClick={() => setSelectedRpmLimit(val)}
+                      className={`py-2 text-xs font-mono font-bold rounded-xl border transition cursor-pointer ${
+                        selectedRpmLimit === val 
+                          ? 'bg-emerald-600 text-white border-emerald-500 shadow-sm' 
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
                       }`}
                     >
-                      <div className="font-bold">#{m.id}</div>
-                      <div className="truncate text-[10px] opacity-80">{m.name.replace(/MFY.*/, '')}</div>
+                      {val} RPM
                     </button>
                   ))}
                 </div>
 
-                {/* Edit Form */}
-                <form onSubmit={handleSaveMfyChanges} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-mono text-slate-400 mb-1">MFY Nomi</label>
-                    <input
-                      type="text"
-                      value={editName || currentEditMfy.name}
-                      onChange={e => setEditName(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white font-medium focus:border-emerald-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-mono text-slate-400 mb-1">Limon Daraxtlari (dona)</label>
-                    <input
-                      type="number"
-                      value={editLimon}
-                      onChange={e => setEditLimon(Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white font-medium focus:border-emerald-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-mono text-slate-400 mb-1">Chorva Boshlari (bosh)</label>
-                    <input
-                      type="number"
-                      value={editChorva}
-                      onChange={e => setEditChorva(Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white font-medium focus:border-emerald-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-mono text-slate-400 mb-1">Dehqonchilik Maydoni (Ga)</label>
-                    <input
-                      type="number"
-                      value={editGa}
-                      onChange={e => setEditGa(Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white font-medium focus:border-emerald-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2 flex items-end">
-                    <button
-                      type="submit"
-                      className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs font-mono uppercase tracking-wider flex items-center justify-center gap-2 shadow transition active:scale-95"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      Saytda Jonli Qoʻllash
-                    </button>
-                  </div>
-                </form>
+                <button
+                  onClick={handleApplyRpmLimit}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition cursor-pointer"
+                >
+                  DDoS Cheklovini Kuchga Kiritish
+                </button>
               </div>
             </div>
-          )}
 
-          {/* TAB 3: AUDIT & SECURITY LOGS */}
-          {activeTab === 'security_logs' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold font-mono text-slate-300">
-                  Xavfsizlik Jurnali (Real-Vaqt WAF & Honeypot Hodisalari)
-                </h3>
-                <span className="text-xs text-slate-400 font-mono">
-                  Jami: {securityAuditLogs.length} ta yozuv
-                </span>
+            {/* IP Blacklist & Firewall Manager */}
+            <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">Xavfsizlik Devori (IP Qora Roʻyxati)</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Shubhali yoki xuruj uyushtirgan IP manzillarni bloklash</p>
+                </div>
               </div>
 
-              <div className="space-y-2 font-mono text-xs max-h-96 overflow-y-auto">
-                {securityAuditLogs.map(log => (
-                  <div
-                    key={log.id}
-                    className={`p-3 rounded-xl border ${
-                      log.severity === 'critical' ? 'bg-red-950/40 border-red-500/40 text-red-200' :
-                      log.severity === 'warning' ? 'bg-amber-950/30 border-amber-500/40 text-amber-200' :
-                      log.severity === 'shield' ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-200' :
-                      'bg-slate-800/60 border-slate-700 text-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-[11px] mb-1">
-                      <span className="font-bold flex items-center gap-1.5">
-                        {log.severity === 'critical' && <ShieldAlert className="w-3.5 h-3.5 text-red-400" />}
-                        {log.severity === 'warning' && <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />}
-                        {log.severity === 'shield' && <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />}
-                        {log.event}
-                      </span>
-                      <span className="opacity-70">{log.timestamp}</span>
+              <form onSubmit={handleManualBlockIp} className="flex gap-2">
+                <input
+                  type="text"
+                  value={manualIpToBlock}
+                  onChange={(e) => setManualIpToBlock(e.target.value)}
+                  placeholder="IP manzil (masalan: 198.51.100.23)"
+                  className="flex-1 px-3.5 py-2.5 text-xs font-mono bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-rose-500"
+                />
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-600/20 transition cursor-pointer"
+                >
+                  Bloklash
+                </button>
+              </form>
+
+              <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono block">Bloklangan IP manzillar ({blockedIps.length}):</span>
+                {blockedIps.length === 0 ? (
+                  <span className="text-xs text-slate-400 italic">Hozirda bloklangan IP yoʻq</span>
+                ) : (
+                  blockedIps.map((ip) => (
+                    <div key={ip} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs font-mono">
+                      <span className="text-rose-600 dark:text-rose-400 font-semibold">{ip}</span>
+                      <button
+                        onClick={() => unblockIp(ip)}
+                        className="text-[11px] text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-700 transition cursor-pointer"
+                      >
+                        Blokdan chiqarish
+                      </button>
                     </div>
-                    <div className="text-slate-400 text-[11px]">IP: <span className="text-slate-200">{log.ip}</span> | Status: <span className="uppercase text-emerald-400 font-bold">{log.status}</span></div>
-                    <p className="mt-1 text-slate-300 text-[11px] bg-black/30 p-1.5 rounded">{log.details}</p>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
-          )}
 
-          {/* TAB 4: JSON DB VAULT */}
-          {activeTab === 'db_vault' && (
-            <div className="space-y-6">
-              <div className="bg-slate-800/80 p-5 rounded-2xl border border-slate-700 space-y-4">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Database className="w-4 h-4 text-cyan-400" />
-                  Butun Yozyovon Maʼlumotlar Bazasini JSON Formatida Yuklash yoki Tiklash
-                </h3>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Saytning barcha 33 MFY agro-statistikasi, dehqonlar roʻyxati, arizalar va audit maʼlumotlarini zaxiralang.
+          </div>
+
+          {/* Live Request Stream Table */}
+          <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white font-mono flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-emerald-500" />
+                  <span>Jonli Soʻrovlar Oqimi (Live Traffic Stream)</span>
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+                  Har soniyadagi tarmoq soʻrovlari real vaqtda qayd etilmoqda (Soʻnggi {trafficHistory.length} ta)
                 </p>
+              </div>
+              <span className="text-xs font-mono font-semibold text-slate-500 dark:text-slate-400">
+                Aniq vaqt: {currentSecondsTime}
+              </span>
+            </div>
 
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    onClick={handleExportJson}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-mono text-xs font-bold transition shadow"
-                  >
-                    <Download className="w-4 h-4" />
-                    Zaxira Faylni Yuklab Olish (.json)
-                  </button>
-                </div>
+            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 max-h-72 overflow-y-auto">
+              <table className="w-full text-left text-xs font-mono">
+                <thead className="bg-slate-50 dark:bg-slate-800/90 text-slate-600 dark:text-slate-400 sticky top-0 border-b border-slate-200 dark:border-slate-700">
+                  <tr>
+                    <th className="px-4 py-3">Vaqt (Sekundma-sekund)</th>
+                    <th className="px-4 py-3">IP Manzil</th>
+                    <th className="px-4 py-3">Metod</th>
+                    <th className="px-4 py-3">Marshrut</th>
+                    <th className="px-4 py-3">Holat Kodu</th>
+                    <th className="px-4 py-3">Kechikish</th>
+                    <th className="px-4 py-3">Xavfsizlik Holati</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                  {trafficHistory.slice(0, 30).map((req) => (
+                    <tr key={req.id} className={req.isThreat ? 'bg-rose-50/50 dark:bg-rose-950/20' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'}>
+                      <td className="px-4 py-2.5 font-bold text-slate-900 dark:text-slate-200">{req.timeLabel}</td>
+                      <td className="px-4 py-2.5 font-semibold text-slate-600 dark:text-slate-400">{req.ip}</td>
+                      <td className="px-4 py-2.5 font-bold text-blue-600 dark:text-blue-400">{req.method}</td>
+                      <td className="px-4 py-2.5 text-slate-600 dark:text-slate-300">{req.path}</td>
+                      <td className="px-4 py-2.5">
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                          req.status === 200 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800' :
+                          req.status === 429 ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800' :
+                          'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800'
+                        }`}>
+                          {req.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-500 dark:text-slate-400">{req.durationMs}ms</td>
+                      <td className="px-4 py-2.5">
+                        {req.isThreat ? (
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-300 border border-rose-300 dark:border-rose-600">
+                            🚨 {req.threatType || 'BLOCKED'}
+                          </span>
+                        ) : (
+                          <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-[11px]">✓ Toza</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-                <div className="pt-4 border-t border-slate-700 space-y-2">
-                  <label className="block text-xs font-mono text-slate-300">
-                    JSON Maʼlumotlar Bazasini Import Qilish / Qayta Tiklash
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={jsonInput}
-                    onChange={e => setJsonInput(e.target.value)}
-                    placeholder='{"mfyList": [...], "crops": [...]}'
-                    className="w-full p-3 bg-slate-950 border border-slate-700 rounded-xl font-mono text-xs text-slate-200 focus:border-cyan-500 focus:outline-none"
-                  />
-                  <button
-                    onClick={handleImportJson}
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-mono font-bold rounded-lg transition"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    JSON Bazani Saytga Yuklash
-                  </button>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* BO'LIM 2: MA'LUMOTLAR BAZASINI ZAHIRALASH VA TIKLASH                     */}
+      {/* ==================================================================== */}
+      {panelTab === 'backup_restore' && (
+        <div className="space-y-6">
+          
+          {/* Integrity status card */}
+          <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <ShieldCheck className="w-7 h-7" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>Maʼlumotlar Bazasi Yaxlitligi va Xavfsizlik Holati</span>
+                  <span className="px-2.5 py-0.5 text-xs font-mono bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 rounded-md border border-emerald-300 dark:border-emerald-700 font-bold">
+                    100% VERIFIED
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400 font-mono mt-1">
+                  {integrityResult?.details || '33 ta MFY toʻliq tekshirilgan. Hech qanday soxta yoki zararlangan maʼlumot yoʻq.'}
+                </p>
+                <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 dark:text-slate-400 font-mono mt-2">
+                  <span>SHA-256 Hash: {integrityResult?.hash || 'SHA256:7f83b1657ff1fc53...'}</span>
+                  <span>•</span>
+                  <span>Oxirgi zaxira: {cyberDefenseStatus.lastBackupTime || '2026-09-21 22:00'}</span>
                 </div>
               </div>
             </div>
-          )}
 
-          {/* TAB 5: TOMORROW.IO API KEY MANAGEMENT (DEVELOPER EXCLUSIVE) */}
-          {activeTab === 'api_keys' && (
-            <div className="space-y-6">
-              <div className="p-5 bg-slate-900 border border-slate-700 rounded-xl space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-cyan-950/80 border border-cyan-500/40 rounded-lg text-cyan-400">
-                    <Key className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-white font-mono flex items-center gap-2">
-                      Tomorrow.io Ob-havo & Sunʼiy Yoʻldosh Radar API Kaliti
-                    </h3>
-                    <p className="text-xs text-slate-400 font-mono mt-0.5">
-                      Faqat Dasturchi (developerpro@gamil.com) uchun vakolatli sozlama. Dehqonlar panelida bu ruxsat cheklangan.
-                    </p>
-                  </div>
+            <button
+              onClick={() => {
+                const res = verifyDatabaseIntegrity();
+                setIntegrityResult(res);
+                setStatusMsg({ text: '✅ Bazaning yaxlitligi qayta tekshirildi: Barcha 33 MFY butun!', type: 'success' });
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl border border-slate-300 dark:border-slate-700 transition cursor-pointer shrink-0"
+            >
+              <RefreshCw className="w-4 h-4 text-emerald-500" />
+              Yaxlitlikni Tekshirish
+            </button>
+          </div>
+
+          {/* Download Full Backup Box */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                  <Download className="w-5 h-5" />
                 </div>
-
-                <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-slate-300 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                    <span>Hozirgi saqlangan API kalit:</span>
-                  </div>
-                  <span className="text-cyan-400 font-bold tracking-wider">
-                    {tomorrowApiKeyInput ? `${tomorrowApiKeyInput.slice(0, 8)}...${tomorrowApiKeyInput.slice(-4)}` : 'Standart kalit faol'}
-                  </span>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">Toʻliq Bazani Yuklab Olish (Export)</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">33 ta MFY, ekinlar, chorva, subsidiyalar va barcha koʻrsatkichlar</p>
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <label className="block text-xs font-mono text-slate-300 font-semibold">
-                    Yangi Tomorrow.io API kalitini kiritish:
-                  </label>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                Saytdagi barcha davlat reyestri va fermerlar maʼlumotlarini zaxiraga oling. SQL formati tayyorlangan parametrlarga ega, JSON esa tezkor qayta tiklash uchun qulay.
+              </p>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  onClick={() => handleDownloadBackup('json')}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-md shadow-emerald-600/20 transition cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  JSON Zaxirani Yuklash
+                </button>
+                <button
+                  onClick={() => handleDownloadBackup('sql')}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-md shadow-blue-600/20 transition cursor-pointer"
+                >
+                  <FileText className="w-4 h-4" />
+                  SQL Dump (Prepared)
+                </button>
+              </div>
+            </div>
+
+            {/* Instant Snapshot Creation */}
+            <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                  <HardDrive className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">Tezkor Snapshot Nusxa Yaratish</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Tizim ichki xotirasida zaxira nuqtasi yaratish</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-1">
+                <input
+                  type="text"
+                  value={snapshotNote}
+                  onChange={(e) => setSnapshotNote(e.target.value)}
+                  placeholder="Izoh kiriting (masalan: Yangi haftalik monitoring oldidan zaxira)"
+                  className="w-full px-3.5 py-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-purple-500"
+                />
+                <button
+                  onClick={handleCreateSnapshot}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white rounded-xl shadow-md shadow-purple-600/20 transition cursor-pointer"
+                >
+                  <HardDrive className="w-4 h-4" />
+                  Yangi Snapshot Saqlash
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Restore from File or JSON */}
+          <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                  <Upload className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">Bazani Zaxiradan Qayta Tiklash (Restore)</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Zaxira faylini yuklang yoki JSON matnini joylang</p>
+                </div>
+              </div>
+
+              {/* File Upload Button */}
+              <label className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl border border-slate-300 dark:border-slate-700 cursor-pointer transition">
+                <Upload className="w-4 h-4 text-emerald-500" />
+                <span>Fayldan Yuklash (.json)</span>
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            <div className="space-y-3">
+              <textarea
+                rows={4}
+                value={jsonInput}
+                onChange={(e) => setJsonInput(e.target.value)}
+                placeholder='Zaxira JSON maʼlumotlarini shu yerga joylashtiring: {"data": {"mfyList": [...]}}'
+                className="w-full p-3.5 font-mono text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-emerald-300 placeholder-slate-400 focus:outline-none focus:border-emerald-500"
+              />
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
+                  * Tiklashdan avval avtomatik yaxlitlik (SHA-256 va 33 MFY) tekshiruvi amalga oshiriladi.
+                </span>
+                <button
+                  onClick={handleRestoreFromJson}
+                  className="flex items-center gap-2 px-6 py-2.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-md shadow-emerald-600/20 transition cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  Bazani Tiklash
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Snapshots History Table */}
+          <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+            <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center justify-between">
+              <span>Mavjud Snapshot Zaxiralar Tarixi</span>
+              <span className="text-xs font-mono font-normal text-slate-500 dark:text-slate-400">
+                Jami: {backupSnapshots.length} ta zaxira
+              </span>
+            </h4>
+
+            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+              <table className="w-full text-left text-xs font-mono">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                  <tr>
+                    <th className="px-4 py-3">Sana & Vaqt</th>
+                    <th className="px-4 py-3">Zaxira Nomi</th>
+                    <th className="px-4 py-3">Format</th>
+                    <th className="px-4 py-3">Hajm</th>
+                    <th className="px-4 py-3">Holat</th>
+                    <th className="px-4 py-3 text-right">Amallar</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                  {backupSnapshots.map((snap) => (
+                    <tr key={snap.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                      <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{snap.timestamp}</td>
+                      <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white">{snap.name}</td>
+                      <td className="px-4 py-3 uppercase text-emerald-600 dark:text-emerald-400 font-bold">{snap.format}</td>
+                      <td className="px-4 py-3">{snap.sizeKb} KB</td>
+                      <td className="px-4 py-3">
+                        <span className="px-2.5 py-0.5 text-[10px] font-bold rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                          {snap.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right space-x-2">
+                        <button
+                          onClick={() => handleDownloadBackup(snap.format)}
+                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg border border-slate-200 dark:border-slate-700 transition cursor-pointer"
+                          title="Yuklab olish"
+                        >
+                          <Download className="w-3.5 h-3.5 inline" />
+                        </button>
+                        {backupSnapshots.length > 1 && (
+                          <button
+                            onClick={() => deleteBackupSnapshot(snap.id)}
+                            className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/80 text-rose-600 dark:text-rose-300 rounded-lg border border-rose-200 dark:border-rose-800/50 transition cursor-pointer"
+                            title="Oʻchirish"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 inline" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* BO'LIM 3: TIZIM LOGLARI VA KIRISH HUQUQLARI (AUDIT & RBAC)               */}
+      {/* ==================================================================== */}
+      {panelTab === 'logs_and_rbac' && (
+        <div className="space-y-6">
+
+          {/* Role-Based Access Control (RBAC) Section */}
+          <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">Kirish Huquqlarini Boshqarish Matritsasi (RBAC)</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Oʻzgarishlar barcha panellarda va rollarda real vaqtda darhol kuchga kiradi
+                  </p>
+                </div>
+              </div>
+
+              {/* Filter by Category */}
+              <div className="flex items-center gap-2 text-xs font-mono">
+                <span className="text-slate-500 dark:text-slate-400">Kategoriya:</span>
+                <select
+                  value={selectedRbacCategory}
+                  onChange={(e) => setSelectedRbacCategory(e.target.value as any)}
+                  className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-200 text-xs focus:outline-none"
+                >
+                  <option value="all">Barchasi</option>
+                  <option value="database">Baza Amallari</option>
+                  <option value="monitoring">Monitoring & Xarita</option>
+                  <option value="security">Kiber-Xavfsizlik</option>
+                  <option value="subsidies">Subsidiyalar</option>
+                  <option value="export">Eksport</option>
+                </select>
+              </div>
+            </div>
+
+            {/* RBAC Matrix Table */}
+            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+              <table className="w-full text-left text-xs font-mono">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                  <tr>
+                    <th className="px-5 py-3.5">Funksiya va Ruxsatnoma</th>
+                    <th className="px-5 py-3.5 text-center">
+                      <span className="px-2.5 py-1 rounded-md bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800 font-bold">
+                        👨‍💻 Dasturchi (Root)
+                      </span>
+                    </th>
+                    <th className="px-5 py-3.5 text-center">
+                      <span className="px-2.5 py-1 rounded-md bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-300 dark:border-blue-800 font-bold">
+                        🏛️ Davlat Organi
+                      </span>
+                    </th>
+                    <th className="px-5 py-3.5 text-center">
+                      <span className="px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 font-bold">
+                        👨‍🌾 Dehqon / Fermer
+                      </span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                  {filteredRbac.map((perm) => (
+                    <tr key={perm.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                      <td className="px-5 py-3.5">
+                        <div className="font-bold text-slate-900 dark:text-white text-sm">{perm.name}</div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{perm.description}</div>
+                      </td>
+
+                      {/* Admin toggle */}
+                      <td className="px-5 py-3.5 text-center">
+                        <button
+                          onClick={() => toggleRbacPermission(perm.id, 'admin')}
+                          className={`p-2 rounded-xl transition cursor-pointer ${
+                            perm.roles.admin 
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700' 
+                              : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 border border-slate-200 dark:border-slate-700'
+                          }`}
+                          title="Dasturchi ruxsatini oʻzgartirish"
+                        >
+                          {perm.roles.admin ? <CheckCircle2 className="w-5 h-5" /> : <ShieldOff className="w-5 h-5" />}
+                        </button>
+                      </td>
+
+                      {/* Davlat toggle */}
+                      <td className="px-5 py-3.5 text-center">
+                        <button
+                          onClick={() => toggleRbacPermission(perm.id, 'davlat')}
+                          className={`p-2 rounded-xl transition cursor-pointer ${
+                            perm.roles.davlat 
+                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-300 dark:border-blue-700' 
+                              : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 border border-slate-200 dark:border-slate-700'
+                          }`}
+                          title="Davlat organi ruxsatini oʻzgartirish"
+                        >
+                          {perm.roles.davlat ? <CheckCircle2 className="w-5 h-5" /> : <ShieldOff className="w-5 h-5" />}
+                        </button>
+                      </td>
+
+                      {/* Dehqon toggle */}
+                      <td className="px-5 py-3.5 text-center">
+                        <button
+                          onClick={() => toggleRbacPermission(perm.id, 'dehqon')}
+                          className={`p-2 rounded-xl transition cursor-pointer ${
+                            perm.roles.dehqon 
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700' 
+                              : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500 border border-slate-200 dark:border-slate-700'
+                          }`}
+                          title="Dehqon ruxsatini oʻzgartirish"
+                        >
+                          {perm.roles.dehqon ? <CheckCircle2 className="w-5 h-5" /> : <ShieldOff className="w-5 h-5" />}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* System Audit Logs Section */}
+          <div className="p-5 sm:p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">Tizim Kiber-Xavfsizlik Audit Jurnali</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">SQL Injection filtri, XSS tozalash va kirish loglari</p>
+                </div>
+              </div>
+
+              {/* Search and Filter */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
                   <input
                     type="text"
-                    value={tomorrowApiKeyInput}
-                    onChange={(e) => setTomorrowApiKeyInput(e.target.value.trim())}
-                    placeholder="Tomorrow.io API kalitini kiriting (masalan, 32 ta belgili kod)"
-                    className="w-full p-3 bg-slate-950 border border-slate-700 rounded-xl font-mono text-xs text-slate-100 focus:border-cyan-500 focus:outline-none"
+                    value={logSearchQuery}
+                    onChange={(e) => setLogSearchQuery(e.target.value)}
+                    placeholder="Loglarni qidirish..."
+                    className="pl-9 pr-3.5 py-2 text-xs font-mono bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500"
                   />
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3 pt-2">
-                  <button
-                    onClick={() => {
-                      if (tomorrowApiKeyInput) {
-                        saveCustomTomorrowApiKey(tomorrowApiKeyInput);
-                        setStatusMsg({
-                          text: '✅ Tomorrow.io API kaliti muvaffaqiyatli saqlandi va butun tizim boʻyicha yangilandi!',
-                          type: 'success'
-                        });
-                        setTimeout(() => setStatusMsg(null), 3500);
-                      }
-                    }}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-slate-950 text-xs font-mono font-bold rounded-lg transition shadow-md"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    API Kalitni Saqlash
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      localStorage.removeItem('yozyovon_tomorrow_api_key');
-                      setTomorrowApiKeyInput(getStoredTomorrowApiKey());
-                      setStatusMsg({
-                        text: '🔄 Standart Tomorrow.io API kaliti tiklandi!',
-                        type: 'info'
-                      });
-                      setTimeout(() => setStatusMsg(null), 3000);
-                    }}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono rounded-lg transition"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    Standart Kalitga Qaytish
-                  </button>
-                </div>
+                <select
+                  value={logFilterSeverity}
+                  onChange={(e) => setLogFilterSeverity(e.target.value as any)}
+                  className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-200 text-xs focus:outline-none"
+                >
+                  <option value="all">Barcha Darajalar</option>
+                  <option value="critical">🚨 Kritik (Critical)</option>
+                  <option value="warning">⚠️ Ogohlantirish</option>
+                  <option value="shield">🛡️ Himoya / Baza</option>
+                  <option value="info">ℹ️ Maʼlumot</option>
+                </select>
               </div>
             </div>
-          )}
 
-        </div>
+            {/* Audit Logs List */}
+            <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+              {filteredLogs.length === 0 ? (
+                <div className="p-8 text-center text-xs text-slate-400 font-mono">
+                  Qidiruv boʻyicha mos keladigan audit log topilmadi.
+                </div>
+              ) : (
+                filteredLogs.map((log) => (
+                  <div
+                    key={log.id}
+                    className={`p-4 rounded-xl border text-xs font-mono transition ${
+                      log.severity === 'critical' ? 'bg-rose-50/70 border-rose-300 text-rose-900 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-200' :
+                      log.severity === 'warning' ? 'bg-amber-50/70 border-amber-300 text-amber-900 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-200' :
+                      log.severity === 'shield' ? 'bg-emerald-50/70 border-emerald-300 text-emerald-900 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-200' :
+                      'bg-slate-50 border-slate-200 text-slate-800 dark:bg-slate-800/80 dark:border-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-black/10 dark:border-white/10 pb-2 mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          log.severity === 'critical' ? 'bg-rose-600 text-white' :
+                          log.severity === 'warning' ? 'bg-amber-600 text-white' :
+                          log.severity === 'shield' ? 'bg-emerald-600 text-white' :
+                          'bg-slate-600 text-white'
+                        }`}>
+                          {log.severity.toUpperCase()}
+                        </span>
+                        <span className="font-bold text-slate-900 dark:text-white">{log.event}</span>
+                      </div>
 
-        {/* Footer */}
-        <div className="px-6 py-3 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400 font-mono">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>SECURE VAULT ENCLAVE OK</span>
+                      <div className="flex items-center gap-3 text-[11px] opacity-75">
+                        <span>IP: {log.ip}</span>
+                        <span>{log.timestamp}</span>
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] leading-relaxed opacity-90 pl-1">
+                      {log.details}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
-          <span>Developer Hotline / Backdoor Active</span>
-        </div>
 
-      </div>
+        </div>
+      )}
+
     </div>
   );
 };

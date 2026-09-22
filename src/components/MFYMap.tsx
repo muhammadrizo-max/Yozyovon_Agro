@@ -18,7 +18,9 @@ import {
   Globe,
   Waves,
   MapPin,
-  Sparkles
+  Sparkles,
+  ShieldAlert,
+  Lock
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { MFYData } from '../types';
@@ -30,7 +32,9 @@ import {
 } from '../data/yozyovonData';
 
 export const MFYMap: React.FC = () => {
-  const { mfyList, selectMfy, userRole } = useApp();
+  const { mfyList, selectMfy, userRole, hasPermission } = useApp();
+  const canViewMfyMap = hasPermission('perm_mfy_view');
+
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const baseTileLayerRef = useRef<L.TileLayer | null>(null);
@@ -369,6 +373,31 @@ export const MFYMap: React.FC = () => {
       mapInstanceRef.current.setView(mfy.center, 14, { animate: true });
     }
   };
+
+  // Kiber-Xavfsizlik RBAC Cheklovi: Agar perm_mfy_view o'chirilgan bo'lsa xarita darhol yopiladi!
+  if (!canViewMfyMap) {
+    return (
+      <div className="w-full min-h-[460px] flex flex-col items-center justify-center p-8 bg-white dark:bg-slate-900 rounded-2xl border-2 border-rose-300 dark:border-rose-900 shadow-xl text-center space-y-4" id="rbac-map-lockdown-banner">
+        <div className="w-16 h-16 rounded-2xl bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-200 dark:border-rose-800 shadow-inner">
+          <ShieldAlert className="w-8 h-8" />
+        </div>
+        <div className="max-w-md space-y-2">
+          <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+            KIBER-XAVFSIZLIK: RBAC CHEKLOVI FAOL
+          </span>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+            MFY Xaritasi va Maʼlumotlariga Kirish Taqiqlangan
+          </h2>
+          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-mono">
+            Dasturchi Konsolidagi (SOC) Kirish Huquqlari Matritsasida (RBAC) <strong>{userRole === 'dehqon' ? 'DEHQON / FERMER' : userRole === 'davlat' ? 'DAVLAT ORGANI' : userRole.toUpperCase()}</strong> roli uchun <code>perm_mfy_view</code> (MFY Maʼlumotlarini Koʻrish) huquqi bekor qilingan.
+          </p>
+        </div>
+        <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 text-xs text-slate-500 font-mono">
+          Ushbu xavfsizlik cheklovi administrator tomonidan oʻzgartirilguncha xarita koʻrsatilmaydi.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5" id="yozyovon-map-section">

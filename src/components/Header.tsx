@@ -176,7 +176,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
               onClick={() => {
                 selectMfy(null);
                 if (userRole === 'admin') {
-                  setIsDevModalOpen(true);
+                  setActiveTab('dev_hub');
                 } else if (userRole === 'davlat') {
                   setActiveTab('gov_hub');
                 } else {
@@ -214,8 +214,12 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
               <>
                 <button
                   id="nav-admin-console"
-                  onClick={() => setIsDevModalOpen(true)}
-                  className="pb-1 border-b-2 text-xs font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 border-emerald-500 font-bold"
+                  onClick={() => { selectMfy(null); setActiveTab('dev_hub'); }}
+                  className={`pb-1 border-b-2 text-xs font-semibold uppercase tracking-wider transition-colors flex items-center gap-1.5 ${
+                    activeTab === 'dev_hub'
+                      ? 'text-emerald-600 dark:text-emerald-400 border-emerald-500 font-bold'
+                      : 'text-[#64748B] dark:text-slate-400 border-transparent hover:text-emerald-600 dark:hover:text-emerald-400'
+                  }`}
                 >
                   <Terminal className="w-4 h-4" />
                   <span>Dasturchi Konsoli</span>

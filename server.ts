@@ -8,9 +8,88 @@ async function startServer() {
 
   app.use(express.json());
 
+  // 1. XAVFSIZLIK SARLAVHALARI (Security Headers / Defense in Depth)
+  app.use((req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+  });
+
+  // 2. IN-MEMORY DDOS & RATE LIMITING MIDDLEWARE
+  const clientRequestCounts = new Map<string, { count: number; firstRequestTime: number }>();
+  const MAX_REQ_PER_WINDOW = 120; // 1 daqiqada 120 so'rov limiti
+  const WINDOW_MS = 60 * 1000;
+
+  app.use((req, res, next) => {
+    // Only rate-limit API calls and requests to prevent server DDoS
+    if (req.path.startsWith('/api/')) {
+      const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1';
+      const now = Date.now();
+      const clientData = clientRequestCounts.get(clientIp) || { count: 0, firstRequestTime: now };
+
+      if (now - clientData.firstRequestTime > WINDOW_MS) {
+        clientData.count = 1;
+        clientData.firstRequestTime = now;
+      } else {
+        clientData.count++;
+      }
+      clientRequestCounts.set(clientIp, clientData);
+
+      if (clientData.count > MAX_REQ_PER_WINDOW) {
+        return res.status(429).json({
+          success: false,
+          error: 'DDOS_RATE_LIMITED',
+          message: 'DDoS xavfsizlik cheklovi: Juda koʻp soʻrov yuborildi. Iltimos, 1 daqiqadan soʻng qayta urinib koʻring.'
+        });
+      }
+    }
+    next();
+  });
+
+  // 3. SQL INJECTION & XSS ATTACK DETECTION MIDDLEWARE (WAF - Web Application Firewall)
+  const SQLI_REGEX = /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|EXEC|UNION)\b)|(--|#|\/\*|\*\/)|(\bOR\b\s+['"]?[\w\d]+['"]?\s*=\s*['"]?[\w\d]+['"]?)/i;
+  const XSS_REGEX = /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>|javascript:|onerror\s*=|onload\s*=/i;
+
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api/')) {
+      const inspectString = JSON.stringify(req.query || {}) + JSON.stringify(req.body || {});
+      if (SQLI_REGEX.test(inspectString)) {
+        console.warn(`[WAF BLOCKED - SQL Injection attempt]: IP=${req.ip} URL=${req.url}`);
+        return res.status(400).json({
+          success: false,
+          error: 'SQL_INJECTION_DETECTED',
+          message: 'Xavfsizlik qoidasi buzildi: SQL inʼeksiya xavfi aniqlandi va soʻrov bloklandi.'
+        });
+      }
+      if (XSS_REGEX.test(inspectString)) {
+        console.warn(`[WAF BLOCKED - XSS payload attempt]: IP=${req.ip} URL=${req.url}`);
+        return res.status(400).json({
+          success: false,
+          error: 'XSS_PAYLOAD_DETECTED',
+          message: 'Xavfsizlik qoidasi buzildi: Xavfli XSS skripti aniqlandi va soʻrov bloklandi.'
+        });
+      }
+    }
+    next();
+  });
+
   // Health check API
   app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', service: 'Yozyovon Agro Monitoring API', time: new Date().toISOString() });
+    res.json({ status: 'ok', service: 'Yozyovon Agro Monitoring API', time: new Date().toISOString(), firewall: 'active' });
+  });
+
+  // Security stats API (For Developer Panel)
+  app.get('/api/security-status', (req, res) => {
+    res.json({
+      success: true,
+      waf: 'active',
+      rateLimiter: 'active',
+      maxRpm: MAX_REQ_PER_WINDOW,
+      activeClients: clientRequestCounts.size,
+      serverTime: new Date().toISOString()
+    });
   });
 
   // Google reCAPTCHA v2 Server-side verification API

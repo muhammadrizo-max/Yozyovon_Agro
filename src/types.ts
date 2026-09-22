@@ -301,17 +301,44 @@ export interface SecurityLog {
   event: string;
   ip: string;
   severity: 'critical' | 'warning' | 'info' | 'shield';
-  status: 'blocked' | 'isolated' | 'mitigated' | 'honeypot_trapped' | 'sanitized' | 'verified';
+  status: 'blocked' | 'isolated' | 'mitigated' | 'honeypot_trapped' | 'sanitized' | 'verified' | 'success';
   details: string;
+}
+
+export interface DatabaseBackupSnapshot {
+  id: string;
+  timestamp: string;
+  name: string;
+  format: 'json' | 'sql';
+  recordsCount: number;
+  sizeKb: number;
+  checksumSha256: string;
+  autoBackup: boolean;
+  status: 'valid' | 'verified';
+}
+
+export interface RbacPermission {
+  id: string;
+  name: string;
+  description: string;
+  category: 'database' | 'monitoring' | 'security' | 'subsidies' | 'export';
+  roles: {
+    admin: boolean;
+    davlat: boolean;
+    dehqon: boolean;
+  };
 }
 
 export interface CyberDefenseStatus {
   isLockdownActive: boolean;
-  isHoneypotActive: boolean;
-  vaultEncrypted: boolean;
+  isHoneypotActive?: boolean;
+  vaultEncrypted?: boolean;
   dbHash: string;
   firewallLevel: 'standard' | 'strict' | 'maximum_lockdown';
   attacksBlockedCount: number;
   lastAttackTime: string | null;
+  rateLimitRpm: number;
+  lastBackupTime: string | null;
 }
+
 

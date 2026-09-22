@@ -81,6 +81,11 @@ const AppContent: React.FC = () => {
               <GovManagementHub />
             )}
 
+            {/* Developer & Security Operations Center (SOC) Full Page View */}
+            {(activeTab === 'dev_hub' || activeTab === 'developer') && (
+              <DevEmergencyPanel />
+            )}
+
             {/* 33 MFY Map View */}
             {activeTab === 'map' && (
               <div className="space-y-6">
@@ -231,9 +236,6 @@ const AppContent: React.FC = () => {
         onClose={() => setIsAuthOpen(false)} 
         initialMode={authMode}
       />
-
-      {/* Developer Emergency Access & Cyber Defense Backdoor Console */}
-      <DevEmergencyPanel />
 
       {/* Mobile Fixed Bottom Navigation Bar (Telefonda toʻliq moslashuvchan) */}
       <nav 

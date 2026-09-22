@@ -16,7 +16,8 @@ import {
   Bell,
   Sparkles,
   ExternalLink,
-  Phone
+  Phone,
+  Terminal
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -51,6 +52,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenAuth })
   const isGov = userRole === 'davlat' || userRole === 'admin';
 
   const navItems = [
+    ...(userRole === 'admin' ? [
+      {
+        id: 'dev_hub',
+        label: 'Dasturchi Konsoli (SOC)',
+        desc: 'Zaxira, real vaqtli trafik va RBAC matritsasi',
+        icon: Terminal,
+        color: 'text-emerald-500 dark:text-emerald-400',
+        activeBg: 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+      }
+    ] : []),
     {
       id: 'profile',
       label: 'Mening Xoʻjaligim',
