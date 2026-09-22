@@ -619,7 +619,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
 
                       <div>
                         <label className="block text-[10px] font-bold uppercase tracking-wider text-[#64748B] dark:text-slate-400 mb-1">
-                          Yozyovon Mahallasini Tanlang (32 ta MFY)
+                          Yozyovon Mahallasini Tanlang (33 ta MFY)
                         </label>
                         <select
                           value={editMfyId}

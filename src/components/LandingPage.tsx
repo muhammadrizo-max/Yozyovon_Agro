@@ -221,7 +221,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                 role: 'Davlat Organlari',
                 icon: <ShieldCheck className="w-6 h-6 text-indigo-600" />,
                 points: [
-                  '32 MFY bo\'yicha umumiy ko\'rsatkichlar',
+                  '33 MFY bo\'yicha umumiy ko\'rsatkichlar',
                   'Fitosanitariya nazorati',
                   'Subsidiya arizalarini boshqarish',
                   'Eksport sertifikatlari tizimi',

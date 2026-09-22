@@ -76,12 +76,12 @@ const AppContent: React.FC = () => {
           <MFYDetail mfyId={selectedMfyId} onBack={() => selectMfy(null)} />
         ) : (
           <>
-            {/* Government Management Hub (32 MFY, Subsidies, Alerts, Export Certs, Reset Test Data) */}
+            {/* Government Management Hub (33 MFY, Subsidies, Alerts, Export Certs, Reset Test Data) */}
             {activeTab === 'gov_hub' && (
               <GovManagementHub />
             )}
 
-            {/* 32 MFY Map View */}
+            {/* 33 MFY Map View */}
             {activeTab === 'map' && (
               <div className="space-y-6">
                 <MFYMap />
@@ -142,7 +142,7 @@ const AppContent: React.FC = () => {
                 </span>
               </div>
               <p className="text-slate-400 text-xs leading-relaxed">
-                Yozyovon tumani qishloq xoʻjaligi, sitruschilik va chorvachilik raqamli monitoring tizimi. 32 ta MFY boʻyicha yagona maʼlumotlar portali.
+                Yozyovon tumani qishloq xoʻjaligi, sitruschilik va chorvachilik raqamli monitoring tizimi. 33 ta MFY boʻyicha yagona maʼlumotlar portali.
               </p>
               <div className="text-[10px] text-blue-400 font-semibold bg-blue-950/60 px-2.5 py-1 rounded border border-blue-800/50 inline-block uppercase tracking-wider">
                 🍋 Yozyovon Sitrus Klasteri & AI Agro-Monitoring
@@ -155,7 +155,7 @@ const AppContent: React.FC = () => {
               <ul className="space-y-2 text-slate-400">
                 <li>
                   <button onClick={() => { selectMfy(null); setActiveTab('gov_hub'); }} className="hover:text-[#3B82F6] transition-colors text-left">
-                    Davlat Boshqaruv Markazi (32 MFY)
+                    Davlat Boshqaruv Markazi (33 MFY)
                   </button>
                 </li>
                 <li>
@@ -178,7 +178,7 @@ const AppContent: React.FC = () => {
 
             {/* Col 3: MFYlar ro'yxati */}
             <div>
-              <h4 className="font-bold text-white mb-3 uppercase tracking-widest text-[10px]">Yozyovon MFYlari (32 ta)</h4>
+              <h4 className="font-bold text-white mb-3 uppercase tracking-widest text-[10px]">Yozyovon MFYlari (33 ta)</h4>
               <div className="grid grid-cols-2 gap-1 text-[11px] text-slate-400">
                 {mfyList.slice(0, 10).map(m => (
                   <button 
@@ -190,7 +190,7 @@ const AppContent: React.FC = () => {
                   </button>
                 ))}
               </div>
-              <span className="text-[10px] text-slate-500 mt-2 block font-semibold">+ yana 22 ta MFY xaritada</span>
+              <span className="text-[10px] text-slate-500 mt-2 block font-semibold">+ yana 23 ta MFY xaritada</span>
             </div>
 
             {/* Col 4: Aloqa va Manzil */}

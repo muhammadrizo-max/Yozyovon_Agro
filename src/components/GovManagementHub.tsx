@@ -84,12 +84,12 @@ export const GovManagementHub: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
 
   // Stats calculation
-  const totalLimon = mfyList.reduce((acc, m) => acc + m.limonDaraxtlari, 0);
-  const totalChorva = mfyList.reduce((acc, m) => acc + m.chorvaBoshlari, 0);
-  const totalMaydon = mfyList.reduce((acc, m) => acc + m.dehqonchilikGa, 0);
-  const totalFarmers = mfyList.reduce((acc, m) => acc + m.farmersCount, 0);
+  const totalLimon = (mfyList || []).reduce((acc, m) => acc + (m.limonDaraxtlari || 0), 0);
+  const totalChorva = (mfyList || []).reduce((acc, m) => acc + (m.chorvaBoshlari || 0), 0);
+  const totalMaydon = (mfyList || []).reduce((acc, m) => acc + (m.dehqonchilikGa || 0), 0);
+  const totalFarmers = (mfyList || []).reduce((acc, m) => acc + (m.farmersCount || 0), 0);
 
-  const pendingSubsidies = subsidies.filter(s => s.status === 'kutilmoqda');
+  const pendingSubsidies = (subsidies || []).filter(s => s.status === 'kutilmoqda');
 
   // Handle Broadcast Send
   const handleSendBroadcast = (e: React.FormEvent) => {
@@ -183,178 +183,215 @@ export const GovManagementHub: React.FC = () => {
         </div>
       </div>
 
-      {/* 4 Summary Indicator Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 sm:p-5 rounded-md border border-[#E2E8F0] shadow-xs">
-          <div className="flex items-center justify-between text-[#64748B]">
-            <span className="text-[10px] font-bold uppercase tracking-wider">Jami Limon Daraxtlari</span>
-            <Sparkles className="w-4 h-4 text-amber-500" />
-          </div>
-          <div className="text-2xl sm:text-3xl font-black text-[#0F172A] mt-2">
-            {totalLimon.toLocaleString()} <span className="text-xs font-normal text-[#64748B]">tup</span>
-          </div>
-          <span className="text-[11px] text-emerald-700 font-semibold block mt-1">33 ta MFY boʻyicha toʻliq</span>
-        </div>
-
-        <div className="bg-white p-4 sm:p-5 rounded-md border border-[#E2E8F0] shadow-xs">
-          <div className="flex items-center justify-between text-[#64748B]">
-            <span className="text-[10px] font-bold uppercase tracking-wider">Chorva Boshlari</span>
-            <Users className="w-4 h-4 text-[#3B82F6]" />
-          </div>
-          <div className="text-2xl sm:text-3xl font-black text-[#0F172A] mt-2">
-            {totalChorva.toLocaleString()} <span className="text-xs font-normal text-[#64748B]">bosh</span>
-          </div>
-          <span className="text-[11px] text-[#64748B] block mt-1">Qoramol, qoʻy va parranda</span>
-        </div>
-
-        <div className="bg-white p-4 sm:p-5 rounded-md border border-[#E2E8F0] shadow-xs">
-          <div className="flex items-center justify-between text-[#64748B]">
-            <span className="text-[10px] font-bold uppercase tracking-wider">Dehqonchilik Maydoni</span>
-            <Layers className="w-4 h-4 text-emerald-600" />
-          </div>
-          <div className="text-2xl sm:text-3xl font-black text-[#0F172A] mt-2">
-            {totalMaydon.toLocaleString()} <span className="text-xs font-normal text-[#64748B]">ga</span>
-          </div>
-          <span className="text-[11px] text-[#64748B] block mt-1">{totalFarmers} ta fermer xoʻjaligi</span>
-        </div>
-
-        <div className="bg-white p-4 sm:p-5 rounded-md border border-[#E2E8F0] shadow-xs">
-          <div className="flex items-center justify-between text-[#64748B]">
-            <span className="text-[10px] font-bold uppercase tracking-wider">Kutilayotgan Subsidiyalar</span>
-            <FileSpreadsheet className="w-4 h-4 text-rose-500" />
-          </div>
-          <div className="text-2xl sm:text-3xl font-black text-[#0F172A] mt-2">
-            {pendingSubsidies.length} <span className="text-xs font-normal text-[#64748B]">ta ariza</span>
-          </div>
-          <span className="text-[11px] text-amber-700 font-semibold block mt-1">Tasdiqlash talab etiladi</span>
-        </div>
-      </div>
-
-      {/* Tabs Navigation */}
-      <div className="flex flex-wrap items-center gap-2 bg-white p-2.5 rounded-lg border border-[#E2E8F0] shadow-xs">
-        <button
-          onClick={() => setActiveTab('overview')}
-          className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all ${
-            activeTab === 'overview' 
-              ? 'bg-[#0F172A] text-white shadow-xs' 
-              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-          }`}
-        >
-          Umumiy Boshqaruv
-        </button>
-
+      {/* Haqiqiy Davlat Boshqaruv Markazi Pulti - Katta, Qulay Boshqaruv Tugmalari */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
         <button
           onClick={() => setActiveTab('farmers_registry')}
-          className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeTab === 'farmers_registry' 
-              ? 'bg-[#0F172A] text-white shadow-xs' 
-              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+          className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between shadow-xs group ${
+            activeTab === 'farmers_registry'
+              ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-md ring-2 ring-blue-500/20'
+              : 'bg-white hover:bg-slate-50 border-[#E2E8F0] text-[#0F172A]'
           }`}
-          id="tab-farmers-registry-btn"
+          id="cmd-farmers-registry-btn"
         >
-          <Users className="w-3.5 h-3.5" />
-          <span>Dehqonlar Nazorati & Reyestri</span>
-          <span className="bg-blue-100 text-blue-800 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
-            {registeredFarmers.length}
-          </span>
+          <div className="flex items-center justify-between">
+            <div className={`p-2.5 rounded-lg ${activeTab === 'farmers_registry' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'}`}>
+              <Users className="w-5 h-5" />
+            </div>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${activeTab === 'farmers_registry' ? 'bg-slate-800 text-blue-300' : 'bg-blue-100 text-blue-800'}`}>
+              {registeredFarmers.length} ta
+            </span>
+          </div>
+          <div className="mt-3">
+            <div className="font-bold text-sm leading-tight">Dehqonlar Nazorati</div>
+            <div className={`text-[11px] mt-0.5 ${activeTab === 'farmers_registry' ? 'text-slate-300' : 'text-[#64748B]'}`}>
+              33 MFY fermerlar reyestri
+            </div>
+          </div>
         </button>
 
         <button
           onClick={() => setActiveTab('subsidies')}
-          className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeTab === 'subsidies' 
-              ? 'bg-[#0F172A] text-white shadow-xs' 
-              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+          className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between shadow-xs group ${
+            activeTab === 'subsidies'
+              ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-md ring-2 ring-emerald-500/20'
+              : 'bg-white hover:bg-slate-50 border-[#E2E8F0] text-[#0F172A]'
           }`}
+          id="cmd-subsidies-btn"
         >
-          <MessageSquare className="w-3.5 h-3.5" />
-          <span>Subsidiyalar & Muloqot</span>
-          {pendingSubsidies.length > 0 && (
-            <span className="bg-rose-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold">
-              {pendingSubsidies.length}
-            </span>
-          )}
+          <div className="flex items-center justify-between">
+            <div className={`p-2.5 rounded-lg ${activeTab === 'subsidies' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-600'}`}>
+              <MessageSquare className="w-5 h-5" />
+            </div>
+            {pendingSubsidies.length > 0 ? (
+              <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-rose-500 text-white font-mono animate-pulse">
+                {pendingSubsidies.length} yangi
+              </span>
+            ) : (
+              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${activeTab === 'subsidies' ? 'bg-slate-800 text-emerald-300' : 'bg-slate-100 text-slate-600'}`}>
+                Faol
+              </span>
+            )}
+          </div>
+          <div className="mt-3">
+            <div className="font-bold text-sm leading-tight">Subsidiyalar & Muloqot</div>
+            <div className={`text-[11px] mt-0.5 ${activeTab === 'subsidies' ? 'text-slate-300' : 'text-[#64748B]'}`}>
+              Arizalar va monitoring
+            </div>
+          </div>
         </button>
 
         <button
           onClick={() => setActiveTab('resource_management')}
-          className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeTab === 'resource_management' 
-              ? 'bg-[#0F172A] text-white shadow-xs' 
-              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+          className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between shadow-xs group ${
+            activeTab === 'resource_management'
+              ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-md ring-2 ring-blue-500/20'
+              : 'bg-white hover:bg-slate-50 border-[#E2E8F0] text-[#0F172A]'
           }`}
-          id="tab-resource-mgmt-btn"
+          id="cmd-resources-btn"
         >
-          <Droplets className="w-3.5 h-3.5 text-blue-500" />
-          <span>Resurslar Taqsimoti (Suv/Oʻgʻit)</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('mfy_matrix')}
-          className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeTab === 'mfy_matrix' 
-              ? 'bg-[#0F172A] text-white shadow-xs' 
-              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
-          }`}
-        >
-          <span>33 MFY Toʻliq Reyestri</span>
-          <span className="bg-slate-200 text-slate-800 text-[10px] px-1.5 py-0.2 rounded-full">33</span>
+          <div className="flex items-center justify-between">
+            <div className={`p-2.5 rounded-lg ${activeTab === 'resource_management' ? 'bg-sky-600 text-white' : 'bg-sky-50 text-sky-600'}`}>
+              <Droplets className="w-5 h-5" />
+            </div>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${activeTab === 'resource_management' ? 'bg-slate-800 text-sky-300' : 'bg-sky-100 text-sky-800'}`}>
+              Taqsimot
+            </span>
+          </div>
+          <div className="mt-3">
+            <div className="font-bold text-sm leading-tight">Resurslar Taqsimoti</div>
+            <div className={`text-[11px] mt-0.5 ${activeTab === 'resource_management' ? 'text-slate-300' : 'text-[#64748B]'}`}>
+              Suv va oʻgʻit limitlari
+            </div>
+          </div>
         </button>
 
         <button
           onClick={() => setActiveTab('broadcast')}
-          className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeTab === 'broadcast' 
-              ? 'bg-[#0F172A] text-white shadow-xs' 
-              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+          className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between shadow-xs group ${
+            activeTab === 'broadcast'
+              ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-md ring-2 ring-amber-500/20'
+              : 'bg-white hover:bg-slate-50 border-[#E2E8F0] text-[#0F172A]'
           }`}
+          id="cmd-broadcast-btn"
         >
-          <Send className="w-3.5 h-3.5" />
-          <span>Xabarnoma Yuborish</span>
+          <div className="flex items-center justify-between">
+            <div className={`p-2.5 rounded-lg ${activeTab === 'broadcast' ? 'bg-amber-600 text-white' : 'bg-amber-50 text-amber-600'}`}>
+              <Send className="w-5 h-5" />
+            </div>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${activeTab === 'broadcast' ? 'bg-slate-800 text-amber-300' : 'bg-amber-100 text-amber-800'}`}>
+              SMS / Push
+            </span>
+          </div>
+          <div className="mt-3">
+            <div className="font-bold text-sm leading-tight">Xabarnoma Yuborish</div>
+            <div className={`text-[11px] mt-0.5 ${activeTab === 'broadcast' ? 'text-slate-300' : 'text-[#64748B]'}`}>
+              Ogohlantirish va tavsiyalar
+            </div>
+          </div>
+        </button>
+      </div>
+
+      {/* Ikkinchi Qator Katta Boshqaruv Tugmalari */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+        <button
+          onClick={() => setActiveTab('certs')}
+          className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between shadow-xs group ${
+            activeTab === 'certs'
+              ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-md ring-2 ring-indigo-500/20'
+              : 'bg-white hover:bg-slate-50 border-[#E2E8F0] text-[#0F172A]'
+          }`}
+          id="cmd-certs-btn"
+        >
+          <div className="flex items-center justify-between">
+            <div className={`p-2.5 rounded-lg ${activeTab === 'certs' ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-600'}`}>
+              <Award className="w-5 h-5" />
+            </div>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${activeTab === 'certs' ? 'bg-slate-800 text-indigo-300' : 'bg-indigo-100 text-indigo-800'}`}>
+              QR-kod
+            </span>
+          </div>
+          <div className="mt-3">
+            <div className="font-bold text-sm leading-tight">Eksport Sertifikatlari</div>
+            <div className={`text-[11px] mt-0.5 ${activeTab === 'certs' ? 'text-slate-300' : 'text-[#64748B]'}`}>
+              Fitosanitariya va sifat
+            </div>
+          </div>
         </button>
 
         <button
-          onClick={() => setActiveTab('certs')}
-          className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeTab === 'certs' 
-              ? 'bg-[#0F172A] text-white shadow-xs' 
-              : 'text-[#64748B] hover:text-[#0F172A] hover:bg-[#F8FAFC]'
+          onClick={() => setActiveTab('mfy_matrix')}
+          className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between shadow-xs group ${
+            activeTab === 'mfy_matrix'
+              ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-md ring-2 ring-purple-500/20'
+              : 'bg-white hover:bg-slate-50 border-[#E2E8F0] text-[#0F172A]'
           }`}
+          id="cmd-mfy-matrix-btn"
         >
-          <Award className="w-3.5 h-3.5" />
-          <span>Eksport Sertifikatlari</span>
+          <div className="flex items-center justify-between">
+            <div className={`p-2.5 rounded-lg ${activeTab === 'mfy_matrix' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-600'}`}>
+              <Layers className="w-5 h-5" />
+            </div>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${activeTab === 'mfy_matrix' ? 'bg-slate-800 text-purple-300' : 'bg-purple-100 text-purple-800'}`}>
+              33 MFY
+            </span>
+          </div>
+          <div className="mt-3">
+            <div className="font-bold text-sm leading-tight">MFY Maʻmuriy Reyestri</div>
+            <div className={`text-[11px] mt-0.5 ${activeTab === 'mfy_matrix' ? 'text-slate-300' : 'text-[#64748B]'}`}>
+              Chegara va profil sozlamalari
+            </div>
+          </div>
         </button>
 
         <button
           onClick={() => setActiveTab('farmer_badges')}
-          className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeTab === 'farmer_badges' 
-              ? 'bg-amber-600 text-white shadow-xs' 
-              : 'text-amber-700 hover:text-amber-900 hover:bg-amber-50'
+          className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between shadow-xs group ${
+            activeTab === 'farmer_badges'
+              ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-md ring-2 ring-amber-500/20'
+              : 'bg-white hover:bg-slate-50 border-[#E2E8F0] text-[#0F172A]'
           }`}
-          id="tab-farmer-badges-btn"
+          id="cmd-farmer-badges-btn"
         >
-          <Award className="w-3.5 h-3.5 text-amber-400 fill-current" />
-          <span>🏅 Tasdiq Nishonlari</span>
-          <span className="bg-amber-100 text-amber-900 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
-            {registeredFarmers.filter(f => f.hasExperienceBadge).length}
-          </span>
+          <div className="flex items-center justify-between">
+            <div className={`p-2.5 rounded-lg ${activeTab === 'farmer_badges' ? 'bg-amber-500 text-slate-950' : 'bg-amber-50 text-amber-600'}`}>
+              <Award className="w-5 h-5 fill-current" />
+            </div>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${activeTab === 'farmer_badges' ? 'bg-slate-800 text-amber-300' : 'bg-amber-100 text-amber-900'}`}>
+              {registeredFarmers.filter(f => f.hasExperienceBadge).length} ta
+            </span>
+          </div>
+          <div className="mt-3">
+            <div className="font-bold text-sm leading-tight">Tasdiq Nishonlari</div>
+            <div className={`text-[11px] mt-0.5 ${activeTab === 'farmer_badges' ? 'text-slate-300' : 'text-[#64748B]'}`}>
+              Tajribali dehqon maqomi
+            </div>
+          </div>
         </button>
 
         <button
           onClick={() => setActiveTab('weather_control')}
-          className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeTab === 'weather_control' 
-              ? 'bg-blue-600 text-white shadow-xs' 
-              : 'text-blue-700 hover:text-blue-900 hover:bg-blue-50'
+          className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between shadow-xs group ${
+            activeTab === 'weather_control'
+              ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-md ring-2 ring-blue-500/20'
+              : 'bg-white hover:bg-slate-50 border-[#E2E8F0] text-[#0F172A]'
           }`}
-          id="tab-weather-control-btn"
+          id="cmd-weather-control-btn"
         >
-          <Sun className="w-3.5 h-3.5 text-amber-500" />
-          <span>Ob-havo API Boshqaruvi</span>
-          <span className="bg-blue-100 text-blue-900 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
-            {weatherProvider === 'accuweather' ? 'AccuWeather' : 'Tomorrow.io'}
-          </span>
+          <div className="flex items-center justify-between">
+            <div className={`p-2.5 rounded-lg ${activeTab === 'weather_control' ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600'}`}>
+              <Sun className="w-5 h-5" />
+            </div>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${activeTab === 'weather_control' ? 'bg-slate-800 text-blue-300' : 'bg-blue-100 text-blue-800'}`}>
+              API
+            </span>
+          </div>
+          <div className="mt-3">
+            <div className="font-bold text-sm leading-tight">Ob-havo API Boshqaruvi</div>
+            <div className={`text-[11px] mt-0.5 ${activeTab === 'weather_control' ? 'text-slate-300' : 'text-[#64748B]'}`}>
+              {weatherProvider === 'accuweather' ? 'AccuWeather' : 'Tomorrow.io'}
+            </div>
+          </div>
         </button>
       </div>
 

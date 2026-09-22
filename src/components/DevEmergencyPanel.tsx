@@ -385,7 +385,7 @@ export const DevEmergencyPanel: React.FC = () => {
                   <div>
                     <h3 className="text-base font-bold text-white flex items-center gap-2">
                       <Edit3 className="w-5 h-5 text-emerald-400" />
-                      32 ta MFY Maʼlumotlarini Real Vaqtda Oʻzgartirish (Hot Site Overwrite)
+                      33 ta MFY Maʼlumotlarini Real Vaqtda Oʻzgartirish (Hot Site Overwrite)
                     </h3>
                     <p className="text-xs text-slate-400 mt-1">
                       MFY parametrlarini (daraxtlar soni, ekin maydoni, chorva) tanlang va toʻgʻridan-toʻgʻri saytda jonli yangilang.
@@ -516,7 +516,7 @@ export const DevEmergencyPanel: React.FC = () => {
                   Butun Yozyovon Maʼlumotlar Bazasini JSON Formatida Yuklash yoki Tiklash
                 </h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Saytning barcha 32 MFY agro-statistikasi, dehqonlar roʻyxati, arizalar va audit maʼlumotlarini zaxiralang.
+                  Saytning barcha 33 MFY agro-statistikasi, dehqonlar roʻyxati, arizalar va audit maʼlumotlarini zaxiralang.
                 </p>
 
                 <div className="flex flex-wrap gap-3">

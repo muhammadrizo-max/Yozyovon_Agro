@@ -301,7 +301,7 @@ export interface SecurityLog {
   event: string;
   ip: string;
   severity: 'critical' | 'warning' | 'info' | 'shield';
-  status: 'blocked' | 'isolated' | 'mitigated' | 'honeypot_trapped' | 'sanitized';
+  status: 'blocked' | 'isolated' | 'mitigated' | 'honeypot_trapped' | 'sanitized' | 'verified';
   details: string;
 }
 

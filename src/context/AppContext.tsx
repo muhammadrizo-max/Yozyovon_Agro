@@ -118,6 +118,12 @@ interface AppContextType {
   setIsSidebarOpen: (open: boolean) => void;
   // User Profile Update
   updateUserProfile: (updates: Partial<User>) => void;
+  // Login Cyber Security (4-attempt rate limiting)
+  loginAttempts: number;
+  maxLoginAttempts: number;
+  isLoginBlocked: boolean;
+  loginLockRemainingSeconds: number;
+  resetLoginAttempts: () => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -142,13 +148,16 @@ const STORAGE_KEYS = {
   FARMERS_REGISTRY: 'yozyovon_farmers_registry_v3',
   FARMER_ADVICES: 'yozyovon_farmer_advices_v3',
   WEATHER_PROVIDER: 'yozyovon_weather_provider_v1',
-  DEMO_CLEANED_FLAG: 'yozyovon_cleaned_demo_v4'
+  DEMO_CLEANED_FLAG: 'yozyovon_cleaned_demo_v4',
+  FAILED_LOGIN_ATTEMPTS: 'yozyovon_failed_login_attempts_v1',
+  LOGIN_LOCKOUT_UNTIL: 'yozyovon_login_lockout_until_v1',
+  REGISTERED_USERS_DB: 'yozyovon_registered_users_db_v1'
 };
 
 const DEFAULT_SITE_SETTINGS: SiteSettings = {
   siteName: 'YOZYOVON AGRO',
   siteTagline: 'Dehqonchilik & Sitruschilik Portali',
-  siteDescription: 'Yozyovon tumani qishloq xoʻjaligi, sitruschilik va chorvachilik raqamli monitoring tizimi. 32 ta MFY boʻyicha yagona maʼlumotlar portali.',
+  siteDescription: 'Yozyovon tumani qishloq xoʻjaligi, sitruschilik va chorvachilik raqamli monitoring tizimi. 33 ta MFY boʻyicha yagona maʼlumotlar portali.',
   contactPhone: '+998 73 502-12-34',
   contactEmail: 'info@yozyovon-agro.uz',
   contactAddress: 'Yozyovon tumani, Mustaqillik shoh koʻchasi, 12-uy',
@@ -435,6 +444,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  // 4-Attempt Login Cyber Defense (Kiber-hujum va Brute-Force ga qarshi 4 ta urinishli himoya)
+  const MAX_LOGIN_ATTEMPTS = 4;
+  const LOGIN_LOCKOUT_MS = 5 * 60 * 1000; // 5 daqiqalik kiber-xavfsizlik blokirovkasi
+
+  const [failedLoginAttempts, setFailedLoginAttempts] = useState<number>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.FAILED_LOGIN_ATTEMPTS);
+    return saved ? Math.max(0, parseInt(saved, 10) || 0) : 0;
+  });
+
+  const [loginLockoutUntil, setLoginLockoutUntil] = useState<number>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.LOGIN_LOCKOUT_UNTIL);
+    return saved ? Math.max(0, parseInt(saved, 10) || 0) : 0;
+  });
+
+  const [loginLockRemainingSeconds, setLoginLockRemainingSeconds] = useState<number>(0);
+
+  useEffect(() => {
+    const updateCountdown = () => {
+      const now = Date.now();
+      if (loginLockoutUntil > now) {
+        setLoginLockRemainingSeconds(Math.ceil((loginLockoutUntil - now) / 1000));
+      } else {
+        setLoginLockRemainingSeconds(0);
+        if (loginLockoutUntil > 0) {
+          setLoginLockoutUntil(0);
+          localStorage.removeItem(STORAGE_KEYS.LOGIN_LOCKOUT_UNTIL);
+          setFailedLoginAttempts(0);
+          localStorage.removeItem(STORAGE_KEYS.FAILED_LOGIN_ATTEMPTS);
+        }
+      }
+    };
+    updateCountdown();
+    const timer = setInterval(updateCountdown, 1000);
+    return () => clearInterval(timer);
+  }, [loginLockoutUntil]);
+
+  const resetLoginAttempts = () => {
+    setFailedLoginAttempts(0);
+    setLoginLockoutUntil(0);
+    setLoginLockRemainingSeconds(0);
+    localStorage.removeItem(STORAGE_KEYS.FAILED_LOGIN_ATTEMPTS);
+    localStorage.removeItem(STORAGE_KEYS.LOGIN_LOCKOUT_UNTIL);
+    addSecurityLog({
+      event: 'Kiber-Himoya: Blokirovka Bekor Qilindi',
+      ip: '127.0.0.1 (Xavfsizlik Administratori)',
+      severity: 'info',
+      status: 'verified',
+      details: 'Login urinishlari qayta tiklandi va blokirovka bekor qilindi.'
+    });
+  };
+
 
 
   const [aiProvider, setAiProviderState] = useState<'gemini' | 'openrouter'>(() => {
@@ -564,7 +624,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ip: '127.0.0.1 (System Self-Check)',
       severity: 'shield',
       status: 'isolated',
-      details: 'Integrity 100% verified. 0 tampered records detected across 32 MFYs.'
+      details: 'Integrity 100% verified. 0 tampered records detected across 33 MFYs.'
     }
   ]);
 
@@ -624,7 +684,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ip: '0.0.0.0/0 (Global Shield)',
       severity: 'critical',
       status: 'honeypot_trapped',
-      details: 'Asl 32 MFY agro-bazasi AES-256 bilan shifrlandi va yashirildi. 1:1 Honeypot soxta tuzoq bazasi ishga tushirildi.'
+      details: 'Asl 33 MFY agro-bazasi AES-256 bilan shifrlandi va yashirildi. 1:1 Honeypot soxta tuzoq bazasi ishga tushirildi.'
     });
 
     sendGovBroadcastAlert(
@@ -677,7 +737,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ip: '127.0.0.1 (Developer Authenticated)',
       severity: 'shield',
       status: 'isolated',
-      details: 'Asl 32 MFY agrobaza xavfsiz kalit bilan tiklandi, honeypot toʻxtatildi. Barcha tekshiruvlar yashil.'
+      details: 'Asl 33 MFY agrobaza xavfsiz kalit bilan tiklandi, honeypot toʻxtatildi. Barcha tekshiruvlar yashil.'
     });
 
     sendGovBroadcastAlert(
@@ -811,12 +871,94 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const login = (name: string, identifier: string, password?: string, forceRole?: UserRole): boolean => {
-    let determinedRole: UserRole = forceRole || 'dehqon';
+    // 1. Kiber-hujum va Brute-Force blokirovkasini tekshirish
+    const now = Date.now();
+    if (loginLockoutUntil > now) {
+      const remainingSec = Math.ceil((loginLockoutUntil - now) / 1000);
+      addSecurityLog({
+        event: 'BLOCKED LOGIN ATTEMPT: Tizim Blok Holatida',
+        ip: '192.168.1.115',
+        severity: 'critical',
+        status: 'mitigated',
+        details: `Kiber-hujum blokirovkasi davrida tizimga kirishga urinish rad etildi. Qolgan vaqt: ${remainingSec} soniya.`
+      });
+      return false;
+    }
+
     const lowerId = (identifier || '').toLowerCase().trim();
-    const lowerName = (name || '').toLowerCase().trim();
     const pwd = (password || '').trim();
 
-    // Maxsus Dasturchi Kirishi: developerpro@gamil.com / devpro17 (va developerpro@gmail.com)
+    // Muvaffaqiyatli kirish yordamchisi
+    const handleLoginSuccess = (user: User) => {
+      setCurrentUser(user);
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+      localStorage.setItem(STORAGE_KEYS.LOGGED_IN, 'true');
+      setIsLoggedIn(user.role !== 'dehqon' || user.isVerified !== false);
+
+      // Urinishlar hisoblagichini tozalash
+      setFailedLoginAttempts(0);
+      setLoginLockoutUntil(0);
+      setLoginLockRemainingSeconds(0);
+      localStorage.removeItem(STORAGE_KEYS.FAILED_LOGIN_ATTEMPTS);
+      localStorage.removeItem(STORAGE_KEYS.LOGIN_LOCKOUT_UNTIL);
+
+      addSecurityLog({
+        event: 'Muvaffaqiyatli Autentifikatsiya',
+        ip: '192.168.1.115',
+        severity: 'shield',
+        status: 'verified',
+        details: `${user.name} (${user.role.toUpperCase()}) tizimga muvaffaqiyatli kirdi.`
+      });
+
+      if (user.role === 'admin') {
+        setActiveTab('gov_hub');
+        setIsDevModalOpen(true);
+      } else if (user.role === 'davlat') {
+        setActiveTab('gov_hub');
+      } else {
+        setActiveTab('profile');
+      }
+      return true;
+    };
+
+    // Muvaffaqiyatsiz urinish yordamchisi (4 urinish kiber-xavfsizlik himoyasi)
+    const handleLoginFailure = (reason: string) => {
+      const nextAttempts = failedLoginAttempts + 1;
+      setFailedLoginAttempts(nextAttempts);
+      localStorage.setItem(STORAGE_KEYS.FAILED_LOGIN_ATTEMPTS, String(nextAttempts));
+
+      if (nextAttempts >= MAX_LOGIN_ATTEMPTS) {
+        const lockUntil = Date.now() + LOGIN_LOCKOUT_MS;
+        setLoginLockoutUntil(lockUntil);
+        setLoginLockRemainingSeconds(Math.ceil(LOGIN_LOCKOUT_MS / 1000));
+        localStorage.setItem(STORAGE_KEYS.LOGIN_LOCKOUT_UNTIL, String(lockUntil));
+
+        addSecurityLog({
+          event: 'KIBER-XAVFSIZLIK: 4 ta Xato Urinish — Brute-Force Bloklandi',
+          ip: '192.168.1.115 (Bloklangan Foydalanuvchi)',
+          severity: 'critical',
+          status: 'mitigated',
+          details: `Ketma-ket 4 marta notoʻgʻri login/parol kiritildi (${reason}). Kiber-hujumlarni oldini olish maqsadida tizimga kirish 5 daqiqaga toʻliq bloklandi.`
+        });
+
+        sendGovBroadcastAlert(
+          '🚨 KIBER-XAVFSIZLIK: BRUTE-FORCE HUJUMI TOʻXTATILDI',
+          'Kirish sahifasida 4 marta notoʻgʻri login/parol kiritilishi oqibatida tizim 5 daqiqaga toʻliq bloklandi.',
+          'danger'
+        );
+      } else {
+        addSecurityLog({
+          event: `Xato Kirish Urinishi (${nextAttempts}/${MAX_LOGIN_ATTEMPTS})`,
+          ip: '192.168.1.115',
+          severity: 'warning',
+          status: 'mitigated',
+          details: `Notoʻgʻri login yoki parol kiritildi (${reason}). Qolgan urinishlar soni: ${MAX_LOGIN_ATTEMPTS - nextAttempts} ta.`
+        });
+      }
+      return false;
+    };
+
+    // 1. Maxsus Bosh Dasturchi: developerpro@gamil.com / devpro17 (va developerpro@gmail.com)
     if (lowerId === 'developerpro@gamil.com' || lowerId === 'developerpro@gmail.com') {
       if (pwd === 'devpro17' || pwd === 'admin123') {
         const devOfficial: User = {
@@ -831,19 +973,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           farmType: 'limon',
           activityField: 'Tizim Bosh Dasturchisi va Kiberxavfsizlik'
         };
-        setCurrentUser(devOfficial);
-        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(devOfficial));
-        localStorage.setItem(STORAGE_KEYS.LOGGED_IN, 'true');
-        setIsLoggedIn(true);
-        setIsDevModalOpen(true);
-        setActiveTab('gov_hub');
-        return true;
+        return handleLoginSuccess(devOfficial);
       } else {
-        return false;
+        return handleLoginFailure('Dasturchi paroli notoʻgʻri');
       }
     }
 
-    // Maxsus Davlat Organlari Kirishi: davlatorgan@gmail.com / agrocontrol14
+    // 2. Maxsus Davlat Organlari Kirishi: davlatorgan@gmail.com / agrocontrol14
     if (lowerId === 'davlatorgan@gmail.com') {
       if (pwd === 'agrocontrol14' || pwd === 'gov1234') {
         const govOfficial: User = {
@@ -858,74 +994,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           farmType: 'limon',
           activityField: 'Yozyovon Tumani Qishloq Xoʻjaligi Davlat Boshqarmasi'
         };
-        setCurrentUser(govOfficial);
-        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(govOfficial));
-        localStorage.setItem(STORAGE_KEYS.LOGGED_IN, 'true');
-        setIsLoggedIn(true);
-        setActiveTab('gov_hub');
-        return true;
+        return handleLoginSuccess(govOfficial);
       } else {
-        return false;
+        return handleLoginFailure('Davlat organi paroli notoʻgʻri');
       }
     }
 
-    if (!forceRole) {
-      if (
-        lowerId.includes('admin') || 
-        lowerName.includes('admin') || 
-        lowerName.includes('dasturchi') || 
-        lowerId === '+998901234569' || 
-        lowerId === 'admin@yozyovon-agro.uz' ||
-        pwd === 'admin123'
-      ) {
-        determinedRole = 'admin';
-      } else if (
-        lowerId.includes('gov') || 
-        lowerId.includes('inspektor') || 
-        lowerName.includes('inspektor') || 
-        lowerName.includes('hokim') ||
-        lowerId === '+998901234568' || 
-        lowerId === 'agro.inspektor@yozyovon.gov.uz' ||
-        pwd === 'gov1234'
-      ) {
-        determinedRole = 'davlat';
-      } else {
-        determinedRole = 'dehqon';
-      }
+    // 3. Roʻyxatdan oʻtgan dehqonlar hisobi (maxalliy keshdagi xavfsiz baza)
+    let registeredUsers: any[] = [];
+    try {
+      const regDb = localStorage.getItem(STORAGE_KEYS.REGISTERED_USERS_DB);
+      if (regDb) registeredUsers = JSON.parse(regDb);
+    } catch (e) {
+      console.error(e);
     }
 
-    const matchedPreset = INITIAL_USERS.find(u => 
-      (identifier && (u.phone === identifier || u.email?.toLowerCase() === lowerId)) ||
-      u.role === determinedRole
+    const matchedRegistered = registeredUsers.find(
+      (u: any) => (u.email && u.email.toLowerCase() === lowerId) || (u.phone && (u.phone === identifier || u.phone.replace(/\s+/g, '') === identifier.replace(/\s+/g, '')))
     );
 
-    const loggedUser: User = {
-      id: matchedPreset ? matchedPreset.id : Date.now(),
-      phone: identifier || matchedPreset?.phone || '+998901234567',
-      name: name.trim() || matchedPreset?.name || (determinedRole === 'admin' ? 'Tizim Administratori' : determinedRole === 'davlat' ? 'Davlat inspektori' : 'Dehqon foydalanuvchi'),
-      email: lowerId.includes('@') ? identifier : matchedPreset?.email,
-      role: determinedRole,
-      mfyId: matchedPreset?.mfyId || 1,
-      createdAt: matchedPreset?.createdAt || new Date().toISOString().split('T')[0],
-      isVerified: true,
-      farmType: matchedPreset?.farmType || 'limon',
-      activityField: matchedPreset?.activityField || (determinedRole === 'admin' ? 'Bosh Dasturchi & Kiber-xavfsizlik' : determinedRole === 'davlat' ? 'Tuman Qishloq Xoʻjaligi Boshqarmasi' : 'Limonchilik va Dehqon xoʻjaligi')
-    };
-
-    setCurrentUser(loggedUser);
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(loggedUser));
-    localStorage.setItem(STORAGE_KEYS.LOGGED_IN, 'true');
-    setIsLoggedIn(true);
-
-    if (determinedRole === 'admin') {
-      setActiveTab('gov_hub');
-      setIsDevModalOpen(true);
-    } else if (determinedRole === 'davlat') {
-      setActiveTab('gov_hub');
-    } else {
-      setActiveTab('profile');
+    if (matchedRegistered) {
+      if (pwd && matchedRegistered.password && pwd === matchedRegistered.password) {
+        const userObj: User = {
+          id: matchedRegistered.id,
+          phone: matchedRegistered.phone,
+          name: matchedRegistered.name,
+          email: matchedRegistered.email,
+          role: matchedRegistered.role || 'dehqon',
+          mfyId: matchedRegistered.mfyId || 1,
+          createdAt: matchedRegistered.createdAt,
+          isVerified: matchedRegistered.isVerified ?? true,
+          farmType: matchedRegistered.farmType || 'limon',
+          activityField: matchedRegistered.activityField
+        };
+        return handleLoginSuccess(userObj);
+      } else {
+        return handleLoginFailure('Parol notoʻgʻri');
+      }
     }
-    return true;
+
+    // 4. Boshlangʻich tizim foydalanuvchilari
+    const matchedPreset = INITIAL_USERS.find(u => 
+      (identifier && (u.phone === identifier || u.email?.toLowerCase() === lowerId))
+    );
+
+    if (matchedPreset) {
+      const validPwd = matchedPreset.role === 'admin' 
+        ? (pwd === 'admin123' || pwd === 'devpro17')
+        : matchedPreset.role === 'davlat'
+        ? (pwd === 'gov1234' || pwd === 'agrocontrol14')
+        : (pwd === 'dehqon123' || pwd === '123456' || pwd.length >= 4);
+
+      if (validPwd) {
+        return handleLoginSuccess(matchedPreset);
+      } else {
+        return handleLoginFailure('Parol notoʻgʻri');
+      }
+    }
+
+    // 5. Agar foydalanuvchi topilmasa
+    return handleLoginFailure('Bunday login yoki foydalanuvchi topilmadi');
   };
 
 
@@ -980,6 +1108,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     encryptVaultData(storedAccount).then(encrypted => {
       localStorage.setItem(STORAGE_KEYS.SECURE_ACCOUNTS_VAULT, JSON.stringify(encrypted));
     }).catch(err => console.error('Encryption error:', err));
+
+    // Saqlangan dehqon ma'lumotlari va parolini tizim autentifikatsiyasi bazasiga joylash
+    try {
+      const currentDb = JSON.parse(localStorage.getItem(STORAGE_KEYS.REGISTERED_USERS_DB) || '[]');
+      const filtered = currentDb.filter((u: any) => u.email !== data.email.toLowerCase().trim() && u.phone !== data.phone.trim());
+      filtered.push({
+        id: newUser.id,
+        name: data.name.trim(),
+        email: data.email.trim().toLowerCase(),
+        phone: data.phone.trim(),
+        password: data.password.trim(),
+        role: 'dehqon',
+        mfyId: data.mfyId,
+        farmType: data.farmType || 'limon',
+        activityField: resolvedActivity,
+        createdAt: newUser.createdAt,
+        isVerified: false
+      });
+      localStorage.setItem(STORAGE_KEYS.REGISTERED_USERS_DB, JSON.stringify(filtered));
+    } catch (e) {
+      console.error('Error saving registered user creds:', e);
+    }
 
     addSecurityLog({
       event: 'DAVLAT STANDARTI: AES-256 Kriptografik Saqlash',
@@ -1178,7 +1328,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNotifications(prev => [newNotif, ...prev]);
   };
 
-  // Quick seed / reset test data across all 32 MFYs for Government Review
+  // Quick seed / reset test data across all 33 MFYs for Government Review
   const resetGovDemoData = () => {
     setMfyList(YOZYOVON_MFY_LIST);
     setSubsidies(INITIAL_SUBSIDIES);
@@ -1191,7 +1341,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `demo-reset-${Date.now()}`,
       type: 'info',
       title: '⚡ Tezkor Davlat Test Maʼlumotlari Yangilandi',
-      message: 'Barcha 32 ta MFY boʻyicha 284,000+ limon daraxtlari, 82,000+ chorva boshlari va yangi subsidiya arizalari qayta yuklandi.',
+      message: 'Barcha 33 ta MFY boʻyicha 284,000+ limon daraxtlari, 82,000+ chorva boshlari va yangi subsidiya arizalari qayta yuklandi.',
       date: 'Hozir',
       unread: true,
       targetRole: 'davlat'
@@ -1412,7 +1562,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleLikeAdvice,
         isSidebarOpen,
         setIsSidebarOpen,
-        updateUserProfile
+        updateUserProfile,
+        loginAttempts: failedLoginAttempts,
+        maxLoginAttempts: MAX_LOGIN_ATTEMPTS,
+        isLoginBlocked: loginLockoutUntil > Date.now(),
+        loginLockRemainingSeconds,
+        resetLoginAttempts
       }}
     >
       {children}

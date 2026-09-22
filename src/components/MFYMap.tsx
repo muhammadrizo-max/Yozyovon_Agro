@@ -45,6 +45,14 @@ export const MFYMap: React.FC = () => {
   const [mapLayer, setMapLayer] = useState<'satellite' | 'street' | 'terrain'>('satellite');
   const [showLabels, setShowLabels] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const toggleFullscreen = () => {
+    setIsFullscreen(prev => !prev);
+    setTimeout(() => {
+      mapInstanceRef.current?.invalidateSize();
+    }, 250);
+  };
 
   // Sector colors (#551-#583 grouping)
   const SEKTOR_COLORS: Record<number, { fill: string; border: string; name: string; text: string }> = {
@@ -127,6 +135,11 @@ export const MFYMap: React.FC = () => {
     if (!mapContainerRef.current) return;
 
     if (!mapInstanceRef.current) {
+      const FARGONA_REGION_BOUNDS: [[number, number], [number, number]] = [
+        [40.05, 70.80],
+        [40.98, 72.25]
+      ];
+
       const map = L.map(mapContainerRef.current, {
         center: [40.665, 71.650], // Yozyovon tumani markazi
         zoom: 12,
@@ -135,7 +148,7 @@ export const MFYMap: React.FC = () => {
         zoomDelta: 0.5,
         zoomSnap: 0.25,
         wheelPxPerZoomLevel: 100,
-        maxBounds: YOZYOVON_MAP_BOUNDS,
+        maxBounds: FARGONA_REGION_BOUNDS,
         maxBoundsViscosity: 0.9,
         zoomControl: false
       });
@@ -328,11 +341,13 @@ export const MFYMap: React.FC = () => {
 
       // Add center marker label if showLabels is enabled
       if (showLabels) {
+        // 4-rasm: Sektor raqamlari faqat sozlamalardan '4 Sektor' tanlanganda ko'rinsin, oddiy holatda faqat MFY nomi
+        const isSektorMode = colorMode === 'sektor';
         const customLabelIcon = L.divIcon({
           className: 'custom-map-label',
           html: `
             <div class="px-1.5 py-0.5 bg-slate-900/85 backdrop-blur-xs text-white font-medium text-[10px] rounded shadow-sm border border-emerald-500/50 pointer-events-none whitespace-nowrap -translate-x-1/2 -translate-y-1/2 flex items-center gap-1">
-              <span class="text-amber-400 font-mono font-bold text-[9px]">#${mfy.referendumNum || (550 + mfy.id)}</span>
+              ${isSektorMode ? `<span class="text-amber-400 font-mono font-bold text-[9px]">#${mfy.referendumNum || (550 + mfy.id)}</span>` : ''}
               <span>${mfy.name.replace(' MFY', '')}</span>
             </div>
           `,
@@ -489,76 +504,24 @@ export const MFYMap: React.FC = () => {
                 Limonchilik
               </button>
             </div>
+            {/* Fullscreen Toggle Button */}
+            <button
+              onClick={toggleFullscreen}
+              className="px-2.5 py-1.5 rounded-md border border-[#E2E8F0] dark:border-slate-700 bg-white dark:bg-slate-800 text-[#0F172A] dark:text-white hover:bg-[#F8FAFC] dark:hover:bg-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+              title={isFullscreen ? "To'liq ekrandan chiqish" : "Xaritani to'liq ekran qilish"}
+            >
+              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5 text-blue-500" /> : <Maximize2 className="w-3.5 h-3.5 text-blue-500" />}
+              <span>{isFullscreen ? "Kichraytirish" : "To'liq Ekran"}</span>
+            </button>
           </div>
-        </div>
-
-        {/* 4 Sectors Selector Filter Tabs */}
-        <div className="flex items-center gap-1.5 text-xs overflow-x-auto pb-1 no-scrollbar border-t border-[#E2E8F0] dark:border-slate-800 pt-2.5">
-          <span className="text-[#64748B] dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] mr-1 shrink-0">
-            Sektorlar:
-          </span>
-          <button
-            onClick={() => setSelectedSektor('all')}
-            className={`px-2.5 py-1 rounded text-xs font-semibold whitespace-nowrap transition-colors ${
-              selectedSektor === 'all'
-                ? 'bg-[#0F172A] dark:bg-blue-600 text-white shadow-xs'
-                : 'bg-[#F8FAFC] dark:bg-slate-800 text-[#64748B] dark:text-slate-300 border border-[#E2E8F0] dark:border-slate-700'
-            }`}
-          >
-            Barcha Sektorlar (33 ta)
-          </button>
-          <button
-            onClick={() => setSelectedSektor(1)}
-            className={`px-2.5 py-1 rounded text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-              selectedSektor === 1
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-[#F8FAFC] dark:bg-slate-800 text-[#64748B] dark:text-slate-300 border border-[#E2E8F0] dark:border-slate-700'
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-            1-Sektor (#551-#558)
-          </button>
-          <button
-            onClick={() => setSelectedSektor(2)}
-            className={`px-2.5 py-1 rounded text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-              selectedSektor === 2
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-[#F8FAFC] dark:bg-slate-800 text-[#64748B] dark:text-slate-300 border border-[#E2E8F0] dark:border-slate-700'
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            2-Sektor (#559-#564)
-          </button>
-          <button
-            onClick={() => setSelectedSektor(3)}
-            className={`px-2.5 py-1 rounded text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-              selectedSektor === 3
-                ? 'bg-amber-600 text-white shadow-xs'
-                : 'bg-[#F8FAFC] dark:bg-slate-800 text-[#64748B] dark:text-slate-300 border border-[#E2E8F0] dark:border-slate-700'
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-            3-Sektor (#565-#574)
-          </button>
-          <button
-            onClick={() => setSelectedSektor(4)}
-            className={`px-2.5 py-1 rounded text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
-              selectedSektor === 4
-                ? 'bg-purple-600 text-white shadow-xs'
-                : 'bg-[#F8FAFC] dark:bg-slate-800 text-[#64748B] dark:text-slate-300 border border-[#E2E8F0] dark:border-slate-700'
-            }`}
-          >
-            <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-            4-Sektor (#575-#583)
-          </button>
         </div>
       </div>
 
-      {/* Map Container & Sidebar Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+      {/* Map Container & Sidebar Grid (Supports Fullscreen Mode) */}
+      <div className={isFullscreen ? "fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md p-3 sm:p-5 flex flex-col gap-3" : "grid grid-cols-1 lg:grid-cols-4 gap-5"}>
         
-        {/* Left 3 Cols: Leaflet Interactive Map */}
-        <div className="lg:col-span-3 bg-white dark:bg-slate-900 rounded-lg border border-[#E2E8F0] dark:border-slate-800 shadow-xs overflow-hidden relative flex flex-col">
+        {/* Left 3 Cols (or full width in Fullscreen): Leaflet Interactive Map */}
+        <div className={`${isFullscreen ? "flex-1 w-full h-full" : "lg:col-span-3"} bg-white dark:bg-slate-900 rounded-lg border border-[#E2E8F0] dark:border-slate-800 shadow-xs overflow-hidden relative flex flex-col`}>
           
           {/* Map Header Instructions */}
           <div className="px-4 py-2 bg-[#F8FAFC] dark:bg-slate-800 border-b border-[#E2E8F0] dark:border-slate-700 flex items-center justify-between text-xs text-[#64748B] dark:text-slate-300">
@@ -566,13 +529,22 @@ export const MFYMap: React.FC = () => {
               <Info className="w-4 h-4 text-[#3B82F6]" />
               <span><b>Koʻrsatma:</b> Kursorni poligon ustiga olib borib qisqa maʼlumot oling, toʻliq sahifani ochish uchun poligon ustiga bosing.</span>
             </div>
-            <div className="flex items-center gap-2 hidden sm:flex">
-              <span className="text-[11px] text-amber-500 font-medium">Sariq uzuq chiziq — Yozyovon tuman chegarasi</span>
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] text-amber-500 font-medium hidden sm:inline">Sariq uzuq chiziq — Yozyovon tuman chegarasi</span>
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center gap-1 text-[11px] font-semibold"
+                title={isFullscreen ? "To'liq ekrandan chiqish" : "To'liq ekran"}
+              >
+                {isFullscreen ? <Minimize2 className="w-4 h-4 text-blue-500" /> : <Maximize2 className="w-4 h-4 text-blue-500" />}
+                <span className="hidden sm:inline">{isFullscreen ? "Chiqish" : "Toʻliq Ekran"}</span>
+              </button>
             </div>
           </div>
 
           {/* Leaflet Map Stage */}
-          <div className="relative w-full h-[480px] sm:h-[580px]">
+          <div className={`relative w-full ${isFullscreen ? "flex-1 min-h-[500px]" : "h-[480px] sm:h-[580px]"}`}>
             <div 
               ref={mapContainerRef} 
               id="leaflet-yozyovon-map"
@@ -653,53 +625,18 @@ export const MFYMap: React.FC = () => {
                 <span className="text-slate-300 text-[10px] font-medium">Markaziy Fargʻona suv ombori</span>
               </div>
             </div>
-
-            {/* Live Hover Info Card on Map */}
-            {hoveredMfy && (
-              <div className="absolute top-4 right-4 z-20 bg-slate-900/95 text-white p-4 rounded-lg shadow-xl border border-slate-700 text-xs max-w-xs animate-in fade-in">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                  <div>
-                    <span className="font-bold text-sm text-white">{hoveredMfy.name}</span>
-                    <span className="text-[10px] font-mono text-amber-400 block">#{hoveredMfy.referendumNum || (550 + hoveredMfy.id)} • {hoveredMfy.sektorNum}-sektor</span>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-emerald-400 border border-slate-700">
-                    {hoveredMfy.limonDaraxtlari.toLocaleString()} limon
-                  </span>
-                </div>
-                <div className="mt-2.5 space-y-1.5 text-slate-300">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Ekin maydoni:</span>
-                    <b className="text-white">{hoveredMfy.dehqonchilikGa} ga</b>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Chorva boshlari:</span>
-                    <b className="text-white">{hoveredMfy.chorvaBoshlari.toLocaleString()}</b>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Asosiy ekinlar:</span>
-                    <b className="text-white">{hoveredMfy.asosiyEkinlar.join(', ')}</b>
-                  </div>
-                </div>
-                <button
-                  onClick={() => selectMfy(hoveredMfy.id)}
-                  className="mt-3 w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
-                >
-                  <span>Batafsil maʼlumotlarni koʻrish</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Right 1 Col: MFY List Quick Navigation */}
-        <div className="bg-white dark:bg-slate-900 rounded-lg border border-[#E2E8F0] dark:border-slate-800 shadow-xs p-4 flex flex-col h-[520px] sm:h-[620px] overflow-hidden">
-          <div className="pb-3 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-[#64748B] dark:text-slate-400">Yozyovon MFYlari ({filteredMfyList.length})</h3>
-            <span className="text-[10px] text-amber-500 font-semibold font-mono">#551-#583</span>
-          </div>
+        {/* Right 1 Col: MFY List Quick Navigation (Hidden in Fullscreen for immersive map) */}
+        {!isFullscreen && (
+          <div className="bg-white dark:bg-slate-900 rounded-lg border border-[#E2E8F0] dark:border-slate-800 shadow-xs p-4 flex flex-col h-[520px] sm:h-[620px] overflow-hidden">
+            <div className="pb-3 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-[#64748B] dark:text-slate-400">Yozyovon MFYlari ({filteredMfyList.length})</h3>
+              <span className="text-[10px] text-amber-500 font-semibold font-mono">#551-#583</span>
+            </div>
 
-          <div className="mt-3 flex-1 overflow-y-auto space-y-2 pr-1">
+            <div className="mt-3 flex-1 overflow-y-auto space-y-2 pr-1">
             {filteredMfyList.map(mfy => {
               const colorInfo = getMfyColor(mfy);
               return (
@@ -743,6 +680,7 @@ export const MFYMap: React.FC = () => {
             </button>
           </div>
         </div>
+        )}
 
       </div>
 
