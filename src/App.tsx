@@ -13,6 +13,7 @@ import { LemonAcademy } from './components/LemonAcademy';
 import { AuthModal } from './components/AuthModal';
 import { LandingPage } from './components/LandingPage';
 import { DevEmergencyPanel } from './components/DevEmergencyPanel';
+import { AgroLogo } from './components/AgroLogo';
 import { 
   Sprout, 
   MapPin, 
@@ -44,6 +45,24 @@ const AppContent: React.FC = () => {
   // Agar foydalanuvchi yangi bo'lsa yoki 10 kundan oshgan bo'lsa, sahifa yangilanganida (reload) mehmon/kirish oynasi avtomatik ochiladi
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(() => !isLoggedIn);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+
+  // XAVFSIZLIK ROUTE-GUARD: Boshqa hisobga o'tganda huquqlarni darhol muvofiqlashtirish
+  useEffect(() => {
+    if (userRole !== 'admin' && (activeTab === 'dev_hub' || activeTab === 'developer')) {
+      if (userRole === 'davlat') {
+        setActiveTab('gov_hub');
+      } else {
+        setActiveTab('profile'); // Dehqon uchun Mening Xo'jaligim
+      }
+    }
+    if (userRole !== 'davlat' && activeTab === 'gov_hub') {
+      if (userRole === 'admin') {
+        setActiveTab('dev_hub');
+      } else {
+        setActiveTab('profile');
+      }
+    }
+  }, [userRole, activeTab, setActiveTab]);
 
   const handleOpenAuth = (mode: 'login' | 'register' = 'login') => {
     setAuthMode(mode);
@@ -78,12 +97,12 @@ const AppContent: React.FC = () => {
         ) : (
           <>
             {/* Government Management Hub (33 MFY, Subsidies, Alerts, Export Certs, Reset Test Data) */}
-            {activeTab === 'gov_hub' && (
+            {activeTab === 'gov_hub' && userRole === 'davlat' && (
               <GovManagementHub />
             )}
 
             {/* Developer & Security Operations Center (SOC) Full Page View */}
-            {(activeTab === 'dev_hub' || activeTab === 'developer') && (
+            {(activeTab === 'dev_hub' || activeTab === 'developer') && userRole === 'admin' && (
               <DevEmergencyPanel />
             )}
 
@@ -140,8 +159,8 @@ const AppContent: React.FC = () => {
             {/* Col 1: Brand info */}
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-[#3B82F6] rounded-xs rotate-45 flex items-center justify-center shadow-sm">
-                  <div className="w-3.5 h-3.5 bg-white -rotate-45"></div>
+                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0">
+                  <AgroLogo className="w-full h-full" />
                 </div>
                 <span className="font-bold text-base tracking-tight text-white">
                   YOZYOVON <span className="text-[#3B82F6]">AGRO</span>

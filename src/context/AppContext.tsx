@@ -3,13 +3,15 @@ import {
   User, UserRole, FarmType, MFYData, Crop, Livestock, AIScan, 
   WeatherInfo, MarketPrice, AppNotification, SubsidyApplication, ExportCertificate,
   SecurityLog, CyberDefenseStatus, SiteSettings, UploadedGuide, FarmerAdvice,
-  ChatAttachment, ChatMessage, DatabaseBackupSnapshot, RbacPermission
+  ChatAttachment, ChatMessage, DatabaseBackupSnapshot, RbacPermission,
+  AgroDiseaseRecord
 } from '../types';
 import { 
   INITIAL_USERS, YOZYOVON_MFY_LIST, INITIAL_CROPS, 
   INITIAL_LIVESTOCK, INITIAL_AI_SCANS, YOZYOVON_WEATHER, 
   MARKET_PRICES, INITIAL_NOTIFICATIONS, INITIAL_SUBSIDIES, INITIAL_EXPORT_CERTS 
 } from '../data/yozyovonData';
+import { INITIAL_GOV_AGRO_DISEASES } from '../data/govAgroDiseases';
 import { 
   hashPassword, generateSalt, encryptVaultData, decryptVaultData, 
   StoredUserAccount, EncryptedVaultPayload 
@@ -91,6 +93,12 @@ interface AppContextType {
   addCustomGuide: (guide: Omit<UploadedGuide, 'id' | 'uploadedAt' | 'downloadsCount'>) => void;
   deleteCustomGuide: (id: string) => void;
   incrementGuideDownload: (id: string) => void;
+  // Davlat AI Skaner Kasalliklar & Dorilar Registri
+  govAgroDiseases: AgroDiseaseRecord[];
+  addGovAgroDisease: (record: Omit<AgroDiseaseRecord, 'id' | 'updatedAt'>) => AgroDiseaseRecord;
+  updateGovAgroDisease: (id: string, updates: Partial<AgroDiseaseRecord>) => void;
+  deleteGovAgroDisease: (id: string) => void;
+  resetGovAgroDiseasesToDefault: () => void;
   // Dark / Light Mode
   isDarkMode: boolean;
   toggleDarkMode: () => void;
@@ -171,6 +179,7 @@ const STORAGE_KEYS = {
   FARMERS_REGISTRY: 'yozyovon_farmers_registry_v3',
   FARMER_ADVICES: 'yozyovon_farmer_advices_v3',
   WEATHER_PROVIDER: 'yozyovon_weather_provider_v1',
+  GOV_AGRO_DISEASES: 'yozyovon_gov_agro_diseases_v1',
   DEMO_CLEANED_FLAG: 'yozyovon_cleaned_demo_v4',
   FAILED_LOGIN_ATTEMPTS: 'yozyovon_failed_login_attempts_v1',
   LOGIN_LOCKOUT_UNTIL: 'yozyovon_login_lockout_until_v1',
@@ -364,17 +373,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeTab, setActiveTabState] = useState<string>('profile');
 
   const setActiveTab = (tab: string) => {
-    // MFY xaritasi faqat davlat organlari va adminlar uchun
+    // 1. Dasturchi paneli faqat admin uchun
+    if ((tab === 'dev_hub' || tab === 'developer') && currentUser.role !== 'admin') {
+      if (currentUser.role === 'davlat') {
+        setActiveTabState('gov_hub');
+      } else {
+        setActiveTabState('profile');
+      }
+      return;
+    }
+
+    // 2. Davlat boshqaruv markazi faqat davlat organi uchun
+    if (tab === 'gov_hub' && currentUser.role !== 'davlat') {
+      if (currentUser.role === 'admin') {
+        setActiveTabState('dev_hub');
+      } else {
+        setActiveTabState('profile');
+      }
+      return;
+    }
+
+    // 3. MFY xaritasi faqat davlat organlari va adminlar uchun
     if (tab === 'map' && currentUser.role !== 'davlat' && currentUser.role !== 'admin') {
       setActiveTabState('profile');
       return;
     }
+
     setActiveTabState(tab);
   };
 
-  // Guard against dehqon viewing map if role changes or tab set directly
+  // Guard against improper tabs if user or role changes
   useEffect(() => {
-    if (activeTab === 'map' && currentUser.role !== 'davlat' && currentUser.role !== 'admin') {
+    if ((activeTab === 'dev_hub' || activeTab === 'developer') && currentUser.role !== 'admin') {
+      setActiveTabState(currentUser.role === 'davlat' ? 'gov_hub' : 'profile');
+    } else if (activeTab === 'gov_hub' && currentUser.role !== 'davlat') {
+      setActiveTabState(currentUser.role === 'admin' ? 'dev_hub' : 'profile');
+    } else if (activeTab === 'map' && currentUser.role !== 'davlat' && currentUser.role !== 'admin') {
       setActiveTabState('profile');
     }
   }, [activeTab, currentUser.role]);
@@ -504,6 +538,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem(STORAGE_KEYS.CUSTOM_GUIDES, JSON.stringify(next));
       return next;
     });
+  };
+
+  // Davlat AI Skaner Bilimlar Bazasi (Kasalliklar & Dorilar Registri)
+  const [govAgroDiseases, setGovAgroDiseases] = useState<AgroDiseaseRecord[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.GOV_AGRO_DISEASES);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) { console.error(e); }
+    }
+    return INITIAL_GOV_AGRO_DISEASES;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.GOV_AGRO_DISEASES, JSON.stringify(govAgroDiseases));
+  }, [govAgroDiseases]);
+
+  const addGovAgroDisease = (recordData: Omit<AgroDiseaseRecord, 'id' | 'updatedAt'>): AgroDiseaseRecord => {
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const newRecord: AgroDiseaseRecord = {
+      ...recordData,
+      id: `gov-dis-${Date.now()}`,
+      updatedAt: dateStr,
+      verifiedByGov: true
+    };
+    setGovAgroDiseases(prev => [newRecord, ...prev]);
+    return newRecord;
+  };
+
+  const updateGovAgroDisease = (id: string, updates: Partial<AgroDiseaseRecord>) => {
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    setGovAgroDiseases(prev => prev.map(item => item.id === id ? { ...item, ...updates, updatedAt: dateStr } : item));
+  };
+
+  const deleteGovAgroDisease = (id: string) => {
+    setGovAgroDiseases(prev => prev.filter(item => item.id !== id));
+  };
+
+  const resetGovAgroDiseasesToDefault = () => {
+    setGovAgroDiseases(INITIAL_GOV_AGRO_DISEASES);
+    localStorage.setItem(STORAGE_KEYS.GOV_AGRO_DISEASES, JSON.stringify(INITIAL_GOV_AGRO_DISEASES));
   };
 
   // 4-Attempt Login Cyber Defense (Kiber-hujum va Brute-Force ga qarshi 4 ta urinishli himoya)
@@ -1858,6 +1936,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addCustomGuide,
         deleteCustomGuide,
         incrementGuideDownload,
+        govAgroDiseases,
+        addGovAgroDisease,
+        updateGovAgroDisease,
+        deleteGovAgroDisease,
+        resetGovAgroDiseasesToDefault,
         isDarkMode,
         toggleDarkMode,
         isDevModalOpen,

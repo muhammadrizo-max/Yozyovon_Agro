@@ -23,6 +23,7 @@ import {
   Shield
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { AgroLogo } from './AgroLogo';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -167,10 +168,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenAuth })
         <div>
           <div className="p-4 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between bg-[#F8FAFC] dark:bg-slate-950">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 bg-[#3B82F6] rounded-xs rotate-45 flex items-center justify-center shadow-xs shrink-0">
-                <div className="w-4 h-4 bg-white -rotate-45 flex items-center justify-center">
-                  <div className="w-2 h-2 bg-[#3B82F6]"></div>
-                </div>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0">
+                <AgroLogo className="w-full h-full" />
               </div>
               <div>
                 <span className="font-bold text-sm tracking-tight text-[#0F172A] dark:text-white">

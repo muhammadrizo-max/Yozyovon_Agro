@@ -297,25 +297,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-[#0F172A]/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-hidden" id="auth-modal-overlay">
       
-      {/* Qalqib chiquvchi xabarnoma (Floating Toast Notification) */}
+      {/* Qalqib chiquvchi xabarnoma (Floating Toast Notification) - Boshqa bildirishnomalar kabi ekranning burchagida qalqib chiquvchi toast */}
       {toastNotification && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] w-[92%] max-w-md pointer-events-auto transition-all animate-in fade-in slide-in-from-top-4 duration-300 shadow-2xl">
-          <div className="flex items-start gap-3 p-3.5 sm:p-4 rounded-xl bg-rose-600 text-white shadow-2xl border border-rose-400/40 backdrop-blur-md">
-            <div className="p-1 rounded-lg bg-white/20 text-white shrink-0 mt-0.5">
+        <div className="fixed bottom-6 right-6 z-[100] max-w-sm w-[calc(100%-3rem)] pointer-events-auto transition-all duration-300 transform animate-in slide-in-from-bottom-5 fade-in shadow-2xl">
+          <div className="flex items-start gap-3 p-4 rounded-xl bg-slate-900/95 text-white shadow-2xl border border-rose-500/70 backdrop-blur-md">
+            <div className="p-2 rounded-lg bg-rose-600 text-white shrink-0">
               <AlertTriangle className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-rose-100">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-rose-400">
                 Xavfsizlik Ogohlantirishi
               </p>
-              <p className="text-xs font-medium mt-0.5 text-white leading-relaxed">
+              <p className="text-xs font-medium mt-0.5 text-slate-100 leading-relaxed">
                 {toastNotification.text}
               </p>
             </div>
             <button
               type="button"
               onClick={() => setToastNotification(null)}
-              className="p-1 text-white/80 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
+              className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
@@ -323,9 +323,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
       )}
 
-      <div className={`bg-white dark:bg-slate-900 rounded-2xl w-full p-5 sm:p-6 shadow-2xl border border-[#E2E8F0] dark:border-slate-800 relative my-auto transition-all ${
+      <div className={`bg-white dark:bg-slate-900 rounded-2xl w-full p-5 sm:p-6 shadow-2xl border border-[#E2E8F0] dark:border-slate-800 relative my-auto transition-all overflow-hidden ${
         activeTab === 'login' 
-          ? 'max-w-md overflow-hidden' 
+          ? 'max-w-md max-h-none overflow-hidden' 
           : 'max-w-lg max-h-[92vh] flex flex-col'
       }`}>
         
@@ -339,10 +339,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </button>
 
         {/* Scrollable Body - Login rejimida scrolldan butunlay xoli */}
-        <div className={`space-y-3.5 ${
+        <div className={`${
           activeTab === 'login' 
-            ? 'overflow-visible' 
-            : 'overflow-y-auto pr-1 custom-modal-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'
+            ? 'overflow-hidden space-y-3' 
+            : 'overflow-y-auto pr-1 space-y-3.5 custom-modal-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'
         }`}>
 
           {/* Verification Success View (After register) */}

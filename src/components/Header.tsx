@@ -37,6 +37,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { UserRole } from '../types';
 import { Sidebar } from './Sidebar';
+import { AgroLogo } from './AgroLogo';
 
 interface HeaderProps {
   onOpenAuth: (mode?: 'login' | 'register') => void;
@@ -215,10 +216,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
               className="flex items-center gap-2 sm:gap-3 text-left group focus:outline-hidden"
               id="brand-logo-btn"
             >
-              <div className="w-8 h-8 bg-[#3B82F6] rounded-xs rotate-45 flex items-center justify-center shadow-xs transition-transform group-hover:scale-105 shrink-0">
-                <div className="w-4 h-4 bg-white -rotate-45 flex items-center justify-center">
-                  <div className="w-2 h-2 bg-[#3B82F6]"></div>
-                </div>
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-transform group-hover:scale-105 shrink-0 drop-shadow-md">
+                <AgroLogo className="w-full h-full" />
               </div>
               <div>
                 <div className="flex items-center gap-1">

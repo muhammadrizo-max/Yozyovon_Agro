@@ -35,10 +35,13 @@ import {
   Save,
   Edit3,
   SlidersHorizontal,
-  Eye
+  Eye,
+  Cpu,
+  Trash2,
+  Check
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { MFYData, SubsidyApplication, ExportCertificate } from '../types';
+import { MFYData, SubsidyApplication, ExportCertificate, AgroDiseaseRecord } from '../types';
 import { FarmerGovChatModal } from './FarmerGovChatModal';
 
 export const GovManagementHub: React.FC = () => {
@@ -60,10 +63,15 @@ export const GovManagementHub: React.FC = () => {
     weatherProvider,
     setWeatherProvider,
     siteSettings,
-    updateSiteSettings
+    updateSiteSettings,
+    govAgroDiseases,
+    addGovAgroDisease,
+    updateGovAgroDisease,
+    deleteGovAgroDisease,
+    resetGovAgroDiseasesToDefault
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'subsidies' | 'farmers_registry' | 'resource_management' | 'broadcast' | 'certs' | 'mfy_matrix' | 'farmer_badges' | 'weather_control' | 'site_appearance'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'subsidies' | 'farmers_registry' | 'resource_management' | 'broadcast' | 'certs' | 'mfy_matrix' | 'farmer_badges' | 'weather_control' | 'site_appearance' | 'ai_knowledge_base'>('overview');
   const [weatherNotice, setWeatherNotice] = useState<string | null>(null);
   const [selectedChatSubsidy, setSelectedChatSubsidy] = useState<SubsidyApplication | null>(null);
 
@@ -126,6 +134,103 @@ export const GovManagementHub: React.FC = () => {
   // Search in MFY Matrix
   const [matrixSearch, setMatrixSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
+
+  // AI Knowledge Base (Kasalliklar & Dorilar Registri) form states
+  const [showAddDiseaseModal, setShowAddDiseaseModal] = useState(false);
+  const [editingDiseaseId, setEditingDiseaseId] = useState<string | null>(null);
+  const [diseaseSearch, setDiseaseSearch] = useState('');
+  const [diseaseFilterPart, setDiseaseFilterPart] = useState<'all' | 'leaf' | 'fruit' | 'branch'>('all');
+  const [diseaseForm, setDiseaseForm] = useState<{
+    plantType: 'limon' | 'mevali_daraxt' | 'sabzavot' | 'uzum' | 'boshqa_kochat';
+    diseaseName: string;
+    targetPart: 'leaf' | 'fruit' | 'branch' | 'all';
+    severityLevel: 'high' | 'medium' | 'low';
+    visualSymptoms: string;
+    medicines: string;
+    dosageAndUsage: string;
+    preventiveMeasures: string;
+    imageUrl: string;
+  }>({
+    plantType: 'limon',
+    diseaseName: '',
+    targetPart: 'leaf',
+    severityLevel: 'high',
+    visualSymptoms: '',
+    medicines: '',
+    dosageAndUsage: '',
+    preventiveMeasures: '',
+    imageUrl: ''
+  });
+  const [diseaseSuccessMsg, setDiseaseSuccessMsg] = useState<string | null>(null);
+
+  const handleSaveDisease = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!diseaseForm.diseaseName.trim() || !diseaseForm.medicines.trim()) return;
+
+    const symptomsArray = diseaseForm.visualSymptoms
+      ? diseaseForm.visualSymptoms.split('\n').map(s => s.trim()).filter(Boolean)
+      : ['Barg va novdalarda kasallik belgilari'];
+
+    if (editingDiseaseId) {
+      updateGovAgroDisease(editingDiseaseId, {
+        plantType: diseaseForm.plantType,
+        diseaseName: diseaseForm.diseaseName,
+        targetPart: diseaseForm.targetPart,
+        severityLevel: diseaseForm.severityLevel,
+        visualSymptoms: symptomsArray,
+        medicines: diseaseForm.medicines,
+        dosageAndUsage: diseaseForm.dosageAndUsage,
+        preventiveMeasures: diseaseForm.preventiveMeasures,
+        imageUrl: diseaseForm.imageUrl || undefined
+      });
+      setDiseaseSuccessMsg('Kasallik va rasmiy dori maʼlumotlari muvaffaqiyatli yangilandi!');
+    } else {
+      addGovAgroDisease({
+        plantType: diseaseForm.plantType,
+        diseaseName: diseaseForm.diseaseName,
+        targetPart: diseaseForm.targetPart,
+        severityLevel: diseaseForm.severityLevel,
+        visualSymptoms: symptomsArray,
+        medicines: diseaseForm.medicines,
+        dosageAndUsage: diseaseForm.dosageAndUsage,
+        preventiveMeasures: diseaseForm.preventiveMeasures,
+        imageUrl: diseaseForm.imageUrl || 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=600&auto=format&fit=crop&q=80',
+        verifiedByGov: true
+      });
+      setDiseaseSuccessMsg('Yangi kasallik va rasmiy dori vositasi AI Bilimlar Bazasiga kiritildi!');
+    }
+
+    setShowAddDiseaseModal(false);
+    setEditingDiseaseId(null);
+    setDiseaseForm({
+      plantType: 'limon',
+      diseaseName: '',
+      targetPart: 'leaf',
+      severityLevel: 'high',
+      visualSymptoms: '',
+      medicines: '',
+      dosageAndUsage: '',
+      preventiveMeasures: '',
+      imageUrl: ''
+    });
+    setTimeout(() => setDiseaseSuccessMsg(null), 4000);
+  };
+
+  const startEditDisease = (record: AgroDiseaseRecord) => {
+    setEditingDiseaseId(record.id);
+    setDiseaseForm({
+      plantType: record.plantType,
+      diseaseName: record.diseaseName,
+      targetPart: record.targetPart,
+      severityLevel: record.severityLevel,
+      visualSymptoms: record.visualSymptoms ? record.visualSymptoms.join('\n') : '',
+      medicines: record.medicines,
+      dosageAndUsage: record.dosageAndUsage,
+      preventiveMeasures: record.preventiveMeasures,
+      imageUrl: record.imageUrl || ''
+    });
+    setShowAddDiseaseModal(true);
+  };
 
   // Stats calculation
   const totalLimon = (mfyList || []).reduce((acc, m) => acc + (m.limonDaraxtlari || 0), 0);
@@ -459,6 +564,31 @@ export const GovManagementHub: React.FC = () => {
             <div className="font-bold text-sm leading-tight">Websayt Koʻrinishi & Aloqa</div>
             <div className={`text-[11px] mt-0.5 ${activeTab === 'site_appearance' ? 'text-slate-300' : 'text-[#64748B]'}`}>
               Aloqa, joylashuv & 3-rasm kartalari
+            </div>
+          </div>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('ai_knowledge_base')}
+          className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between shadow-xs group ${
+            activeTab === 'ai_knowledge_base'
+              ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-md ring-2 ring-violet-500/20'
+              : 'bg-white hover:bg-slate-50 border-[#E2E8F0] text-[#0F172A]'
+          }`}
+          id="cmd-ai-knowledge-base-btn"
+        >
+          <div className="flex items-center justify-between">
+            <div className={`p-2.5 rounded-lg ${activeTab === 'ai_knowledge_base' ? 'bg-violet-600 text-white' : 'bg-violet-50 text-violet-600'}`}>
+              <Cpu className="w-5 h-5" />
+            </div>
+            <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${activeTab === 'ai_knowledge_base' ? 'bg-slate-800 text-violet-300' : 'bg-violet-100 text-violet-800'}`}>
+              {govAgroDiseases.length} ta
+            </span>
+          </div>
+          <div className="mt-3">
+            <div className="font-bold text-sm leading-tight">AI Skaner Bilimlar Bazasi</div>
+            <div className={`text-[11px] mt-0.5 ${activeTab === 'ai_knowledge_base' ? 'text-slate-300' : 'text-[#64748B]'}`}>
+              Kasalliklar, belgilar & dorilar
             </div>
           </div>
         </button>
@@ -2041,6 +2171,462 @@ export const GovManagementHub: React.FC = () => {
             </div>
 
           </form>
+        </div>
+      )}
+
+      {/* TAB 10: AI KNOWLEDGE BASE (KASALLIKLAR, BELGILAR & DORILAR REGISTRI) */}
+      {activeTab === 'ai_knowledge_base' && (
+        <div className="space-y-6">
+          {/* Header Banner */}
+          <div className="bg-gradient-to-r from-violet-900 via-slate-900 to-slate-900 rounded-xl p-6 border border-violet-700/40 shadow-lg text-white">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="p-3 bg-violet-600 rounded-xl shadow-md">
+                  <Cpu className="w-7 h-7 text-white" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-bold tracking-tight">AI Skaner Bilimlar Bazasi & Fitosanitariya Registri</h2>
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                      Real Vaqt Integratsiyasi
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                    Ushbu boʻlimda davlat fitosanitariya inspeksiyasi tomonidan kiritilgan barcha oʻsimlik/koʻchat kasalliklari, ularning vizual alomatlari va rasmiy dori vositalari saqlanadi. Dehqonlar skaner qilganda AI aynan shu registrdagi maʼlumotlar bilan solishtiradi va rasmiy retsept beradi. Chorva va hayvonlar esa avtomatik filtrlanadi!
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={resetGovAgroDiseasesToDefault}
+                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg border border-slate-700 flex items-center gap-1.5 transition-all"
+                  title="Boshlangʻich rasmiy Yozyovon protokollariga qaytarish"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Standart Protokol</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingDiseaseId(null);
+                    setDiseaseForm({
+                      plantType: 'limon',
+                      diseaseName: '',
+                      targetPart: 'leaf',
+                      severityLevel: 'high',
+                      visualSymptoms: '',
+                      medicines: '',
+                      dosageAndUsage: '',
+                      preventiveMeasures: '',
+                      imageUrl: ''
+                    });
+                    setShowAddDiseaseModal(true);
+                  }}
+                  className="px-4 py-2 bg-violet-600 hover:bg-violet-700 active:scale-95 text-white text-xs font-bold rounded-lg shadow-md flex items-center gap-1.5 transition-all"
+                  id="add-new-disease-btn"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Yangi Kasallik & Dori Kiritish</span>
+                </button>
+              </div>
+            </div>
+
+            {diseaseSuccessMsg && (
+              <div className="mt-4 p-3 bg-emerald-500/20 border border-emerald-500/40 rounded-lg text-emerald-200 text-xs flex items-center gap-2 animate-fadeIn">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{diseaseSuccessMsg}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Metrics */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500">Jami Kasalliklar</span>
+                <span className="p-2 rounded-lg bg-violet-50 text-violet-600">
+                  <Cpu className="w-4 h-4" />
+                </span>
+              </div>
+              <p className="text-2xl font-black text-slate-900 mt-2">{govAgroDiseases.length}</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">AI tahlilida faol</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500">Barg Patologiyalari</span>
+                <span className="p-2 rounded-lg bg-emerald-50 text-emerald-600">
+                  <Sprout className="w-4 h-4" />
+                </span>
+              </div>
+              <p className="text-2xl font-black text-slate-900 mt-2">
+                {govAgroDiseases.filter(d => d.targetPart === 'leaf' || d.targetPart === 'all').length}
+              </p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Xloroz, oqqanot, dogʻlar</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500">Meva Kasalliklari</span>
+                <span className="p-2 rounded-lg bg-amber-50 text-amber-600">
+                  <Award className="w-4 h-4" />
+                </span>
+              </div>
+              <p className="text-2xl font-black text-slate-900 mt-2">
+                {govAgroDiseases.filter(d => d.targetPart === 'fruit' || d.targetPart === 'all').length}
+              </p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Qoʻtir, parsha, chirish</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500">Shox & Poya Kasalliklari</span>
+                <span className="p-2 rounded-lg bg-rose-50 text-rose-600">
+                  <AlertTriangle className="w-4 h-4" />
+                </span>
+              </div>
+              <p className="text-2xl font-black text-slate-900 mt-2">
+                {govAgroDiseases.filter(d => d.targetPart === 'branch' || d.targetPart === 'all').length}
+              </p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Gommoz, poʻstloq yorilishi</p>
+            </div>
+          </div>
+
+          {/* Search & Filter Bar */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
+            <div className="relative w-full md:w-80">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Kasallik, dori yoki belgi boʻyicha qidiruv..."
+                value={diseaseSearch}
+                onChange={(e) => setDiseaseSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto">
+              <span className="text-xs font-bold text-slate-500 shrink-0 flex items-center gap-1">
+                <Filter className="w-3.5 h-3.5" /> Qism:
+              </span>
+              {(['all', 'leaf', 'fruit', 'branch'] as const).map(part => (
+                <button
+                  key={part}
+                  onClick={() => setDiseaseFilterPart(part)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
+                    diseaseFilterPart === part
+                      ? 'bg-violet-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {part === 'all' && 'Barchasi'}
+                  {part === 'leaf' && '🍃 Barglar'}
+                  {part === 'fruit' && '🍋 Mevalar'}
+                  {part === 'branch' && '🪵 Shox / Poya'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Disease Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {govAgroDiseases
+              .filter(d => {
+                if (diseaseFilterPart !== 'all' && d.targetPart !== diseaseFilterPart && d.targetPart !== 'all') {
+                  return false;
+                }
+                if (diseaseSearch.trim()) {
+                  const q = diseaseSearch.toLowerCase();
+                  return (
+                    d.diseaseName.toLowerCase().includes(q) ||
+                    d.medicines.toLowerCase().includes(q) ||
+                    d.dosageAndUsage.toLowerCase().includes(q) ||
+                    (d.visualSymptoms && d.visualSymptoms.some(s => s.toLowerCase().includes(q)))
+                  );
+                }
+                return true;
+              })
+              .map(record => (
+                <div
+                  key={record.id}
+                  className="bg-white rounded-xl border border-slate-200 shadow-xs hover:shadow-md transition-all overflow-hidden flex flex-col justify-between"
+                >
+                  <div className="p-5">
+                    {/* Top Row: Tag, Severity & Date */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider bg-violet-50 text-violet-700 border border-violet-100">
+                          {record.plantType === 'limon' && '🍋 Limon'}
+                          {record.plantType === 'mevali_daraxt' && '🍎 Mevali Daraxt'}
+                          {record.plantType === 'sabzavot' && '🍅 Sabzavot'}
+                          {record.plantType === 'uzum' && '🍇 Tok / Uzum'}
+                          {record.plantType === 'boshqa_kochat' && '🌱 Koʻchat'}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${
+                          record.targetPart === 'leaf' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                          record.targetPart === 'fruit' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                          record.targetPart === 'branch' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                          'bg-blue-50 text-blue-700 border border-blue-200'
+                        }`}>
+                          {record.targetPart === 'leaf' && '🍃 Barg patologiyasi'}
+                          {record.targetPart === 'fruit' && '🍋 Meva kasalligi'}
+                          {record.targetPart === 'branch' && '🪵 Shox va poya'}
+                          {record.targetPart === 'all' && '🌿 Umumiy oʻsimlik'}
+                        </span>
+                      </div>
+
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                        record.severityLevel === 'high' ? 'bg-rose-100 text-rose-800' :
+                        record.severityLevel === 'medium' ? 'bg-amber-100 text-amber-800' :
+                        'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        {record.severityLevel === 'high' ? 'Xavf: Yuqori' : record.severityLevel === 'medium' ? 'Xavf: Oʻrta' : 'Xavf: Past'}
+                      </span>
+                    </div>
+
+                    {/* Title */}
+                    <h3 className="font-bold text-sm text-slate-900 mt-3 leading-snug">
+                      {record.diseaseName}
+                    </h3>
+
+                    {/* Image Preview & Symptoms */}
+                    <div className="flex gap-3 mt-3">
+                      {record.imageUrl && (
+                        <img
+                          src={record.imageUrl}
+                          alt={record.diseaseName}
+                          className="w-20 h-20 rounded-lg object-cover border border-slate-200 shrink-0"
+                        />
+                      )}
+                      <div className="flex-1 space-y-1">
+                        <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Vizual Belgilari:</p>
+                        <ul className="text-xs text-slate-700 space-y-1 list-disc list-inside">
+                          {record.visualSymptoms?.map((sym, idx) => (
+                            <li key={idx} className="line-clamp-2">{sym}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    {/* Medicines & Dosage Box */}
+                    <div className="mt-4 p-3 rounded-lg bg-blue-50/60 border border-blue-100 text-xs space-y-1.5">
+                      <div className="flex items-center gap-1.5 font-bold text-blue-900">
+                        <Droplets className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Davlat Tasdiqlagan Dori Vositalari:</span>
+                      </div>
+                      <p className="text-blue-950 font-medium">{record.medicines}</p>
+                      <div className="text-[11px] text-blue-800 pt-1 border-t border-blue-200/50">
+                        <span className="font-semibold">Dozasi & Qoʻllash:</span> {record.dosageAndUsage}
+                      </div>
+                    </div>
+
+                    {/* Preventive Measures */}
+                    {record.preventiveMeasures && (
+                      <div className="mt-2 text-[11px] text-slate-600">
+                        <span className="font-semibold text-slate-700">Profilaktika:</span> {record.preventiveMeasures}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Card Actions Footer */}
+                  <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs">
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      Yangilangan: {record.updatedAt}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => startEditDisease(record)}
+                        className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 font-semibold rounded border border-slate-200 shadow-2xs flex items-center gap-1"
+                      >
+                        <Edit3 className="w-3 h-3 text-blue-600" />
+                        <span>Tahrirlash</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`"${record.diseaseName}" kasalligini registrdan oʻchirishni tasdiqlaysizmi?`)) {
+                            deleteGovAgroDisease(record.id);
+                          }
+                        }}
+                        className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                        title="Oʻchirish"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+          </div>
+
+          {/* Modal: Yangi Kasallik Kiritish yoki Tahrirlash */}
+          {showAddDiseaseModal && (
+            <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+              <div className="bg-white rounded-xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 my-8 space-y-4 animate-scaleUp">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-violet-100 text-violet-700 rounded-lg">
+                      <Cpu className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-base text-slate-900">
+                        {editingDiseaseId ? 'Kasallik va Dori Maʼlumotlarini Tahrirlash' : 'AI Skaner uchun Yangi Kasallik & Dori Kiritish'}
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Ushbu maʼlumotlar dehqonlar oʻsimlik/koʻchatni skaner qilganda AI tomonidan tavsiya sifatida ishlatiladi.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowAddDiseaseModal(false);
+                      setEditingDiseaseId(null);
+                    }}
+                    className="text-slate-400 hover:text-slate-600 text-sm font-bold p-1"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveDisease} className="space-y-4 text-xs">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Oʻsimlik / Ekin Turi *</label>
+                      <select
+                        value={diseaseForm.plantType}
+                        onChange={(e: any) => setDiseaseForm(p => ({ ...p, plantType: e.target.value }))}
+                        className="w-full px-3 py-2 border rounded-lg bg-slate-50 font-medium"
+                      >
+                        <option value="limon">🍋 Limon (Sitrus)</option>
+                        <option value="mevali_daraxt">🍎 Mevali Daraxt</option>
+                        <option value="sabzavot">🍅 Sabzavot</option>
+                        <option value="uzum">🍇 Tok / Uzum</option>
+                        <option value="boshqa_kochat">🌱 Boshqa Koʻchat</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Zararlanadigan Qism *</label>
+                      <select
+                        value={diseaseForm.targetPart}
+                        onChange={(e: any) => setDiseaseForm(p => ({ ...p, targetPart: e.target.value }))}
+                        className="w-full px-3 py-2 border rounded-lg bg-slate-50 font-medium"
+                      >
+                        <option value="leaf">🍃 Barglar</option>
+                        <option value="fruit">🍋 Mevalar</option>
+                        <option value="branch">🪵 Shox va Poya</option>
+                        <option value="all">🌿 Barcha qismlar</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Xavf Darajasi *</label>
+                      <select
+                        value={diseaseForm.severityLevel}
+                        onChange={(e: any) => setDiseaseForm(p => ({ ...p, severityLevel: e.target.value }))}
+                        className="w-full px-3 py-2 border rounded-lg bg-slate-50 font-medium"
+                      >
+                        <option value="high">🔴 Yuqori (Tez tarqaluvchi)</option>
+                        <option value="medium">🟡 Oʻrta darajali</option>
+                        <option value="low">🟢 Past / Boshlangʻich</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Kasallik yoki Zararkunanda Rasmiy Nomi *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Masalan: Limon Gommozi va Antraknozi"
+                      value={diseaseForm.diseaseName}
+                      onChange={(e) => setDiseaseForm(p => ({ ...p, diseaseName: e.target.value }))}
+                      className="w-full px-3 py-2 border rounded-lg bg-slate-50 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Vizual Alomatlari (Har bir alomat yangi qatorda) *</label>
+                    <textarea
+                      rows={3}
+                      required
+                      placeholder="Masalan:&#10;Barglarning tomirlar oraligʻining sargʻayishi&#10;Poyaning yorilishi va yelim oqishi&#10;Meva poʻstlogʻida botib kirgan qora dogʻlar"
+                      value={diseaseForm.visualSymptoms}
+                      onChange={(e) => setDiseaseForm(p => ({ ...p, visualSymptoms: e.target.value }))}
+                      className="w-full px-3 py-2 border rounded-lg bg-slate-50 font-medium"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Rasmiy Dori Vositalari (Preparatlar) *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Masalan: Mis kuporosi 1%, Skor 250 EC, Aktara 25 WG"
+                        value={diseaseForm.medicines}
+                        onChange={(e) => setDiseaseForm(p => ({ ...p, medicines: e.target.value }))}
+                        className="w-full px-3 py-2 border rounded-lg bg-slate-50 font-medium"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Namunaviy Tasvir URL (Etalon rasm)</label>
+                      <input
+                        type="text"
+                        placeholder="https://... rasm havolasi"
+                        value={diseaseForm.imageUrl}
+                        onChange={(e) => setDiseaseForm(p => ({ ...p, imageUrl: e.target.value }))}
+                        className="w-full px-3 py-2 border rounded-lg bg-slate-50 font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Dozasi va Qoʻllash Tartibi *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Masalan: 10 litr suvga 100 g mis kuporosi + 100 g ohak. Kechki payt barg va shoxlarga sepiladi."
+                      value={diseaseForm.dosageAndUsage}
+                      onChange={(e) => setDiseaseForm(p => ({ ...p, dosageAndUsage: e.target.value }))}
+                      className="w-full px-3 py-2 border rounded-lg bg-slate-50 font-medium"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Profilaktika va Agrotexnik Chora-tadbirlar</label>
+                    <textarea
+                      rows={2}
+                      placeholder="Daraxt tanasini oqlash, namlikni meʼyorda ushlash, zararlangan novdalarni kesib yoqish."
+                      value={diseaseForm.preventiveMeasures}
+                      onChange={(e) => setDiseaseForm(p => ({ ...p, preventiveMeasures: e.target.value }))}
+                      className="w-full px-3 py-2 border rounded-lg bg-slate-50 font-medium"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddDiseaseModal(false);
+                        setEditingDiseaseId(null);
+                      }}
+                      className="px-4 py-2 border border-slate-200 hover:bg-slate-100 rounded-lg text-slate-600 font-bold"
+                    >
+                      Bekor Qilish
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 py-2 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-lg shadow-md flex items-center gap-1.5"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>{editingDiseaseId ? 'Oʻzgarishlarni Saqlash' : 'AI Bazaga Kiritish & Tasdiqlash'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

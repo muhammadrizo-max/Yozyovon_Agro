@@ -25,16 +25,21 @@ import {
   Maximize2,
   Minimize2,
   RotateCw,
-  X
+  X,
+  Sprout,
+  ShieldCheck,
+  Info,
+  ShieldX,
+  AlertOctagon
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { analyzeAgroImage } from '../utils/aiVisionAnalyzer';
-import { AIScan } from '../types';
+import { analyzeAgroImage, AnalysisResult } from '../utils/aiVisionAnalyzer';
+import { AIScan, DetectedPlantPart } from '../types';
 
 export const AIScanner: React.FC = () => {
-  const { addAIScan, aiScans, currentUser } = useApp();
+  const { addAIScan, aiScans, currentUser, govAgroDiseases } = useApp();
 
-  // Active Modes: 'camera' (Live Camera) | 'upload' (File upload) - Samples removed per user request
+  // Active Modes: 'camera' (Live Camera) | 'upload' (File upload)
   const [inputMode, setInputMode] = useState<'camera' | 'upload'>('camera');
   const [activeSubTab, setActiveSubTab] = useState<'scanner' | 'history'>('scanner');
 
@@ -46,7 +51,7 @@ export const AIScanner: React.FC = () => {
     return false;
   });
 
-  // Facing mode: 'environment' (orqaga qaragan asosiy kamera) | 'user' (old kamera)
+  // Facing mode: 'environment' (orqa kamera) | 'user' (old kamera)
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
 
   // Camera States
@@ -54,13 +59,14 @@ export const AIScanner: React.FC = () => {
   const [cameraPermissionState, setCameraPermissionState] = useState<'prompt' | 'granted' | 'denied' | 'checking'>('checking');
   const [cameraError, setCameraError] = useState<string | null>(null);
 
-  // Current analysis & image
+  // Current analysis & image (FAQAT O'SIMLIK VA KO'CHATLAR)
   const [currentImage, setCurrentImage] = useState<string | null>(null);
-  const [selectedTargetType, setSelectedTargetType] = useState<'limon' | 'boshqa_ekin' | 'chorva'>('limon');
+  const [selectedTargetType, setSelectedTargetType] = useState<'limon' | 'kochat' | 'boshqa_ekin'>('limon');
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [scanResult, setScanResult] = useState<AIScan | null>(null);
   const [justSavedNotification, setJustSavedNotification] = useState(false);
+  const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
 
   // Sequenced captured results from real-time scanning
   const [liveCapturedList, setLiveCapturedList] = useState<AIScan[]>([]);
@@ -105,7 +111,6 @@ export const AIScanner: React.FC = () => {
     const currentSessionId = ++startCameraSessionIdRef.current;
     const targetMode = overrideFacing || facingMode;
 
-    // Stop any previously existing stream
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach(track => track.stop());
       mediaStreamRef.current = null;
@@ -124,14 +129,12 @@ export const AIScanner: React.FC = () => {
             audio: false
           });
         } catch (constraintErr) {
-          // Fallback if device doesn't support specific facingMode
           stream = await navigator.mediaDevices.getUserMedia({
             video: true,
             audio: false
           });
         }
 
-        // Check if session became stale while waiting for getUserMedia
         if (!isMountedRef.current || startCameraSessionIdRef.current !== currentSessionId) {
           stream.getTracks().forEach(track => track.stop());
           return;
@@ -140,28 +143,21 @@ export const AIScanner: React.FC = () => {
         mediaStreamRef.current = stream;
         setIsCameraActive(true);
         setCameraPermissionState('granted');
-
-        // Immediately attach to video element if ready
         attachStreamToVideos(stream);
       } else {
         setCameraPermissionState('denied');
         setCameraError("Kamera qurilmasi ushbu brauzerda qoʻllab-quvvatlanmadi yoki ruxsat yoʻq.");
       }
     } catch (err: any) {
-      if (startCameraSessionIdRef.current === currentSessionId) {
-        console.warn("Camera access note:", err?.message || err);
-        setCameraPermissionState('denied');
-        setCameraError("Kameraga ruxsat berilmadi yoki kamera band. Iltimos, brauzeringizda kameraga ruxsat bering yoki 'Fayl Yuklash' orqali rasm yuboring.");
-        setIsCameraActive(false);
+      if (!isMountedRef.current || startCameraSessionIdRef.current !== currentSessionId) return;
+      setIsCameraActive(false);
+      setCameraPermissionState('denied');
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setCameraError("Kameradan foydalanish ruxsati berilmadi. Iltimos, brauzer sozlamalarida kameraga ruxsat bering.");
+      } else {
+        setCameraError("Kamera ochilmadi: " + (err.message || "nomaʼlum xatolik"));
       }
     }
-  };
-
-  // Toggle Camera Facing Mode (old / orqa kamera)
-  const toggleFacingMode = () => {
-    const nextMode = facingMode === 'environment' ? 'user' : 'environment';
-    setFacingMode(nextMode);
-    startCamera(nextMode);
   };
 
   // Stop Camera Stream
@@ -171,25 +167,16 @@ export const AIScanner: React.FC = () => {
       mediaStreamRef.current.getTracks().forEach(track => track.stop());
       mediaStreamRef.current = null;
     }
-    [videoRef.current, fullscreenVideoRef.current].forEach(vEl => {
-      if (vEl) {
-        try {
-          vEl.pause();
-        } catch (e) {}
-        vEl.srcObject = null;
-      }
-    });
     setIsCameraActive(false);
   };
 
-  // Re-attach video stream if camera active state or fullscreen mode changes
-  useEffect(() => {
-    if (isCameraActive && mediaStreamRef.current) {
-      attachStreamToVideos(mediaStreamRef.current);
-    }
-  }, [isCameraActive, isFullscreen]);
+  // Toggle Front/Back camera
+  const toggleFacingMode = () => {
+    const nextMode = facingMode === 'environment' ? 'user' : 'environment';
+    setFacingMode(nextMode);
+    startCamera(nextMode);
+  };
 
-  // Initialize camera when entering camera mode
   useEffect(() => {
     isMountedRef.current = true;
     if (inputMode === 'camera' && activeSubTab === 'scanner') {
@@ -208,10 +195,9 @@ export const AIScanner: React.FC = () => {
     setIsScanning(true);
     setScanProgress(20);
     setJustSavedNotification(false);
+    setSelectedPartId(null);
 
     let snapshotUrl = '';
-
-    // If real video is playing, capture actual frame from active video
     const activeVideo = (isFullscreen && fullscreenVideoRef.current) ? fullscreenVideoRef.current : videoRef.current;
 
     if (activeVideo && isCameraActive && canvasRef.current) {
@@ -222,7 +208,7 @@ export const AIScanner: React.FC = () => {
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        snapshotUrl = canvas.toDataURL('image/jpeg', 0.88);
+        snapshotUrl = canvas.toDataURL('image/jpeg', 0.90);
       }
     }
 
@@ -234,7 +220,7 @@ export const AIScanner: React.FC = () => {
 
     setCurrentImage(snapshotUrl);
 
-    // Real-time AI Analysis process
+    // AI Analysis process
     const interval = setInterval(() => {
       setScanProgress(prev => {
         if (prev >= 90) {
@@ -249,10 +235,10 @@ export const AIScanner: React.FC = () => {
       clearInterval(interval);
       setScanProgress(100);
 
-      // Perform real pixel & spectral vision analysis
-      const analysis = await analyzeAgroImage(snapshotUrl, selectedTargetType);
+      // 1. O'simlik/ko'chat tahlili, hayvonlarni filtrlash va davlat bazasi bilan solishtirish
+      const analysis: AnalysisResult = await analyzeAgroImage(snapshotUrl, selectedTargetType, govAgroDiseases);
 
-      const newScan = addAIScan({
+      const newScan: AIScan = addAIScan({
         mfyId: currentUser.mfyId,
         imageUrl: snapshotUrl,
         targetType: selectedTargetType,
@@ -261,13 +247,20 @@ export const AIScanner: React.FC = () => {
         severity: analysis.severity,
         recommendations: analysis.recommendations,
         medicines: analysis.medicines,
-        reportedToGov: analysis.severity === 'high'
+        reportedToGov: analysis.severity === 'high' && !analysis.isAnimalOrNonPlant,
+        isAnimalOrNonPlant: analysis.isAnimalOrNonPlant,
+        animalWarningMessage: analysis.animalWarningMessage,
+        detectedParts: analysis.detectedParts,
+        matchedGovDisease: analysis.matchedGovDisease,
+        officialGovNotice: analysis.officialGovNotice
       });
 
       setScanResult(newScan);
-      setLiveCapturedList(prev => [newScan, ...prev]);
+      if (!analysis.isAnimalOrNonPlant) {
+        setLiveCapturedList(prev => [newScan, ...prev]);
+        setJustSavedNotification(true);
+      }
       setIsScanning(false);
-      setJustSavedNotification(true);
     }, 900);
   };
 
@@ -286,11 +279,12 @@ export const AIScanner: React.FC = () => {
   };
 
   // Run AI Scan with interactive animation for uploaded file
-  const runScan = (imageUrl: string, targetType: 'limon' | 'boshqa_ekin' | 'chorva') => {
+  const runScan = (imageUrl: string, targetType: 'limon' | 'kochat' | 'boshqa_ekin') => {
     setIsScanning(true);
     setScanProgress(15);
     setScanResult(null);
     setJustSavedNotification(false);
+    setSelectedPartId(null);
 
     const interval = setInterval(() => {
       setScanProgress(prev => {
@@ -306,10 +300,9 @@ export const AIScanner: React.FC = () => {
       clearInterval(interval);
       setScanProgress(100);
 
-      // Real dynamic image analysis
-      const analysis = await analyzeAgroImage(imageUrl, targetType);
+      const analysis: AnalysisResult = await analyzeAgroImage(imageUrl, targetType, govAgroDiseases);
 
-      const newScan = addAIScan({
+      const newScan: AIScan = addAIScan({
         mfyId: currentUser.mfyId,
         imageUrl: imageUrl,
         targetType: targetType,
@@ -318,13 +311,20 @@ export const AIScanner: React.FC = () => {
         severity: analysis.severity,
         recommendations: analysis.recommendations,
         medicines: analysis.medicines,
-        reportedToGov: analysis.severity === 'high'
+        reportedToGov: analysis.severity === 'high' && !analysis.isAnimalOrNonPlant,
+        isAnimalOrNonPlant: analysis.isAnimalOrNonPlant,
+        animalWarningMessage: analysis.animalWarningMessage,
+        detectedParts: analysis.detectedParts,
+        matchedGovDisease: analysis.matchedGovDisease,
+        officialGovNotice: analysis.officialGovNotice
       });
 
       setScanResult(newScan);
-      setLiveCapturedList(prev => [newScan, ...prev]);
+      if (!analysis.isAnimalOrNonPlant) {
+        setLiveCapturedList(prev => [newScan, ...prev]);
+        setJustSavedNotification(true);
+      }
       setIsScanning(false);
-      setJustSavedNotification(true);
     }, 1000);
   };
 
@@ -358,327 +358,481 @@ export const AIScanner: React.FC = () => {
             }`}
           >
             <History className="w-4 h-4" />
-            <span>Skaner Tarixi ({aiScans.length})</span>
+            <span>Tahlillar Tarixi ({aiScans.length})</span>
           </button>
         </div>
 
-        {/* Input Mode Selector: Camera vs Upload only */}
-        {activeSubTab === 'scanner' && (
-          <div className="flex items-center gap-1 bg-[#F8FAFC] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 p-1 rounded-md text-xs">
-            <button
-              onClick={() => setInputMode('camera')}
-              className={`px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors ${
-                inputMode === 'camera' 
-                  ? 'bg-[#3B82F6] text-white shadow-xs font-bold' 
-                  : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
-              }`}
-            >
-              <Video className="w-3.5 h-3.5" />
-              <span>Jonli Skaner</span>
-            </button>
-
-            <button
-              onClick={() => setInputMode('upload')}
-              className={`px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors ${
-                inputMode === 'upload' 
-                  ? 'bg-[#0F172A] dark:bg-blue-600 text-white shadow-xs font-bold' 
-                  : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white'
-              }`}
-            >
-              <Upload className="w-3.5 h-3.5" />
-              <span>Fayl Yuklash</span>
-            </button>
-          </div>
-        )}
+        {/* Plant Only Policy Badge */}
+        <div className="flex items-center gap-2 text-xs bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 px-3 py-1.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+          <Sprout className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          <span className="font-semibold">Faqat Oʻsimlik & Koʻchatlar (Chorva taqiqlangan)</span>
+        </div>
       </div>
 
       {activeSubTab === 'scanner' ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          
-          {/* Left Column: Real-Time Camera / File Viewport (7 Cols) */}
-          <div className="lg:col-span-7 bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-lg border border-[#E2E8F0] dark:border-slate-800 shadow-xs flex flex-col justify-between space-y-4">
-            
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#E2E8F0] dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 rounded-full ${isCameraActive ? 'bg-emerald-500 animate-ping' : 'bg-amber-500'}`}></span>
-                <h3 className="font-bold text-sm uppercase tracking-wider text-[#0F172A] dark:text-white">
-                  {inputMode === 'camera' ? "Jonli Kamera Skaneri" : "Rasm Yuklab Tahlil Qilish"}
-                </h3>
-              </div>
 
-              {/* Target Type selector and Fullscreen toggle */}
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 bg-[#F8FAFC] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 p-0.5 rounded text-xs">
-                  <button
-                    onClick={() => setSelectedTargetType('limon')}
-                    className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${selectedTargetType === 'limon' ? 'bg-[#0F172A] dark:bg-blue-600 text-white' : 'text-[#64748B] dark:text-slate-400'}`}
-                  >
-                    🍋 Limon
-                  </button>
-                  <button
-                    onClick={() => setSelectedTargetType('boshqa_ekin')}
-                    className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${selectedTargetType === 'boshqa_ekin' ? 'bg-[#0F172A] dark:bg-blue-600 text-white' : 'text-[#64748B] dark:text-slate-400'}`}
-                  >
-                    🌾 Boshqa Ekin
-                  </button>
-                  <button
-                    onClick={() => setSelectedTargetType('chorva')}
-                    className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${selectedTargetType === 'chorva' ? 'bg-[#0F172A] dark:bg-blue-600 text-white' : 'text-[#64748B] dark:text-slate-400'}`}
-                  >
-                    🐄 Chorva
-                  </button>
+          {/* Left Column: Camera / Upload Control (7 Cols) */}
+          <div className="lg:col-span-7 space-y-4">
+            
+            {/* Mode Selector Tabs (Live Camera vs Upload) */}
+            <div className="flex rounded-lg p-1 bg-[#F1F5F9] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700">
+              <button
+                onClick={() => {
+                  setInputMode('camera');
+                  setCurrentImage(null);
+                  setScanResult(null);
+                }}
+                className={`flex-1 py-2.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+                  inputMode === 'camera' 
+                    ? 'bg-white dark:bg-slate-900 text-[#0F172A] dark:text-white shadow-xs' 
+                    : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A]'
+                }`}
+              >
+                <Camera className="w-4 h-4 text-[#3B82F6]" />
+                <span>Jonli Kamera</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setInputMode('upload');
+                  stopCamera();
+                }}
+                className={`flex-1 py-2.5 rounded-md text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+                  inputMode === 'upload' 
+                    ? 'bg-white dark:bg-slate-900 text-[#0F172A] dark:text-white shadow-xs' 
+                    : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A]'
+                }`}
+              >
+                <Upload className="w-4 h-4 text-[#3B82F6]" />
+                <span>Rasm Yuklash</span>
+              </button>
+            </div>
+
+            {/* Viewport Frame */}
+            <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-lg border border-[#E2E8F0] dark:border-slate-800 shadow-xs space-y-4">
+              
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#E2E8F0] dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <span className={`w-2.5 h-2.5 rounded-full ${isCameraActive ? 'bg-emerald-500 animate-ping' : 'bg-amber-500'}`}></span>
+                  <h3 className="font-bold text-sm uppercase tracking-wider text-[#0F172A] dark:text-white">
+                    {inputMode === 'camera' ? "Jonli Kamera Skaneri" : "Rasm Yuklab Tahlil Qilish"}
+                  </h3>
                 </div>
 
-                <button
-                  onClick={() => setIsFullscreen(true)}
-                  className="px-2.5 py-1.5 rounded bg-[#F8FAFC] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#0F172A] dark:text-white hover:bg-blue-50 text-[11px] font-semibold flex items-center gap-1 transition-colors"
-                  title="Toʻliq ekranga oʻtish"
-                  id="fullscreen-toggle-btn"
-                >
-                  <Maximize2 className="w-3.5 h-3.5 text-[#3B82F6]" />
-                  <span className="hidden sm:inline">Toʻliq ekran</span>
-                </button>
+                {/* Target Type selector (FAQAT O'SIMLIK VA KO'CHATLAR - Chorva olib tashlangan) */}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 bg-[#F8FAFC] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 p-0.5 rounded text-xs">
+                    <button
+                      onClick={() => setSelectedTargetType('limon')}
+                      className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${selectedTargetType === 'limon' ? 'bg-[#0F172A] dark:bg-blue-600 text-white' : 'text-[#64748B] dark:text-slate-400'}`}
+                    >
+                      🍋 Limon
+                    </button>
+                    <button
+                      onClick={() => setSelectedTargetType('kochat')}
+                      className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${selectedTargetType === 'kochat' ? 'bg-[#0F172A] dark:bg-blue-600 text-white' : 'text-[#64748B] dark:text-slate-400'}`}
+                    >
+                      🌱 Koʻchat
+                    </button>
+                    <button
+                      onClick={() => setSelectedTargetType('boshqa_ekin')}
+                      className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${selectedTargetType === 'boshqa_ekin' ? 'bg-[#0F172A] dark:bg-blue-600 text-white' : 'text-[#64748B] dark:text-slate-400'}`}
+                    >
+                      🍎 Mevali / Tok
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => setIsFullscreen(true)}
+                    className="px-2.5 py-1.5 rounded bg-[#F8FAFC] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#0F172A] dark:text-white hover:bg-blue-50 text-[11px] font-semibold flex items-center gap-1 transition-colors"
+                    title="Toʻliq ekranga oʻtish"
+                    id="fullscreen-toggle-btn"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5 text-[#3B82F6]" />
+                    <span className="hidden sm:inline">Toʻliq ekran</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 1. LIVE CAMERA MODE VIEWPORT */}
+              {inputMode === 'camera' && (
+                <div className="space-y-3">
+                  <div className="relative w-full h-80 sm:h-96 rounded-lg bg-slate-950 overflow-hidden border-2 border-slate-700 shadow-inner flex items-center justify-center">
+                    
+                    {/* Real Live Video Feed */}
+                    {isCameraActive ? (
+                      <>
+                        <video
+                          ref={(el) => {
+                            videoRef.current = el;
+                            if (el && mediaStreamRef.current && el.srcObject !== mediaStreamRef.current) {
+                              el.srcObject = mediaStreamRef.current;
+                              el.play().catch(() => {});
+                            }
+                          }}
+                          autoPlay
+                          playsInline
+                          muted
+                          onLoadedMetadata={() => {
+                            videoRef.current?.play().catch(() => {});
+                          }}
+                          className="w-full h-full object-cover"
+                        />
+
+                        {/* Laser HUD Frame */}
+                        <div className="absolute inset-0 pointer-events-none">
+                          <div className="w-full h-0.5 bg-[#3B82F6] shadow-lg shadow-blue-500/80 animate-bounce duration-1000 opacity-90"></div>
+                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 border-2 border-dashed border-emerald-400/80 rounded-xl flex items-center justify-center">
+                            <Crosshair className="w-8 h-8 text-emerald-400 animate-pulse" />
+                            <span className="absolute -bottom-6 bg-black/70 px-2.5 py-0.5 rounded-full text-[10px] text-emerald-300 font-semibold whitespace-nowrap">
+                              🍃 Barg, meva yoki shoxni toʻgʻrilang
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Bottom Camera Action Bar */}
+                        <div className="absolute bottom-4 inset-x-4 flex items-center justify-between z-30 pointer-events-auto">
+                          <button
+                            onClick={toggleFacingMode}
+                            className="bg-black/70 backdrop-blur-xs text-white text-xs px-3 py-1.5 rounded-full border border-white/20 flex items-center gap-1.5"
+                            title="Kamerani almashtirish"
+                          >
+                            <RotateCw className="w-3.5 h-3.5" />
+                            <span>Almashtirish</span>
+                          </button>
+
+                          {/* Big Shutter Button */}
+                          <button
+                            onClick={captureSnapshot}
+                            disabled={isScanning}
+                            className="px-5 py-2.5 bg-[#3B82F6] hover:bg-blue-600 active:scale-95 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-xl flex items-center gap-2 border-2 border-white/80 transition-all"
+                          >
+                            <Camera className="w-4 h-4" />
+                            <span>{isScanning ? "Tahlil qilinmoqda..." : "Suratga Olish & Tahlil"}</span>
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-center p-6 space-y-4 max-w-md mx-auto">
+                        <div className="w-16 h-16 rounded-full bg-slate-900 border border-slate-800 text-amber-400 flex items-center justify-center mx-auto">
+                          <VideoOff className="w-8 h-8" />
+                        </div>
+                        <div className="space-y-1">
+                          <h4 className="font-bold text-sm text-white">Kamera Ulanmadi</h4>
+                          <p className="text-xs text-slate-400 leading-relaxed">
+                            {cameraError || "Jonli diagnostika qilish uchun qurilma kamerasiga ruxsat bering."}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => startCamera()}
+                          className="px-5 py-2.5 bg-[#3B82F6] hover:bg-blue-600 text-white font-bold text-xs rounded-md shadow-md flex items-center gap-2 mx-auto transition-all"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          <span>Kamerani Yoqish</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* 2. FILE UPLOAD MODE */}
+              {inputMode === 'upload' && (
+                <div className="space-y-4">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-[#CBD5E1] dark:border-slate-700 hover:border-[#3B82F6] bg-[#F8FAFC] dark:bg-slate-800/60 rounded-lg p-8 text-center cursor-pointer transition-all group"
+                  >
+                    <Upload className="w-10 h-10 text-[#64748B] dark:text-slate-400 group-hover:text-[#3B82F6] mx-auto transition-colors" />
+                    <p className="font-bold text-xs text-[#0F172A] dark:text-white mt-2">
+                      Oʻsimlik yoki koʻchat suratini yuklang
+                    </p>
+                    <p className="text-[11px] text-[#64748B] dark:text-slate-400 mt-1">
+                      PNG, JPG, JPEG (Kasal barg, meva yoki shox surati)
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Policy Note on Non-Plant Objects */}
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg text-xs text-amber-900 dark:text-amber-300 flex items-start gap-2">
+                <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Eslatma:</strong> AI Skaner faqat koʻchat, nihol, daraxt, meva va barglarni tekshiradi. Chorva mollari (sigir, qoʻy va b.) tasvirlansa, tizim tahlilni toʻxtatadi va ogohlantiradi.
+                </span>
               </div>
             </div>
 
-            {/* 1. LIVE CAMERA MODE VIEWPORT */}
-            {inputMode === 'camera' && (
-              <div className="space-y-3">
-                <div className="relative w-full h-80 sm:h-96 rounded-lg bg-slate-950 overflow-hidden border-2 border-slate-700 shadow-inner flex items-center justify-center">
-                  
-                  {/* Real Live Video Feed */}
-                  {isCameraActive ? (
-                    <>
-                      <video
-                        ref={(el) => {
-                          videoRef.current = el;
-                          if (el && mediaStreamRef.current && el.srcObject !== mediaStreamRef.current) {
-                            el.srcObject = mediaStreamRef.current;
-                            el.play().catch(() => {});
-                          }
-                        }}
-                        autoPlay
-                        playsInline
-                        muted
-                        onLoadedMetadata={() => {
-                          videoRef.current?.play().catch(() => {});
-                        }}
-                        className="w-full h-full object-cover"
-                      />
-
-                      {/* Laser HUD Frame */}
-                      <div className="absolute inset-0 pointer-events-none">
-                        <div className="w-full h-0.5 bg-[#3B82F6] shadow-lg shadow-blue-500/80 animate-bounce duration-1000 opacity-90"></div>
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 border-2 border-dashed border-emerald-400/70 rounded-lg flex items-center justify-center">
-                          <Crosshair className="w-6 h-6 text-emerald-400 animate-pulse" />
-                        </div>
-                      </div>
-
-                      {/* Bottom Camera Action Bar */}
-                      <div className="absolute bottom-4 inset-x-4 flex items-center justify-between z-30 pointer-events-auto">
-                        <div className="bg-black/70 backdrop-blur-xs text-white text-xs px-3 py-1.5 rounded-full border border-white/20 flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                          <span>Jonli Kamera Faol</span>
-                        </div>
-
-                        {/* Big Shutter Button */}
-                        <button
-                          onClick={captureSnapshot}
-                          disabled={isScanning}
-                          className="px-5 py-2.5 bg-[#3B82F6] hover:bg-blue-600 active:scale-95 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-xl flex items-center gap-2 border-2 border-white/80 transition-all"
-                        >
-                          <Camera className="w-4 h-4" />
-                          <span>{isScanning ? "Tahlil qilinmoqda..." : "Suratga Olish & Tahlil"}</span>
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    /* Clean No-Permission UI state (No fake simulation photos) */
-                    <div className="text-center p-6 space-y-4 max-w-md mx-auto">
-                      <div className="w-16 h-16 rounded-full bg-slate-900 border border-slate-800 text-amber-400 flex items-center justify-center mx-auto">
-                        <VideoOff className="w-8 h-8" />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-white text-base">
-                          Kameraga Ruxsat Berilmagan yoki Kamera Faol Emas
-                        </h4>
-                        <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                          Haqiqiy jonli skanerlash uchun brauzeringizda kameraga ruxsat bering yoki "Fayl Yuklash" orqali rasmni tahlil qiling.
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-                        <button
-                          type="button"
-                          onClick={startCamera}
-                          className="px-4 py-2 bg-[#3B82F6] hover:bg-blue-600 text-white rounded-md text-xs font-bold flex items-center gap-2 shadow-xs transition-colors"
-                        >
-                          <RefreshCw className="w-3.5 h-3.5" />
-                          <span>Kamerani Qayta Ulash</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setInputMode('upload')}
-                          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-md text-xs font-bold flex items-center gap-2 transition-colors border border-slate-700"
-                        >
-                          <Upload className="w-3.5 h-3.5" />
-                          <span>Fayl Yuklashga Oʻtish</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                </div>
-
-                {cameraError && (
-                  <p className="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded border border-amber-200 dark:border-amber-800">
-                    ℹ️ {cameraError}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* 2. FILE UPLOAD MODE VIEWPORT */}
-            {inputMode === 'upload' && (
-              <div className="space-y-4">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  accept="image/*"
-                  className="hidden"
-                />
-
-                <div 
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`relative w-full h-80 rounded-lg border-2 border-dashed transition-all cursor-pointer overflow-hidden flex flex-col items-center justify-center p-4 group ${
-                    currentImage 
-                      ? 'border-[#3B82F6] bg-slate-950' 
-                      : 'border-[#CBD5E1] dark:border-slate-700 hover:border-[#3B82F6] bg-[#F8FAFC] dark:bg-slate-800/60 hover:bg-blue-50/20'
-                  }`}
-                >
-                  {currentImage ? (
-                    <img 
-                      src={currentImage} 
-                      alt="Tanlangan rasm" 
-                      className="w-full h-full object-contain"
-                    />
-                  ) : (
-                    <div className="text-center space-y-3">
-                      <div className="w-14 h-14 rounded-md bg-[#F1F5F9] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 text-[#3B82F6] flex items-center justify-center mx-auto group-hover:scale-105 transition-transform">
-                        <Upload className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <p className="font-bold text-sm text-[#0F172A] dark:text-white">
-                          Dala, koʻchat yoki kasallangan barg rasmini yuklang
-                        </p>
-                        <p className="text-xs text-[#64748B] dark:text-slate-400 mt-1">
-                          PNG, JPG yoki WEBP fayllarni tanlang yoki sudrab olib keling
-                        </p>
-                      </div>
-                      <span className="inline-block px-3.5 py-1.5 bg-white dark:bg-slate-800 border border-[#CBD5E1] dark:border-slate-700 text-[#0F172A] dark:text-white rounded-md text-xs font-semibold shadow-xs">
-                        Faylni tanlash
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Scanning Progress Bar */}
+            {/* SCANNING PROGRESS BAR */}
             {isScanning && (
-              <div className="space-y-1.5 pt-2">
-                <div className="flex justify-between text-xs font-semibold text-[#0F172A] dark:text-white">
+              <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-[#E2E8F0] dark:border-slate-800 shadow-xs space-y-2 animate-pulse">
+                <div className="flex items-center justify-between text-xs font-bold text-[#0F172A] dark:text-white">
                   <span className="flex items-center gap-1.5">
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#3B82F6]" />
-                    <span>Gemini Agro Vision neyron tarmogʻi tahlil qilmoqda...</span>
+                    <Sparkles className="w-4 h-4 text-[#3B82F6] animate-spin" />
+                    AI Vision koʻchat patologiyasini tahlil qilmoqda...
                   </span>
-                  <span className="text-[#3B82F6]">{scanProgress}%</span>
+                  <span>{scanProgress}%</span>
                 </div>
-                <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-[#F1F5F9] dark:bg-slate-800 rounded-full overflow-hidden">
                   <div 
-                    className="bg-[#3B82F6] h-full transition-all duration-300 rounded-full"
+                    className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all duration-200"
                     style={{ width: `${scanProgress}%` }}
-                  />
+                  ></div>
                 </div>
+              </div>
+            )}
+
+            {/* Snapshot Image Preview with Plant Pathology Bounding Boxes Overlay */}
+            {currentImage && !isScanning && (
+              <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-[#E2E8F0] dark:border-slate-800 shadow-xs space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-xs font-bold text-[#0F172A] dark:text-white flex items-center gap-1.5">
+                    <Leaf className="w-4 h-4 text-emerald-600" />
+                    <span>Tahlil Qilingan Tasvir va Patologiya Hududlari:</span>
+                  </span>
+                  <span className="text-[11px] text-slate-500">
+                    {scanResult?.detectedParts?.length || 0} ta kasallangan qism ajratildi
+                  </span>
+                </div>
+
+                <div className="relative w-full h-72 sm:h-80 rounded-lg overflow-hidden bg-slate-950 border border-slate-200 dark:border-slate-700">
+                  <img
+                    src={currentImage}
+                    alt="Agro scan analysis"
+                    className="w-full h-full object-contain"
+                  />
+
+                  {/* ── Bounding Boxes (Kasallangan Barg, Meva va Shoxlarni Alohida Belgilash) ── */}
+                  {!scanResult?.isAnimalOrNonPlant && scanResult?.detectedParts?.map(part => {
+                    const isSelected = selectedPartId === part.id;
+                    const borderColor = 
+                      part.partType === 'leaf' ? 'border-emerald-400 bg-emerald-500/20 text-emerald-300' :
+                      part.partType === 'fruit' ? 'border-amber-400 bg-amber-500/20 text-amber-300' :
+                      'border-rose-500 bg-rose-500/20 text-rose-300';
+
+                    return (
+                      <div
+                        key={part.id}
+                        onClick={() => setSelectedPartId(part.id)}
+                        style={{
+                          top: `${part.box.top}%`,
+                          left: `${part.box.left}%`,
+                          width: `${part.box.width}%`,
+                          height: `${part.box.height}%`
+                        }}
+                        className={`absolute border-2 rounded-lg cursor-pointer transition-all ${borderColor} ${
+                          isSelected ? 'ring-4 ring-white shadow-xl scale-[1.02] z-30' : 'hover:opacity-100 opacity-90'
+                        }`}
+                      >
+                        <span className={`absolute -top-6 left-0 px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap shadow-md ${
+                          part.partType === 'leaf' ? 'bg-emerald-600 text-white' :
+                          part.partType === 'fruit' ? 'bg-amber-600 text-white' :
+                          'bg-rose-600 text-white'
+                        }`}>
+                          {part.partType === 'leaf' && '🍃 Barg'}
+                          {part.partType === 'fruit' && '🍋 Meva'}
+                          {part.partType === 'branch' && '🪵 Shox/Poya'}
+                          {' • '}{Math.round(part.confidence)}%
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Quick Part Filter Tags below image */}
+                {scanResult?.detectedParts && scanResult.detectedParts.length > 0 && (
+                  <div className="flex items-center gap-2 pt-1 flex-wrap">
+                    <span className="text-[11px] font-bold text-slate-500">Ajratilgan aʼzolar:</span>
+                    {scanResult.detectedParts.map(part => (
+                      <button
+                        key={part.id}
+                        onClick={() => setSelectedPartId(part.id)}
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+                          selectedPartId === part.id
+                            ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                        }`}
+                      >
+                        {part.partName}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
           </div>
 
-          {/* Right Column: AI Diagnosis Results & Sequential Snapshots Panel (5 Cols) */}
+          {/* Right Column: Detailed Diagnosis & Prescriptions (5 Cols) */}
           <div className="lg:col-span-5 space-y-4">
             
-            {/* Active Diagnosis Card */}
-            <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-lg border border-[#E2E8F0] dark:border-slate-800 shadow-xs space-y-4">
-              <div className="pb-3 border-b border-[#E2E8F0] dark:border-slate-800 flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#0F172A] dark:text-white flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-amber-500" />
-                  <span>AI Diagnostika Natijasi</span>
-                </span>
+            {/* Diagnosis Result Card */}
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-lg border border-[#E2E8F0] dark:border-slate-800 shadow-xs space-y-4">
+              
+              <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0] dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#3B82F6]" />
+                  <h3 className="font-bold text-sm uppercase tracking-wider text-[#0F172A] dark:text-white">
+                    Tahlil Natijasi
+                  </h3>
+                </div>
                 {scanResult && (
-                  <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                    scanResult.severity === 'high' 
-                      ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900' 
-                      : scanResult.severity === 'medium'
-                      ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900'
-                      : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900'
-                  }`}>
-                    {scanResult.severity === 'high' ? 'Xavf Yuqori' : scanResult.severity === 'medium' ? 'Nazoratda' : 'Sogʻlom'}
+                  <span className="text-[11px] font-mono text-[#64748B] dark:text-slate-400">
+                    {scanResult.scannedAt}
                   </span>
                 )}
               </div>
 
-              {scanResult ? (
-                <div className="space-y-4">
-                  {/* Diagnosis Header */}
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-[#64748B] dark:text-slate-400 tracking-wider block">
-                      Aniqlangan Holat / Kasallik:
-                    </span>
-                    <h4 className="text-lg font-bold text-[#0F172A] dark:text-white mt-0.5">
-                      {scanResult.diseaseName}
-                    </h4>
-                    <div className="flex items-center gap-3 mt-1.5 text-xs text-[#64748B] dark:text-slate-400">
-                      <span>Ishonchlilik: <strong className="text-[#0F172A] dark:text-white">{scanResult.confidence.toFixed(1)}%</strong></span>
-                      <span>•</span>
-                      <span>Toifa: <strong className="text-[#0F172A] dark:text-white capitalize">{scanResult.targetType}</strong></span>
+              {/* ── AGAR CHORVA / HAYVON ANIQLANSA: QAT'IY XAVFSIZLIK OGOHLANTIRISHI ── */}
+              {scanResult?.isAnimalOrNonPlant ? (
+                <div className="p-5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border-2 border-rose-500 space-y-4 animate-scaleUp">
+                  <div className="flex items-start gap-3">
+                    <div className="p-3 bg-rose-600 text-white rounded-xl shadow-lg shrink-0">
+                      <AlertOctagon className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h4 className="font-black text-base text-rose-900 dark:text-rose-200 leading-tight">
+                        SKANER QILISH CHEKLANGAN!
+                      </h4>
+                      <p className="text-xs text-rose-700 dark:text-rose-300 mt-1 font-semibold">
+                        Tasvirda chorva mollari yoki hayvon aniqlandi.
+                      </p>
                     </div>
                   </div>
 
-                  {/* Recommendations */}
-                  <div className="p-3.5 bg-[#F8FAFC] dark:bg-slate-800/80 rounded-md border border-[#E2E8F0] dark:border-slate-700 space-y-1.5">
-                    <span className="text-xs font-bold text-[#0F172A] dark:text-white flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Agrotexnik Tavsiya:</span>
-                    </span>
-                    <p className="text-xs text-[#334155] dark:text-slate-300 leading-relaxed">
-                      {scanResult.recommendations}
+                  <div className="p-3.5 bg-white dark:bg-slate-900 rounded-lg border border-rose-200 dark:border-rose-900 text-xs text-slate-700 dark:text-slate-300 space-y-2 leading-relaxed">
+                    <p className="font-bold text-rose-800 dark:text-rose-300">
+                      {scanResult.animalWarningMessage || "Ushbu tizim faqat oʻsimliklar, koʻchatlar, limon novdalari va ekinlarni skaner qilishga moʻljallangan!"}
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Chorva va hayvonlarni parvarishlash yoki davolash uchun tuman Veterinariya xizmatiga murojaat qiling.
                     </p>
                   </div>
 
+                  <button
+                    onClick={() => {
+                      setScanResult(null);
+                      setCurrentImage(null);
+                    }}
+                    className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-md transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    <span>Qayta Oʻsimlikni Skaner Qilish</span>
+                  </button>
+                </div>
+              ) : scanResult ? (
+                /* ── O'SIMLIK TASHXISI & DAVLAT RETSEPTI ── */
+                <div className="space-y-4">
+                  {/* Top Status */}
+                  <div className="flex items-center justify-between p-3.5 bg-[#F8FAFC] dark:bg-slate-800 rounded-lg border border-[#E2E8F0] dark:border-slate-700">
+                    <div>
+                      <span className="text-[10px] text-[#64748B] dark:text-slate-400 uppercase font-bold tracking-wider">Aniqlangan Patologiya:</span>
+                      <h4 className="font-bold text-base text-[#0F172A] dark:text-white leading-tight mt-0.5">
+                        {scanResult.diseaseName}
+                      </h4>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-[#64748B] dark:text-slate-400 block">Aniqlik:</span>
+                      <span className="text-sm font-black text-[#3B82F6]">
+                        {scanResult.confidence.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Government Official Notice Stamp */}
+                  <div className="p-3 bg-violet-50 dark:bg-violet-950/40 rounded-lg border border-violet-200 dark:border-violet-900 flex items-start gap-2.5 text-xs text-violet-900 dark:text-violet-200">
+                    <ShieldCheck className="w-5 h-5 text-violet-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold">Rasmiy Davlat Fitosanitariya Reestri Asosida</p>
+                      <p className="text-[11px] text-violet-700 dark:text-violet-300 mt-0.5">
+                        {scanResult.officialGovNotice || "Yozyovon Davlat Fitosanitariya Inspeksiyasi tomonidan tasdiqlangan preparatlar tavsiya etildi."}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Detected Plant Parts Breakdown (Barg, Meva, Shox) */}
+                  {scanResult.detectedParts && scanResult.detectedParts.length > 0 && (
+                    <div className="space-y-2">
+                      <span className="text-xs font-bold text-[#0F172A] dark:text-white flex items-center gap-1.5">
+                        <Layers className="w-4 h-4 text-emerald-600" />
+                        <span>Alohida Tekshirilgan Qismlar:</span>
+                      </span>
+
+                      <div className="space-y-2">
+                        {scanResult.detectedParts.map(part => {
+                          const isSelected = selectedPartId === part.id;
+                          return (
+                            <div
+                              key={part.id}
+                              onClick={() => setSelectedPartId(part.id)}
+                              className={`p-3 rounded-lg border transition-all cursor-pointer ${
+                                isSelected 
+                                  ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/40 shadow-xs' 
+                                  : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-xs text-slate-900 dark:text-white">{part.partName}</span>
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                  part.severity === 'high' ? 'bg-rose-100 text-rose-800' :
+                                  part.severity === 'medium' ? 'bg-amber-100 text-amber-800' :
+                                  'bg-emerald-100 text-emerald-800'
+                                }`}>
+                                  {part.severity === 'high' ? 'Xavf: Yuqori' : part.severity === 'medium' ? 'Xavf: Oʻrta' : 'Yengil'}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+                                {part.symptom}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Medicines Prescription */}
-                  <div className="p-3.5 bg-blue-50/70 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-900 space-y-1.5">
-                    <span className="text-xs font-bold text-blue-950 dark:text-blue-300 flex items-center gap-1.5">
-                      <Pill className="w-3.5 h-3.5 text-[#3B82F6]" />
-                      <span>Tavsiya Etilgan Dori & Doza:</span>
+                  <div className="p-3.5 bg-blue-50/80 dark:bg-blue-950/40 rounded-lg border border-blue-200 dark:border-blue-900 space-y-1.5">
+                    <span className="text-xs font-bold text-blue-950 dark:text-blue-200 flex items-center gap-1.5">
+                      <Pill className="w-4 h-4 text-[#3B82F6]" />
+                      <span>Davlat Tasdiqlagan Dori Vositalari & Dozasi:</span>
                     </span>
-                    <p className="text-xs text-blue-900 dark:text-blue-200 leading-relaxed font-medium">
+                    <p className="text-xs text-blue-900 dark:text-blue-100 leading-relaxed font-semibold">
                       {scanResult.medicines}
+                    </p>
+                  </div>
+
+                  {/* Agrotechnical Recommendations */}
+                  <div className="p-3.5 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-lg border border-emerald-200 dark:border-emerald-900 space-y-1.5">
+                    <span className="text-xs font-bold text-emerald-950 dark:text-emerald-200 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>Agrotexnik Profilaktika va Chora-Tadbirlar:</span>
+                    </span>
+                    <p className="text-xs text-emerald-900 dark:text-emerald-300 leading-relaxed">
+                      {scanResult.recommendations}
                     </p>
                   </div>
 
                   {justSavedNotification && (
                     <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
                       <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>Natija shaxsiy profilingiz va skaner tarixiga avtomatik saqlandi!</span>
+                      <span>Natija shaxsiy profilingiz va tahlillar tarixiga saqlandi!</span>
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="text-center py-10 space-y-2 text-[#64748B] dark:text-slate-400">
-                  <ScanLine className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600" />
+                <div className="text-center py-12 space-y-2 text-[#64748B] dark:text-slate-400">
+                  <ScanLine className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-600" />
                   <p className="text-xs font-medium">
-                    Kamerani ekin yoki chorvaga qarating va <br />
+                    Kamerani oʻsimlik bargi, mevasi yoki niholiga qarating va <br />
                     <strong className="text-[#0F172A] dark:text-white">"Suratga Olish & Tahlil"</strong> tugmasini bosing
                   </p>
                 </div>
@@ -810,7 +964,7 @@ export const AIScanner: React.FC = () => {
               </span>
             </div>
 
-            {/* Target Mode Selector in Fullscreen */}
+            {/* Target Mode Selector in Fullscreen (FAQAT O'SIMLIKLAR) */}
             <div className="flex items-center gap-1 bg-black/60 backdrop-blur-md border border-white/20 p-0.5 rounded-full text-[11px]">
               <button
                 onClick={() => setSelectedTargetType('limon')}
@@ -821,20 +975,20 @@ export const AIScanner: React.FC = () => {
                 🍋 Limon
               </button>
               <button
+                onClick={() => setSelectedTargetType('kochat')}
+                className={`px-2.5 py-1 rounded-full font-bold transition-all ${
+                  selectedTargetType === 'kochat' ? 'bg-emerald-500 text-white shadow-xs' : 'text-white/80'
+                }`}
+              >
+                🌱 Koʻchat
+              </button>
+              <button
                 onClick={() => setSelectedTargetType('boshqa_ekin')}
                 className={`px-2.5 py-1 rounded-full font-bold transition-all ${
                   selectedTargetType === 'boshqa_ekin' ? 'bg-blue-500 text-white shadow-xs' : 'text-white/80'
                 }`}
               >
-                🌾 Ekin
-              </button>
-              <button
-                onClick={() => setSelectedTargetType('chorva')}
-                className={`px-2.5 py-1 rounded-full font-bold transition-all ${
-                  selectedTargetType === 'chorva' ? 'bg-emerald-500 text-white shadow-xs' : 'text-white/80'
-                }`}
-              >
-                🐄 Chorva
+                🍎 Mevali / Tok
               </button>
             </div>
 
@@ -876,8 +1030,8 @@ export const AIScanner: React.FC = () => {
                   
                   <div className="my-auto mx-auto w-64 h-64 sm:w-80 sm:h-80 border-2 border-dashed border-emerald-400/80 rounded-2xl flex items-center justify-center relative">
                     <Crosshair className="w-10 h-10 text-emerald-400 animate-pulse" />
-                    <span className="absolute -bottom-7 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[10px] text-emerald-300 font-medium tracking-wide border border-emerald-400/30">
-                      Kamerani kasallangan barg yoki ekinga qarating
+                    <span className="absolute -bottom-7 bg-black/70 backdrop-blur-md px-3 py-1 rounded-full text-[10px] text-emerald-300 font-medium tracking-wide border border-emerald-400/30">
+                      🍃 Oʻsimlik bargi, meva yoki shoxini toʻgʻrilang
                     </span>
                   </div>
 
@@ -961,30 +1115,62 @@ export const AIScanner: React.FC = () => {
                 </button>
               </div>
 
-              <div className="mt-3 space-y-3 text-xs">
-                <div>
-                  <span className="text-[10px] text-slate-400 uppercase font-bold">Aniqlangan holat:</span>
-                  <h3 className="text-base font-bold text-emerald-400">{scanResult.diseaseName}</h3>
-                  <p className="text-[11px] text-slate-300">Ishonchlilik: {scanResult.confidence.toFixed(1)}%</p>
+              {scanResult.isAnimalOrNonPlant ? (
+                <div className="mt-3 p-4 bg-rose-950/80 border-2 border-rose-500 rounded-xl space-y-3">
+                  <div className="flex items-center gap-2 text-rose-400 font-bold">
+                    <AlertOctagon className="w-5 h-5" />
+                    <span>SKANER QILISH CHEKLANGAN!</span>
+                  </div>
+                  <p className="text-xs text-rose-200">
+                    {scanResult.animalWarningMessage || "Tasvirda chorva yoki hayvon aniqlandi. AI faqat oʻsimliklarni skaner qiladi."}
+                  </p>
+                  <button
+                    onClick={() => setScanResult(null)}
+                    className="w-full py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs"
+                  >
+                    Oʻsimlikni Skaner Qilishga Qaytish
+                  </button>
                 </div>
+              ) : (
+                <div className="mt-3 space-y-3 text-xs">
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-bold">Aniqlangan holat:</span>
+                    <h3 className="text-base font-bold text-emerald-400">{scanResult.diseaseName}</h3>
+                    <p className="text-[11px] text-slate-300">Ishonchlilik: {scanResult.confidence.toFixed(1)}%</p>
+                  </div>
 
-                <div className="p-3 bg-slate-800 rounded-lg border border-slate-700 space-y-1">
-                  <strong className="text-emerald-300 block">Agrotexnik Tavsiya:</strong>
-                  <p className="text-slate-200 leading-relaxed">{scanResult.recommendations}</p>
+                  {/* Detected Parts Pill List */}
+                  {scanResult.detectedParts && scanResult.detectedParts.length > 0 && (
+                    <div className="p-2.5 bg-slate-800 rounded-lg space-y-1">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Zararlangan organlar:</span>
+                      <div className="flex flex-wrap gap-1">
+                        {scanResult.detectedParts.map(p => (
+                          <span key={p.id} className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-700 text-emerald-300">
+                            {p.partName}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="p-3 bg-blue-950/70 rounded-lg border border-blue-800 space-y-1">
+                    <strong className="text-blue-300 block">Davlat Tasdiqlagan Dori & Doza:</strong>
+                    <p className="text-blue-100 leading-relaxed font-semibold">{scanResult.medicines}</p>
+                  </div>
+
+                  <div className="p-3 bg-slate-800 rounded-lg border border-slate-700 space-y-1">
+                    <strong className="text-emerald-300 block">Agrotexnik Profilaktika:</strong>
+                    <p className="text-slate-200 leading-relaxed">{scanResult.recommendations}</p>
+                  </div>
+
+                  <button
+                    onClick={() => setScanResult(null)}
+                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 rounded-lg font-bold text-xs"
+                  >
+                    ✓ Tushunarli, Davom Etish
+                  </button>
                 </div>
-
-                <div className="p-3 bg-blue-950/60 rounded-lg border border-blue-800 space-y-1">
-                  <strong className="text-blue-300 block">Tavsiya Etilgan Dori & Doza:</strong>
-                  <p className="text-blue-100 leading-relaxed font-semibold">{scanResult.medicines}</p>
-                </div>
-
-                <button
-                  onClick={() => setScanResult(null)}
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 rounded-lg font-bold text-xs"
-                >
-                  ✓ Tushunarli, Davom Etish
-                </button>
-              </div>
+              )}
             </div>
           )}
         </div>

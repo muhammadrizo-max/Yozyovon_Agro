@@ -195,12 +195,42 @@ export interface Livestock {
   notes?: string;
 }
 
+export interface DetectedPlantPart {
+  id: string;
+  partType: 'leaf' | 'fruit' | 'branch';
+  partName: string;
+  symptom: string;
+  severity: 'high' | 'medium' | 'low';
+  confidence: number;
+  box: {
+    top: number; // %
+    left: number; // %
+    width: number; // %
+    height: number; // %
+  };
+}
+
+export interface AgroDiseaseRecord {
+  id: string;
+  plantType: 'limon' | 'mevali_daraxt' | 'sabzavot' | 'uzum' | 'boshqa_kochat';
+  diseaseName: string;
+  targetPart: 'leaf' | 'fruit' | 'branch' | 'all';
+  severityLevel: 'high' | 'medium' | 'low';
+  visualSymptoms: string[];
+  medicines: string;
+  dosageAndUsage: string;
+  preventiveMeasures: string;
+  imageUrl?: string;
+  verifiedByGov: boolean;
+  updatedAt: string;
+}
+
 export interface AIScan {
-  id: number;
+  id: number | string;
   userId: number;
   mfyId: number;
   imageUrl: string;
-  targetType: 'limon' | 'boshqa_ekin' | 'chorva';
+  targetType: 'limon' | 'boshqa_ekin' | 'chorva' | 'kochat';
   diseaseName: string;
   confidence: number; // 0-100%
   severity: 'high' | 'medium' | 'low';
@@ -208,6 +238,11 @@ export interface AIScan {
   medicines: string;
   scannedAt: string;
   reportedToGov: boolean;
+  isAnimalOrNonPlant?: boolean;
+  animalWarningMessage?: string;
+  detectedParts?: DetectedPlantPart[];
+  matchedGovDisease?: AgroDiseaseRecord;
+  officialGovNotice?: string;
 }
 
 export interface WeatherInfo {

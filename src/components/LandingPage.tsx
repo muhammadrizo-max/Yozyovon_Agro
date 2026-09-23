@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { AuthModal } from './AuthModal';
+import { AgroLogo } from './AgroLogo';
 
 interface LandingPageProps {
   onOpenAuth?: (mode: 'login' | 'register') => void;
@@ -115,8 +116,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
       <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-[#E2E8F0] dark:border-slate-800 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-[#3B82F6] rounded flex items-center justify-center rotate-45 shadow">
-              <div className="w-3.5 h-3.5 bg-white -rotate-45" />
+            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0">
+              <AgroLogo className="w-full h-full" />
             </div>
             <span className="font-black text-base tracking-tight text-[#0F172A] dark:text-white">
               YOZYOVON <span className="text-[#3B82F6]">AGRO</span>
@@ -316,8 +317,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-[#3B82F6] rounded rotate-45 flex items-center justify-center">
-                <div className="w-2.5 h-2.5 bg-white -rotate-45" />
+              <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0">
+                <AgroLogo className="w-full h-full" />
               </div>
               <span className="font-bold text-white text-sm">YOZYOVON AGRO</span>
             </div>
