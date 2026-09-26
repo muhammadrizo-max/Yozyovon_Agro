@@ -38,7 +38,9 @@ import {
   Eye,
   Cpu,
   Trash2,
-  Check
+  Check,
+  Upload,
+  FileUp
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { MFYData, SubsidyApplication, ExportCertificate, AgroDiseaseRecord } from '../types';
@@ -71,7 +73,7 @@ export const GovManagementHub: React.FC = () => {
     resetGovAgroDiseasesToDefault
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'subsidies' | 'farmers_registry' | 'resource_management' | 'broadcast' | 'certs' | 'mfy_matrix' | 'farmer_badges' | 'weather_control' | 'site_appearance' | 'ai_knowledge_base'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'subsidies' | 'farmers_registry' | 'broadcast' | 'certs' | 'mfy_matrix' | 'farmer_badges' | 'weather_control' | 'site_appearance' | 'ai_knowledge_base'>('overview');
   const [weatherNotice, setWeatherNotice] = useState<string | null>(null);
   const [selectedChatSubsidy, setSelectedChatSubsidy] = useState<SubsidyApplication | null>(null);
 
@@ -162,6 +164,130 @@ export const GovManagementHub: React.FC = () => {
     imageUrl: ''
   });
   const [diseaseSuccessMsg, setDiseaseSuccessMsg] = useState<string | null>(null);
+
+  // Fayl orqali ommaviy kiritish (Shablon & AI Saralash) holatlari
+  const [showBatchModal, setShowBatchModal] = useState(false);
+  const [batchMode, setBatchMode] = useState<'ai_text' | 'template_json'>('ai_text');
+  const [batchRawText, setBatchRawText] = useState('');
+  const [isAiParsingBatch, setIsAiParsingBatch] = useState(false);
+  const [batchParsedRecords, setBatchParsedRecords] = useState<Array<{
+    plantType: 'limon' | 'mevali_daraxt' | 'sabzavot' | 'uzum' | 'boshqa_kochat';
+    diseaseName: string;
+    targetPart: 'leaf' | 'fruit' | 'branch' | 'all';
+    severityLevel: 'high' | 'medium' | 'low';
+    visualSymptoms: string[];
+    medicines: string;
+    dosageAndUsage: string;
+    preventiveMeasures: string;
+  }>>([]);
+  const [batchError, setBatchError] = useState<string | null>(null);
+  const [batchFileName, setBatchFileName] = useState<string | null>(null);
+
+  const handleBatchFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBatchFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = (event.target?.result as string) || '';
+      setBatchRawText(text);
+      if (file.name.endsWith('.json')) {
+        setBatchMode('template_json');
+        try {
+          const json = JSON.parse(text);
+          if (Array.isArray(json)) {
+            setBatchParsedRecords(json);
+            setBatchError(null);
+          }
+        } catch {
+          setBatchError("Yuklangan fayl JSON standarti boʻyicha toʻgʻri formatda emas.");
+        }
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const runAiParse = async () => {
+    if (!batchRawText.trim()) {
+      setBatchError("Iltimos, avval matn kiriting yoki fayl yuklang.");
+      return;
+    }
+    setIsAiParsingBatch(true);
+    setBatchError(null);
+    try {
+      const res = await fetch('/api/ai-parse-diseases', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ textContent: batchRawText })
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.diseases) && data.diseases.length > 0) {
+        setBatchParsedRecords(data.diseases);
+        setBatchError(null);
+      } else {
+        setBatchError(data.message || "Fayldan kasallik ma'lumotlari ajratib olinmadi.");
+      }
+    } catch (err: any) {
+      setBatchError("AI tahlilida server bilan aloqa xatosi: " + err.message);
+    } finally {
+      setIsAiParsingBatch(false);
+    }
+  };
+
+  const handleDownloadSampleTemplate = () => {
+    const sample = [
+      {
+        plantType: "limon",
+        diseaseName: "Limon Xlorozi (Temir tanqisligi)",
+        targetPart: "leaf",
+        severityLevel: "medium",
+        visualSymptoms: ["Yosh barglar sargʻayadi", "Barg tomirlari yashil boʻlib qoladi"],
+        medicines: "Ferrovit yoki Temir xelati (Fe-EDDHA)",
+        dosageAndUsage: "10 litr suvga 10-15g aralashtirib bargdan purkash",
+        preventiveMeasures: "Tuproq pH darajasini 6.5-7.0 atrofida ushlash"
+      },
+      {
+        plantType: "mevali_daraxt",
+        diseaseName: "Meva Qoʻtiri (Venturiya)",
+        targetPart: "fruit",
+        severityLevel: "high",
+        visualSymptoms: ["Meva yuzasida qora zaytunrang dogʻlar", "Meva poʻstlogʻi yorilishi"],
+        medicines: "Skor yoki Xorus fungitsidi",
+        dosageAndUsage: "10 litr suvga 2ml preparat purkaladi",
+        preventiveMeasures: "Daraxt tagidagi xazonlarni yoqish va erta bahorda mis kuporosi bilan profilaktika"
+      }
+    ];
+    const blob = new Blob([JSON.stringify(sample, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'yozyovon_kasalliklar_shablon.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleApplyBatchImport = () => {
+    if (batchParsedRecords.length === 0) return;
+    batchParsedRecords.forEach(item => {
+      addGovAgroDisease({
+        plantType: item.plantType || 'limon',
+        diseaseName: item.diseaseName,
+        targetPart: item.targetPart || 'leaf',
+        severityLevel: item.severityLevel || 'medium',
+        visualSymptoms: Array.isArray(item.visualSymptoms) ? item.visualSymptoms : [String(item.visualSymptoms)],
+        medicines: item.medicines,
+        dosageAndUsage: item.dosageAndUsage || 'Meʼyor boʻyicha purkash',
+        preventiveMeasures: item.preventiveMeasures || 'Agrotexnik nazorat',
+        verifiedByGov: true
+      });
+    });
+    setDiseaseSuccessMsg(`${batchParsedRecords.length} ta kasallik va rasmiy dori AI Bilimlar Bazasiga muvaffaqiyatli yuklandi!`);
+    setShowBatchModal(false);
+    setBatchParsedRecords([]);
+    setBatchRawText('');
+    setBatchFileName(null);
+    setTimeout(() => setDiseaseSuccessMsg(null), 5000);
+  };
 
   const handleSaveDisease = (e: React.FormEvent) => {
     e.preventDefault();
@@ -390,30 +516,6 @@ export const GovManagementHub: React.FC = () => {
           </div>
         </button>
 
-        <button
-          onClick={() => setActiveTab('resource_management')}
-          className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between shadow-xs group ${
-            activeTab === 'resource_management'
-              ? 'bg-[#0F172A] text-white border-[#0F172A] shadow-md ring-2 ring-blue-500/20'
-              : 'bg-white hover:bg-slate-50 border-[#E2E8F0] text-[#0F172A]'
-          }`}
-          id="cmd-resources-btn"
-        >
-          <div className="flex items-center justify-between">
-            <div className={`p-2.5 rounded-lg ${activeTab === 'resource_management' ? 'bg-sky-600 text-white' : 'bg-sky-50 text-sky-600'}`}>
-              <Droplets className="w-5 h-5" />
-            </div>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${activeTab === 'resource_management' ? 'bg-slate-800 text-sky-300' : 'bg-sky-100 text-sky-800'}`}>
-              Taqsimot
-            </span>
-          </div>
-          <div className="mt-3">
-            <div className="font-bold text-sm leading-tight">Resurslar Taqsimoti</div>
-            <div className={`text-[11px] mt-0.5 ${activeTab === 'resource_management' ? 'text-slate-300' : 'text-[#64748B]'}`}>
-              Suv va oʻgʻit limitlari
-            </div>
-          </div>
-        </button>
 
         <button
           onClick={() => setActiveTab('broadcast')}
@@ -1068,79 +1170,6 @@ export const GovManagementHub: React.FC = () => {
         </div>
       )}
 
-      {/* TAB: RESOURCE MANAGEMENT (SUV VA O'G'IT TAQSIMOTI) */}
-      {activeTab === 'resource_management' && (
-        <div className="bg-white p-5 sm:p-6 rounded-lg border border-[#E2E8F0] shadow-xs space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-[#E2E8F0]">
-            <div>
-              <h3 className="text-base font-bold text-[#0F172A] uppercase tracking-wider flex items-center gap-2">
-                <Droplets className="w-5 h-5 text-blue-600" />
-                <span>Yozyovon Tumani Agrotexnik Resurslar Taqsimoti</span>
-              </h3>
-              <p className="text-xs text-[#64748B] mt-0.5">
-                Markaziy Fargʻona va Ulugʻnor tizimidan sugʻorish suvi navbati, imtiyozli mineral oʻgʻitlar va issiqxona energiya monitoringi
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 rounded-lg bg-blue-50 border border-blue-200 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-xs uppercase text-blue-900">Sugʻorish Suvi Taʼminoti</span>
-                <Droplets className="w-4 h-4 text-blue-600" />
-              </div>
-              <div className="text-2xl font-black text-blue-950">94.2%</div>
-              <p className="text-[11px] text-blue-800">
-                Markaziy Fargʻona suv ombori va Katta Fargʻona kanali orqali 33 ta MFYga uzluksiz navbat asosida suv yetkazilmoqda.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-xs uppercase text-emerald-900">Mineral Oʻgʻitlar Kvotasi</span>
-                <Sprout className="w-4 h-4 text-emerald-600" />
-              </div>
-              <div className="text-2xl font-black text-emerald-950">1,420 tonna</div>
-              <p className="text-[11px] text-emerald-800">
-                Azot, fosfor, kaliy va sitrus mevalar uchun temir xelati imtiyozli narxlarda dehqon xoʻjaliklariga taqsimlandi.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-lg bg-amber-50 border border-amber-200 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-xs uppercase text-amber-900">Qishki Issiqlik Fondi</span>
-                <Zap className="w-4 h-4 text-amber-600" />
-              </div>
-              <div className="text-2xl font-black text-amber-950">850 kVt / m²</div>
-              <p className="text-[11px] text-amber-800">
-                Issiqxonalarga quyosh panellari oʻrnatish dasturi doirasida 35 nafar dehqonga texnik shart berildi.
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <h4 className="font-bold text-xs uppercase tracking-wider text-[#0F172A]">
-              33 MFY Boʻyicha Navbatdagi Sugʻorish Jadvali (Suv Taqsimoti)
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {mfyList.slice(0, 8).map(m => (
-                <div key={m.id} className="p-3 rounded-lg border border-[#CBD5E1] bg-[#F8FAFC] text-xs space-y-1">
-                  <div className="font-bold text-[#0F172A] flex items-center justify-between">
-                    <span>{m.name}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">Faol</span>
-                  </div>
-                  <div className="text-[11px] text-[#64748B]">
-                    Navbat: <strong>Dushanba / Payshanba</strong>
-                  </div>
-                  <div className="text-[10px] text-blue-600 font-semibold">
-                    Suv meʼyori: {Math.round(m.dehqonchilikGa * 1.8)} m³/sutka
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
       {activeTab === 'broadcast' && (
         <div className="bg-white p-5 sm:p-7 rounded-lg border border-[#E2E8F0] shadow-xs space-y-5 max-w-3xl">
           <div>

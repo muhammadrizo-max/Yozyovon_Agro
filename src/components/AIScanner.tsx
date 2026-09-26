@@ -30,7 +30,8 @@ import {
   ShieldCheck,
   Info,
   ShieldX,
-  AlertOctagon
+  AlertOctagon,
+  Globe
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { analyzeAgroImage, AnalysisResult } from '../utils/aiVisionAnalyzer';
@@ -61,7 +62,7 @@ export const AIScanner: React.FC = () => {
 
   // Current analysis & image (FAQAT O'SIMLIK VA KO'CHATLAR)
   const [currentImage, setCurrentImage] = useState<string | null>(null);
-  const [selectedTargetType, setSelectedTargetType] = useState<'limon' | 'kochat' | 'boshqa_ekin'>('limon');
+  const [selectedTargetType, setSelectedTargetType] = useState<'limon' | 'sabzavot' | 'meva' | 'osimlik'>('limon');
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [scanResult, setScanResult] = useState<AIScan | null>(null);
@@ -238,10 +239,25 @@ export const AIScanner: React.FC = () => {
       // 1. O'simlik/ko'chat tahlili, hayvonlarni filtrlash va davlat bazasi bilan solishtirish
       const analysis: AnalysisResult = await analyzeAgroImage(snapshotUrl, selectedTargetType, govAgroDiseases);
 
+      // Tahlil muvaffaqiyatli yakunlanganda tebranish (Haptic feedback)
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try {
+          navigator.vibrate([30, 40, 30]);
+        } catch {
+          // ignore
+        }
+      }
+
       const newScan: AIScan = addAIScan({
         mfyId: currentUser.mfyId,
         imageUrl: snapshotUrl,
         targetType: selectedTargetType,
+        detectedCategory: analysis.detectedCategory,
+        detectedPlantName: analysis.detectedPlantName,
+        isAutoCorrected: analysis.isAutoCorrected,
+        autoCorrectionNote: analysis.autoCorrectionNote,
+        internetGroundingUsed: analysis.internetGroundingUsed,
+        internetSources: analysis.internetSources,
         diseaseName: analysis.diseaseName,
         confidence: analysis.confidence,
         severity: analysis.severity,
@@ -279,7 +295,7 @@ export const AIScanner: React.FC = () => {
   };
 
   // Run AI Scan with interactive animation for uploaded file
-  const runScan = (imageUrl: string, targetType: 'limon' | 'kochat' | 'boshqa_ekin') => {
+  const runScan = (imageUrl: string, targetType: 'limon' | 'sabzavot' | 'meva' | 'osimlik') => {
     setIsScanning(true);
     setScanProgress(15);
     setScanResult(null);
@@ -302,10 +318,25 @@ export const AIScanner: React.FC = () => {
 
       const analysis: AnalysisResult = await analyzeAgroImage(imageUrl, targetType, govAgroDiseases);
 
+      // Tahlil yakunlanganda tebranish
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try {
+          navigator.vibrate([30, 40, 30]);
+        } catch {
+          // ignore
+        }
+      }
+
       const newScan: AIScan = addAIScan({
         mfyId: currentUser.mfyId,
         imageUrl: imageUrl,
         targetType: targetType,
+        detectedCategory: analysis.detectedCategory,
+        detectedPlantName: analysis.detectedPlantName,
+        isAutoCorrected: analysis.isAutoCorrected,
+        autoCorrectionNote: analysis.autoCorrectionNote,
+        internetGroundingUsed: analysis.internetGroundingUsed,
+        internetSources: analysis.internetSources,
         diseaseName: analysis.diseaseName,
         confidence: analysis.confidence,
         severity: analysis.severity,
@@ -420,26 +451,36 @@ export const AIScanner: React.FC = () => {
                   </h3>
                 </div>
 
-                {/* Target Type selector (FAQAT O'SIMLIK VA KO'CHATLAR - Chorva olib tashlangan) */}
+                {/* Target Type selector: FAQAT LIMON, SABZAVOT, MEVA, OSIMLIK (KO'CHAT VA BARGLAR UCHUN) */}
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 bg-[#F8FAFC] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 p-0.5 rounded text-xs">
+                  <div className="flex items-center gap-1 bg-[#F8FAFC] dark:bg-slate-800 border border-[#E2E8F0] dark:border-slate-700 p-0.5 rounded text-xs flex-wrap">
                     <button
                       onClick={() => setSelectedTargetType('limon')}
-                      className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${selectedTargetType === 'limon' ? 'bg-[#0F172A] dark:bg-blue-600 text-white' : 'text-[#64748B] dark:text-slate-400'}`}
+                      className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${selectedTargetType === 'limon' ? 'bg-[#0F172A] dark:bg-blue-600 text-white shadow-xs' : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A]'}`}
+                      id="target-type-limon"
                     >
                       🍋 Limon
                     </button>
                     <button
-                      onClick={() => setSelectedTargetType('kochat')}
-                      className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${selectedTargetType === 'kochat' ? 'bg-[#0F172A] dark:bg-blue-600 text-white' : 'text-[#64748B] dark:text-slate-400'}`}
+                      onClick={() => setSelectedTargetType('sabzavot')}
+                      className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${selectedTargetType === 'sabzavot' ? 'bg-[#0F172A] dark:bg-blue-600 text-white shadow-xs' : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A]'}`}
+                      id="target-type-sabzavot"
                     >
-                      🌱 Koʻchat
+                      🥦 Sabzavot
                     </button>
                     <button
-                      onClick={() => setSelectedTargetType('boshqa_ekin')}
-                      className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${selectedTargetType === 'boshqa_ekin' ? 'bg-[#0F172A] dark:bg-blue-600 text-white' : 'text-[#64748B] dark:text-slate-400'}`}
+                      onClick={() => setSelectedTargetType('meva')}
+                      className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${selectedTargetType === 'meva' ? 'bg-[#0F172A] dark:bg-blue-600 text-white shadow-xs' : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A]'}`}
+                      id="target-type-meva"
                     >
-                      🍎 Mevali / Tok
+                      🍎 Meva
+                    </button>
+                    <button
+                      onClick={() => setSelectedTargetType('osimlik')}
+                      className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${selectedTargetType === 'osimlik' ? 'bg-[#0F172A] dark:bg-blue-600 text-white shadow-xs' : 'text-[#64748B] dark:text-slate-400 hover:text-[#0F172A]'}`}
+                      id="target-type-osimlik"
+                    >
+                      🌿 Oʻsimlik (koʻchat & barg)
                     </button>
                   </div>
 
@@ -731,21 +772,75 @@ export const AIScanner: React.FC = () => {
               ) : scanResult ? (
                 /* ── O'SIMLIK TASHXISI & DAVLAT RETSEPTI ── */
                 <div className="space-y-4">
-                  {/* Top Status */}
-                  <div className="flex items-center justify-between p-3.5 bg-[#F8FAFC] dark:bg-slate-800 rounded-lg border border-[#E2E8F0] dark:border-slate-700">
+                  {/* Category Auto-Correction Banner (Agar foydalanuvchi limon deb ko'chat yoki pomidor yuborgan bo'lsa) */}
+                  {scanResult.isAutoCorrected && (
+                    <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-lg flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-200 animate-fadeIn">
+                      <RefreshCw className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold flex items-center gap-1.5">
+                          <span>Kategoriya Avtomatik Aniqlanib Toʻgʻrilandi:</span>
+                          <span className="uppercase px-1.5 py-0.5 rounded bg-amber-200 dark:bg-amber-900/80 font-mono text-[10px] text-amber-950 dark:text-amber-100">
+                            {scanResult.detectedCategory}
+                          </span>
+                        </p>
+                        <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-1 leading-relaxed">
+                          {scanResult.autoCorrectionNote || `Tasvirda haqiqatda ${scanResult.detectedPlantName || 'oʻsimlik'} aniqlanganligi sababli, AI tahlilni toʻgʻri yoʻnalishda olib bordi.`}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Top Status & Identified Plant */}
+                  <div className="p-3.5 bg-[#F8FAFC] dark:bg-slate-800 rounded-lg border border-[#E2E8F0] dark:border-slate-700 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] text-[#64748B] dark:text-slate-400 uppercase font-bold tracking-wider">
+                          Aniqlangan Tur:
+                        </span>
+                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
+                          <Sprout className="w-3 h-3 text-emerald-600" />
+                          {scanResult.detectedPlantName || scanResult.detectedCategory?.toUpperCase() || 'Oʻsimlik'}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-[#64748B] dark:text-slate-400 inline mr-1">Aniqlik:</span>
+                        <span className="text-sm font-black text-[#3B82F6]">
+                          {scanResult.confidence.toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+
                     <div>
-                      <span className="text-[10px] text-[#64748B] dark:text-slate-400 uppercase font-bold tracking-wider">Aniqlangan Patologiya:</span>
+                      <span className="text-[10px] text-[#64748B] dark:text-slate-400 uppercase font-bold tracking-wider block">
+                        Tashxis qoʻyilgan patologiya:
+                      </span>
                       <h4 className="font-bold text-base text-[#0F172A] dark:text-white leading-tight mt-0.5">
                         {scanResult.diseaseName}
                       </h4>
                     </div>
-                    <div className="text-right">
-                      <span className="text-[10px] text-[#64748B] dark:text-slate-400 block">Aniqlik:</span>
-                      <span className="text-sm font-black text-[#3B82F6]">
-                        {scanResult.confidence.toFixed(1)}%
-                      </span>
-                    </div>
                   </div>
+
+                  {/* Internet Grounding Search Notification */}
+                  {scanResult.internetGroundingUsed && (
+                    <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-lg border border-blue-200 dark:border-blue-900 flex items-start gap-2.5 text-xs text-blue-950 dark:text-blue-200">
+                      <Globe className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <p className="font-bold">🌐 Internet Fitosanitariya Ilmiy Bazalaridan Qidiruv</p>
+                        <p className="text-[11px] text-blue-800 dark:text-blue-300 leading-relaxed">
+                          Davlat bazasida qoʻshimcha maʼlumot toʻldirish uchun, AI internetdagi ilmiy agronomik manbalar (Agro.uz, FAO IPPC) orqali xulosa shakllantirdi.
+                        </p>
+                        {scanResult.internetSources && scanResult.internetSources.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {scanResult.internetSources.map((src, i) => (
+                              <span key={i} className="text-[10px] bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-medium">
+                                ✓ {src}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Government Official Notice Stamp */}
                   <div className="p-3 bg-violet-50 dark:bg-violet-950/40 rounded-lg border border-violet-200 dark:border-violet-900 flex items-start gap-2.5 text-xs text-violet-900 dark:text-violet-200">
@@ -964,31 +1059,39 @@ export const AIScanner: React.FC = () => {
               </span>
             </div>
 
-            {/* Target Mode Selector in Fullscreen (FAQAT O'SIMLIKLAR) */}
-            <div className="flex items-center gap-1 bg-black/60 backdrop-blur-md border border-white/20 p-0.5 rounded-full text-[11px]">
+            {/* Target Mode Selector in Fullscreen: FAQAT LIMON, SABZAVOT, MEVA, OSIMLIK */}
+            <div className="flex items-center gap-1 bg-black/60 backdrop-blur-md border border-white/20 p-0.5 rounded-full text-[11px] overflow-x-auto max-w-[280px] sm:max-w-none">
               <button
                 onClick={() => setSelectedTargetType('limon')}
-                className={`px-2.5 py-1 rounded-full font-bold transition-all ${
+                className={`px-2.5 py-1 rounded-full font-bold transition-all whitespace-nowrap ${
                   selectedTargetType === 'limon' ? 'bg-amber-500 text-slate-950 shadow-xs' : 'text-white/80'
                 }`}
               >
                 🍋 Limon
               </button>
               <button
-                onClick={() => setSelectedTargetType('kochat')}
-                className={`px-2.5 py-1 rounded-full font-bold transition-all ${
-                  selectedTargetType === 'kochat' ? 'bg-emerald-500 text-white shadow-xs' : 'text-white/80'
+                onClick={() => setSelectedTargetType('sabzavot')}
+                className={`px-2.5 py-1 rounded-full font-bold transition-all whitespace-nowrap ${
+                  selectedTargetType === 'sabzavot' ? 'bg-emerald-500 text-white shadow-xs' : 'text-white/80'
                 }`}
               >
-                🌱 Koʻchat
+                🥦 Sabzavot
               </button>
               <button
-                onClick={() => setSelectedTargetType('boshqa_ekin')}
-                className={`px-2.5 py-1 rounded-full font-bold transition-all ${
-                  selectedTargetType === 'boshqa_ekin' ? 'bg-blue-500 text-white shadow-xs' : 'text-white/80'
+                onClick={() => setSelectedTargetType('meva')}
+                className={`px-2.5 py-1 rounded-full font-bold transition-all whitespace-nowrap ${
+                  selectedTargetType === 'meva' ? 'bg-rose-500 text-white shadow-xs' : 'text-white/80'
                 }`}
               >
-                🍎 Mevali / Tok
+                🍎 Meva
+              </button>
+              <button
+                onClick={() => setSelectedTargetType('osimlik')}
+                className={`px-2.5 py-1 rounded-full font-bold transition-all whitespace-nowrap ${
+                  selectedTargetType === 'osimlik' ? 'bg-blue-500 text-white shadow-xs' : 'text-white/80'
+                }`}
+              >
+                🌿 Oʻsimlik
               </button>
             </div>
 
@@ -1133,7 +1236,21 @@ export const AIScanner: React.FC = () => {
                 </div>
               ) : (
                 <div className="mt-3 space-y-3 text-xs">
+                  {/* Category Auto-Correction Banner */}
+                  {scanResult.isAutoCorrected && (
+                    <div className="p-2.5 bg-amber-900/60 border border-amber-500 rounded-lg text-[11px] text-amber-200">
+                      <strong className="block text-amber-300">🔄 Kategoriya Avtomatik Toʻgʻrilandi:</strong>
+                      <span>{scanResult.autoCorrectionNote || `AI tasvirda haqiqatda ${scanResult.detectedPlantName || 'oʻsimlik'} aniqlaganligi sababli, toʻgʻri kategoriya boʻyicha tashxis qoʻydi.`}</span>
+                    </div>
+                  )}
+
                   <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-[10px] text-slate-400 uppercase font-bold">Aniqlangan Tur:</span>
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-900/80 text-emerald-200 border border-emerald-700">
+                        🌱 {scanResult.detectedPlantName || scanResult.detectedCategory?.toUpperCase()}
+                      </span>
+                    </div>
                     <span className="text-[10px] text-slate-400 uppercase font-bold">Aniqlangan holat:</span>
                     <h3 className="text-base font-bold text-emerald-400">{scanResult.diseaseName}</h3>
                     <p className="text-[11px] text-slate-300">Ishonchlilik: {scanResult.confidence.toFixed(1)}%</p>

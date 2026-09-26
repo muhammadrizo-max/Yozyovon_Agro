@@ -225,12 +225,20 @@ export interface AgroDiseaseRecord {
   updatedAt: string;
 }
 
+export type AgroScanCategory = 'limon' | 'sabzavot' | 'meva' | 'osimlik' | 'kochat' | 'boshqa_ekin' | 'chorva';
+
 export interface AIScan {
   id: number | string;
   userId: number;
   mfyId: number;
   imageUrl: string;
-  targetType: 'limon' | 'boshqa_ekin' | 'chorva' | 'kochat';
+  targetType: AgroScanCategory;
+  detectedCategory?: 'limon' | 'sabzavot' | 'meva' | 'osimlik';
+  detectedPlantName?: string;
+  isAutoCorrected?: boolean;
+  autoCorrectionNote?: string;
+  internetGroundingUsed?: boolean;
+  internetSources?: string[];
   diseaseName: string;
   confidence: number; // 0-100%
   severity: 'high' | 'medium' | 'low';

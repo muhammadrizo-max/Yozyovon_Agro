@@ -131,5 +131,128 @@ export const INITIAL_GOV_AGRO_DISEASES: AgroDiseaseRecord[] = [
     imageUrl: 'https://images.unsplash.com/photo-1592417817098-8f3d6910985c?w=600&auto=format&fit=crop&q=80',
     verifiedByGov: true,
     updatedAt: '2026-03-19'
+  },
+  {
+    id: 'gov-dis-008',
+    plantType: 'sabzavot',
+    diseaseName: 'Sabzavot Un Shudringi (Erysiphe cichoracearum)',
+    targetPart: 'leaf',
+    severityLevel: 'medium',
+    visualSymptoms: [
+      'Barg ustida oppoq kukunsimon dogʻlar paydo boʻlishi',
+      'Barglarning sargʻayib, moʻrtlashib qurib qolishi',
+      'Fotosintez keskin pasayib, hosildorlik 40-50% ga kamayishi'
+    ],
+    medicines: 'Topaz 100 EC (3 ml/10L), Tiovit Djet (30 g/10L) yoki Skor 250 EC',
+    dosageAndUsage: '10 litr suvga 3-4 ml Topaz yoki 30 g Tiovit Djet. Ertalab yoki kechki payt purkaladi.',
+    preventiveMeasures: 'Issiqxona havosi haroratini +26°C dan oshirmaslik, ortiqcha azotli oʻgʻitlardan tiyilish.',
+    imageUrl: 'https://images.unsplash.com/photo-1591857177580-dc82b9ac4e17?w=600&auto=format&fit=crop&q=80',
+    verifiedByGov: true,
+    updatedAt: '2026-03-22'
+  },
+  {
+    id: 'gov-dis-009',
+    plantType: 'sabzavot',
+    diseaseName: 'Sogʻlom Sabzavot Ekini (Kasallik aniqlanmadi)',
+    targetPart: 'leaf',
+    severityLevel: 'low',
+    visualSymptoms: [
+      'Toʻq yashil sogʻlom barglar, dogʻlar va zararkunandalar yoʻq',
+      'Poyasi mustahkam, generativ va vegetativ oʻsish meʼyorda'
+    ],
+    medicines: 'Kimyoviy dori talab etilmaydi. Profilaktika uchun Gumafos yoki Biostimulyator.',
+    dosageAndUsage: '10 litr suvga 20 ml Gumafos yoki Aminokislotalar majmuasi bargdan purkash.',
+    preventiveMeasures: 'Muntazam tomchilatib sugʻorish va kaliy-fosforli oʻgʻitlar bilan meʼyorda oziqlantirish.',
+    imageUrl: 'https://images.unsplash.com/photo-1592417817098-8f3d6910985c?w=600&auto=format&fit=crop&q=80',
+    verifiedByGov: true,
+    updatedAt: '2026-03-24'
+  },
+  {
+    id: 'gov-dis-010',
+    plantType: 'mevali_daraxt',
+    diseaseName: 'Monilioz va Meva Chirishi (Monilinia fructigena)',
+    targetPart: 'fruit',
+    severityLevel: 'high',
+    visualSymptoms: [
+      'Meva ustida aylana shaklida sargʻish-kulrang mogʻor yostiqchalari',
+      'Mevaning yumshab chirishi va novdada mumiyolashib qolishi',
+      'Yosh novdalar va gullarning kuygandek qoʻngʻir tus olib qurishi'
+    ],
+    medicines: 'Horus 75 WG, Signum WG yoki 1% Bordo suyuqligi',
+    dosageAndUsage: '10 litr suvga 3 g Horus yoki 10-12 g Signum. Gullashdan oldin va meva tugishda 2 marta purkash.',
+    preventiveMeasures: 'Daraxt tagidagi chirigan mevalarni yigʻib chuqur koʻmish, zararlangan shoxlarni kesish.',
+    imageUrl: 'https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?w=600&auto=format&fit=crop&q=80',
+    verifiedByGov: true,
+    updatedAt: '2026-03-23'
+  },
+  {
+    id: 'gov-dis-011',
+    plantType: 'mevali_daraxt',
+    diseaseName: 'Sogʻlom Mevali Bogʻ Daraxti (Kasallik aniqlanmadi)',
+    targetPart: 'leaf',
+    severityLevel: 'low',
+    visualSymptoms: [
+      'Barg plastinkasi toza, fotosintez toʻliq faol',
+      'Zararkunanda yoki nekrotik dogʻlar mavjud emas'
+    ],
+    medicines: 'Kimyoviy dori talab etilmaydi.',
+    dosageAndUsage: 'Mavsumiy mikroelementlar bilan bargdan oziqlantirish.',
+    preventiveMeasures: 'Agrotexnik parvarish, sugʻorish jadvali va sanitariya butash meʼyorida davom ettirilsin.',
+    imageUrl: 'https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?w=600&auto=format&fit=crop&q=80',
+    verifiedByGov: true,
+    updatedAt: '2026-03-24'
+  },
+  {
+    id: 'gov-dis-012',
+    plantType: 'boshqa_kochat',
+    diseaseName: 'Koʻchat Ildiz Boʻgʻzi Chirishi (Qora oyoq / Rhizoctonia)',
+    targetPart: 'branch',
+    severityLevel: 'high',
+    visualSymptoms: [
+      'Yosh nihol va koʻchatning ildiz boʻgʻzi qorayib ingichkalashishi',
+      'Niholning tuproqqa yiqilib soʻlib qolishi',
+      'Ildiz toʻqimasining chirishi va oʻsishdan toʻxtashi'
+    ],
+    medicines: 'Previkur Enerji 840 SL, Fitolavin yoki Trichodermin',
+    dosageAndUsage: '10 litr suvga 15-20 ml Previkur Enerji. Nihollar tagiga 100-150 ml dan ildizdan quyiladi.',
+    preventiveMeasures: 'Tuproqni sterilizatsiya qilish, ortiqcha zaxlikka yoʻl qoʻymaslik, koʻchatxonalarni muntazam shamollatish.',
+    imageUrl: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=600&auto=format&fit=crop&q=80',
+    verifiedByGov: true,
+    updatedAt: '2026-03-20'
+  },
+  {
+    id: 'gov-dis-013',
+    plantType: 'boshqa_kochat',
+    diseaseName: 'Sogʻlom Yosh Nihol va Koʻchat (Kasallik aniqlanmadi)',
+    targetPart: 'leaf',
+    severityLevel: 'low',
+    visualSymptoms: [
+      'Koʻchat va nihol barglari tiniq yashil rangda, turgor saqlangan',
+      'Ildiz tizimi oq va sogʻlom, kasallik alomati yoʻq'
+    ],
+    medicines: 'Kimyoviy dori vositasi talab etilmaydi.',
+    dosageAndUsage: 'Ildiz rivojlanishi uchun Kornevin (1 g/1L suv) yoki Gumat kaliy.',
+    preventiveMeasures: 'Yorugʻlik va harorat rejimiga rioya qiling, tuproqni meʼyorida namlang.',
+    imageUrl: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=600&auto=format&fit=crop&q=80',
+    verifiedByGov: true,
+    updatedAt: '2026-03-24'
+  },
+  {
+    id: 'gov-dis-014',
+    plantType: 'limon',
+    diseaseName: 'Sogʻlom Limon Bargi va Daraxti (Kasallik aniqlanmadi)',
+    targetPart: 'leaf',
+    severityLevel: 'low',
+    visualSymptoms: [
+      'Barg toʻq yashil va yaltiroq, toʻqimalar butun va sogʻlom',
+      'Hech qanday zararkunanda, dogʻ yoki chirish alomatlari yoʻq'
+    ],
+    medicines: 'Kimyoviy preparat talab qilinmaydi.',
+    dosageAndUsage: 'Profilaktik bargdan oziqlantirish: Gumafos yoki Mikromikst (15-20 g/10L).',
+    preventiveMeasures: 'Optimal issiqxona iqlimi (harorat 20-25°C, namlik 65-70%) va tomchilatib sugʻorishni davom ettiring.',
+    imageUrl: 'https://images.unsplash.com/photo-1582979512210-99b6a53386f9?w=600&auto=format&fit=crop&q=80',
+    verifiedByGov: true,
+    updatedAt: '2026-03-24'
   }
 ];
+

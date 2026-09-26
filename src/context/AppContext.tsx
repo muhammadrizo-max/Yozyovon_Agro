@@ -20,6 +20,8 @@ import {
   trafficMonitor, sanitizeSqlParam, sanitizeXssInput, 
   detectSqlInjection, executeParameterizedQuery 
 } from '../utils/security';
+import { audioFeedback } from '../utils/audioFeedback';
+import { offlineStorage } from '../services/offlineStorage';
 
 interface RegistrationData {
   name: string;
@@ -1457,7 +1459,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       role: 'dehqon',
       mfyId: data.mfyId,
       createdAt: new Date().toISOString().split('T')[0],
-      isVerified: false,
+      isVerified: true,
       verificationToken: token,
       farmType: data.farmType || 'limon',
       activityField: resolvedActivity
@@ -1483,7 +1485,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       customFarmType: data.customFarmType,
       activityField: resolvedActivity,
       createdAt: newUser.createdAt,
-      isVerified: false,
+      isVerified: true,
       verificationToken: token
     };
 
@@ -1500,13 +1502,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         name: data.name.trim(),
         email: data.email.trim().toLowerCase(),
         phone: data.phone.trim(),
-        password: data.password.trim(),
+        password: data.password ? data.password.trim() : 'dehqon123',
         role: 'dehqon',
         mfyId: data.mfyId,
         farmType: data.farmType || 'limon',
         activityField: resolvedActivity,
         createdAt: newUser.createdAt,
-        isVerified: false
+        isVerified: true
       });
       localStorage.setItem(STORAGE_KEYS.REGISTERED_USERS_DB, JSON.stringify(filtered));
     } catch (e) {
@@ -1518,16 +1520,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ip: '192.168.1.108',
       severity: 'shield',
       status: 'mitigated',
-      details: `Foydalanuvchi (${data.name}) maʼlumotlari Oʻzbekiston davlat kiber-xavfsizlik talablariga muvofiq AES-256 va SHA-256 bilan shifrlangan bazaga joylashtirildi.`
+      details: `Foydalanuvchi (${data.name}) muvaffaqiyatli roʻyxatdan oʻtkazildi va hisobi toʻliq faollashtirildi.`
     });
 
-    // Show simulated verification link modal / banner
-    setVerificationBanner({
-      show: true,
-      email: data.email,
-      link: verificationLink,
-      token
-    });
+    // Emailga kod yuborish olib tashlandi: to'g'ridan-to'g'ri faollashtiriladi
+    setVerificationBanner(null);
 
     return {
       user: newUser,
@@ -1622,8 +1619,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setAiScans(prev => [newScan, ...prev]);
 
+    // Ovozli bildirishnoma (Audio feedback)
+    if (scanData.isAnimalOrNonPlant) {
+      audioFeedback.play('animal_alert');
+    } else if (scanData.severity === 'high') {
+      audioFeedback.play('critical_alert');
+    } else if (scanData.severity === 'medium') {
+      audioFeedback.play('scan_warning');
+    } else {
+      audioFeedback.play('scan_success');
+    }
+
     // If severe, generate automatic notification to Government panel!
-    if (scanData.severity === 'high') {
+    if (scanData.severity === 'high' && !scanData.isAnimalOrNonPlant) {
       const urgentNotif: AppNotification = {
         id: `alert-${Date.now()}`,
         type: 'danger',
@@ -1724,6 +1732,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       targetRole: 'all'
     };
     setNotifications(prev => [newNotif, ...prev]);
+
+    // Ovozli bildirishnoma (Audio feedback) - Dehqon ekranga qaramay turgan bo'lsa ham eshitishi uchun
+    audioFeedback.play(severity === 'danger' ? 'critical_alert' : 'alert');
   };
 
   // Quick seed / reset test data across all 33 MFYs for Government Review
@@ -1881,6 +1892,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const currentMfy = mfyList.find(m => m.id === currentUser.mfyId) || mfyList[0];
   const currentMfyWeather = calculateMfyAgroWeather(currentMfy);
+
+  // Qishloq joylarda beqaror internet uchun oflayn keshga avtomatik saqlash
+  useEffect(() => {
+    offlineStorage.saveWeather(currentMfyWeather);
+    offlineStorage.saveMfyList(mfyList);
+  }, [mfyList, currentMfyWeather]);
 
   return (
     <AppContext.Provider

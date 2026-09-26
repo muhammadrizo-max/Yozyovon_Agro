@@ -288,10 +288,21 @@ const AppContent: React.FC = () => {
           <span className="text-[10px] mt-0.5 truncate max-w-[62px]">Limon</span>
         </button>
 
-        {/* AI Scanner Center Prominent Button */}
+        {/* AI Scanner Center Prominent Button with Haptic Vibration */}
         <div className="flex-1 flex justify-center -mt-5 shrink-0">
           <button
-            onClick={() => { selectMfy(null); setActiveTab('scanner'); }}
+            onClick={() => {
+              if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+                try {
+                  // Haptik tebranish (Vibration API)
+                  navigator.vibrate([40, 30, 40]);
+                } catch {
+                  // Ignore if unsupported/blocked by browser
+                }
+              }
+              selectMfy(null);
+              setActiveTab('scanner');
+            }}
             className="flex flex-col items-center justify-center bg-gradient-to-tr from-blue-600 to-indigo-600 text-white rounded-full w-12 h-12 shadow-lg shadow-blue-500/30 active:scale-95 transition-transform"
             id="mobile-nav-scanner"
             title="AI Skaner (Kamera)"

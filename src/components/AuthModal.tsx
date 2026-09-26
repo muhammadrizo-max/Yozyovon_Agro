@@ -78,12 +78,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [forgotInput, setForgotInput] = useState('');
   const [forgotSuccess, setForgotSuccess] = useState(false);
 
-  // Verification step state
-  const [verificationResult, setVerificationResult] = useState<{
-    email: string;
-    token: string;
-    link: string;
-  } | null>(null);
+  // Registration success state
+  const [registerSuccess, setRegisterSuccess] = useState(false);
 
   const [errorMsg, setErrorMsg] = useState('');
   const [toastNotification, setToastNotification] = useState<{
@@ -104,7 +100,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   }, [toastNotification]);
 
-  const [isVerifying, setIsVerifying] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
 
   // Google reCAPTCHA v2 state
@@ -254,7 +249,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     setErrorMsg('');
-    const result = registerFarmer({
+    registerFarmer({
       name: fullName.trim(),
       email: regEmail.trim().toLowerCase(),
       phone: regPhone.trim(),
@@ -264,11 +259,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       customFarmType: farmType === 'boshqa' ? customFarmType.trim() : undefined
     });
 
-    setVerificationResult({
-      email: regEmail.trim().toLowerCase(),
-      token: result.verificationToken,
-      link: result.verificationLink
-    });
+    setRegisterSuccess(true);
+    setTimeout(() => {
+      onClose();
+      setRegisterSuccess(false);
+    }, 1200);
   };
 
   // Handle Simulated Forgot Password
@@ -283,16 +278,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }, 3500);
   };
 
-  // Handle Click on Email Link Simulation
-  const handleActivateViaLink = () => {
-    if (!verificationResult) return;
-    setIsVerifying(true);
-    setTimeout(() => {
-      verifyEmailToken(verificationResult.token);
-      setIsVerifying(false);
-      onClose();
-    }, 900);
-  };
 
   return (
     <div className="fixed inset-0 z-50 bg-[#0F172A]/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-hidden" id="auth-modal-overlay">
@@ -345,64 +330,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             : 'overflow-y-auto pr-1 space-y-3.5 custom-modal-scrollbar [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'
         }`}>
 
-          {/* Verification Success View (After register) */}
-          {verificationResult ? (
-            <div className="text-center space-y-4 py-2">
-              <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto border border-emerald-200 dark:border-emerald-800">
-                <Mail className="w-7 h-7" />
+          {/* Registration Success View (Direct Activation without Email Verification Code) */}
+          {registerSuccess ? (
+            <div className="text-center space-y-4 py-8">
+              <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/70 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto border-2 border-emerald-300 dark:border-emerald-700 animate-in zoom-in-95 duration-200">
+                <CheckCircle2 className="w-9 h-9" />
               </div>
 
               <div>
-                <h3 className="text-lg font-bold text-[#0F172A] dark:text-white">
-                  Tasdiqlash Havolasi Yuborildi!
+                <h3 className="text-xl font-bold text-[#0F172A] dark:text-white">
+                  Muvaffaqiyatli Roʻyxatdan Oʻtdingiz!
                 </h3>
-                <p className="text-xs text-[#64748B] dark:text-slate-400 mt-1">
-                  <strong className="text-[#0F172A] dark:text-white">{verificationResult.email}</strong> manziliga dehqon hisobingizni tasdiqlash uchun maxsus faollashtirish havolasi joʻnatildi.
+                <p className="text-xs text-[#64748B] dark:text-slate-400 mt-1 max-w-sm mx-auto">
+                  Xush kelibsiz, <strong className="text-emerald-600 dark:text-emerald-400">{fullName}</strong>! Dehqon hisobingiz toʻliq faollashtirildi va tizimga muvaffaqiyatli kirildi.
                 </p>
               </div>
 
-              {/* Simulated Email Message Box */}
-              <div className="bg-[#F8FAFC] dark:bg-slate-800 p-4 rounded-lg border border-blue-200 dark:border-blue-900 text-left space-y-2">
-                <div className="flex items-center justify-between border-b border-[#E2E8F0] dark:border-slate-700 pb-2">
-                  <div className="flex items-center gap-1.5">
-                    <Mail className="w-3.5 h-3.5 text-[#3B82F6]" />
-                    <span className="text-[11px] font-bold text-[#0F172A] dark:text-white">Yozyovon Agro Tizimi</span>
-                  </div>
-                  <span className="text-[10px] text-[#64748B] dark:text-slate-400">Hozirgina</span>
-                </div>
-                <p className="text-xs text-[#334155] dark:text-slate-300">
-                  Assalomu alaykum! Yozyovon Agro portalida roʻyxatdan oʻtganingiz uchun rahmat. Hisobingizni faollashtirish uchun quyidagi tugmani bosing:
-                </p>
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={handleActivateViaLink}
-                    disabled={isVerifying}
-                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors"
-                  >
-                    {isVerifying ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        <span>Tasdiqlanmoqda...</span>
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>✓ Havola Orqali Hisobni Faollashtirish</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="text-xs text-[#64748B] dark:text-slate-400 hover:text-[#0F172A] dark:hover:text-white underline"
-                >
-                  Keyinroq faollashtirish
-                </button>
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 font-semibold">
+                ✓ Shaxsiy xoʻjalik kabinetiga yoʻnaltirilmoqda...
               </div>
             </div>
           ) : (

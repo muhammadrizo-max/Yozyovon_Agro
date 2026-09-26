@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   X, 
   Sprout, 
@@ -20,7 +20,9 @@ import {
   Terminal,
   Activity,
   Database,
-  Shield
+  Shield,
+  Search,
+  MapPin
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { AgroLogo } from './AgroLogo';
@@ -44,8 +46,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenAuth })
     currentMfyWeather,
     siteSettings,
     devActiveSubTab,
-    setDevActiveSubTab
+    setDevActiveSubTab,
+    mfyList
   } = useApp();
+
+  const [searchMfyQuery, setSearchMfyQuery] = useState('');
 
   if (!isOpen) return null;
 
@@ -220,40 +225,113 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onOpenAuth })
             </div>
           </div>
 
-          {/* Nav List */}
-          <div className="p-3 space-y-1.5 overflow-y-auto max-h-[calc(100vh-290px)] custom-scrollbar">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-[#94A3B8] dark:text-slate-500 px-3 py-1 block">
-              Tizim Boʻlimlari
-            </span>
-
-            {navItems.map((item: any) => {
-              const Icon = item.icon;
-              const targetTab = item.tab || item.id;
-              const devSub = item.devSubTab;
-              const isActive = activeTab === targetTab && (!devSub || devActiveSubTab === devSub);
-              return (
+          {/* MFY Quick Search Bar at the Top of Mobile Navigation */}
+          <div className="p-3 border-b border-[#E2E8F0] dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-10">
+            <div className="relative">
+              <Search className="w-4 h-4 text-emerald-600 dark:text-emerald-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchMfyQuery}
+                onChange={(e) => setSearchMfyQuery(e.target.value)}
+                placeholder="MFY qidirish (masalan: Qatortol, Navbahor...)"
+                className="w-full pl-9 pr-8 py-2 text-xs rounded-lg border border-[#E2E8F0] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800 text-[#0F172A] dark:text-white placeholder:text-[#94A3B8] focus:outline-hidden focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                id="sidebar-mfy-search-input"
+              />
+              {searchMfyQuery && (
                 <button
-                  key={item.id}
-                  onClick={() => handleNav(targetTab, null, devSub)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-all ${
-                    isActive 
-                      ? `${item.activeBg} font-bold shadow-xs` 
-                      : 'border-transparent text-[#334155] dark:text-slate-300 hover:bg-[#F8FAFC] dark:hover:bg-slate-800/80 hover:border-[#E2E8F0] dark:hover:border-slate-700'
-                  }`}
-                  id={`sidebar-nav-${item.id}`}
+                  onClick={() => setSearchMfyQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 >
-                  <div className={`p-1.5 rounded-md ${isActive ? 'bg-white dark:bg-slate-900 shadow-xs' : 'bg-slate-100 dark:bg-slate-800'}`}>
-                    <Icon className={`w-4 h-4 ${item.color}`} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs tracking-tight truncate">{item.label}</p>
-                    <p className="text-[10px] text-[#64748B] dark:text-slate-400 truncate mt-0.5 font-normal">
-                      {item.desc}
-                    </p>
-                  </div>
+                  <X className="w-3.5 h-3.5" />
                 </button>
-              );
-            })}
+              )}
+            </div>
+          </div>
+
+          {/* Nav List / Search Results */}
+          <div className="p-3 space-y-1.5 overflow-y-auto max-h-[calc(100vh-340px)] custom-scrollbar">
+            {searchMfyQuery.trim() ? (
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-[#94A3B8] dark:text-slate-500 px-2 py-1 block">
+                  Qidiruv natijalari ({mfyList.filter(m => m.name.toLowerCase().includes(searchMfyQuery.toLowerCase())).length} ta MFY)
+                </span>
+                {mfyList.filter(m => m.name.toLowerCase().includes(searchMfyQuery.toLowerCase())).length === 0 ? (
+                  <div className="py-6 text-center text-xs text-slate-400">
+                    "{searchMfyQuery}" boʻyicha MFY topilmadi
+                  </div>
+                ) : (
+                  mfyList
+                    .filter(m => m.name.toLowerCase().includes(searchMfyQuery.toLowerCase()))
+                    .map(mfy => (
+                      <button
+                        key={mfy.id}
+                        onClick={() => {
+                          selectMfy(mfy.id);
+                          if (userRole === 'davlat' || userRole === 'admin') {
+                            setActiveTab('map');
+                          } else {
+                            setActiveTab('profile');
+                          }
+                          onClose();
+                        }}
+                        className="w-full flex items-center justify-between p-2.5 rounded-lg border border-[#E2E8F0] dark:border-slate-700/80 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:border-emerald-300 transition-all text-left group"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="p-1.5 rounded-md bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300">
+                            <MapPin className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-[#0F172A] dark:text-white truncate group-hover:text-emerald-600">
+                              {mfy.name}
+                            </p>
+                            <p className="text-[10px] text-[#64748B] dark:text-slate-400">
+                              {mfy.sektorNum}-sektor • {mfy.limonDaraxtlari.toLocaleString()} limon tup
+                            </p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 shrink-0">
+                          {mfy.dehqonchilikGa} ga
+                        </span>
+                      </button>
+                    ))
+                )}
+              </div>
+            ) : (
+              <>
+                <span className="text-[10px] uppercase font-bold tracking-wider text-[#94A3B8] dark:text-slate-500 px-3 py-1 block">
+                  Tizim Boʻlimlari
+                </span>
+
+                {navItems.map((item: any) => {
+                  const Icon = item.icon;
+                  const targetTab = item.tab || item.id;
+                  const devSub = item.devSubTab;
+                  const isActive = activeTab === targetTab && (!devSub || devActiveSubTab === devSub);
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => handleNav(targetTab, null, devSub)}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-all ${
+                        isActive 
+                          ? `${item.activeBg} font-bold shadow-xs` 
+                          : 'border-transparent text-[#334155] dark:text-slate-300 hover:bg-[#F8FAFC] dark:hover:bg-slate-800/80 hover:border-[#E2E8F0] dark:hover:border-slate-700'
+                      }`}
+                      id={`sidebar-nav-${item.id}`}
+                    >
+                      <div className={`p-1.5 rounded-md ${isActive ? 'bg-white dark:bg-slate-900 shadow-xs' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                        <Icon className={`w-4 h-4 ${item.color}`} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs tracking-tight truncate">{item.label}</p>
+                        <p className="text-[10px] text-[#64748B] dark:text-slate-400 truncate mt-0.5 font-normal">
+                          {item.desc}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </>
+            )}
           </div>
         </div>
 
