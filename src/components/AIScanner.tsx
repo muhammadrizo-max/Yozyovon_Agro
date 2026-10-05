@@ -31,14 +31,15 @@ import {
   Info,
   ShieldX,
   AlertOctagon,
-  Globe
+  Globe,
+  Search
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { analyzeAgroImage, AnalysisResult } from '../utils/aiVisionAnalyzer';
 import { AIScan, DetectedPlantPart } from '../types';
 
 export const AIScanner: React.FC = () => {
-  const { addAIScan, aiScans, currentUser, govAgroDiseases } = useApp();
+  const { addAIScan, deleteAIScan, clearAIScans, aiScans, currentUser, govAgroDiseases } = useApp();
 
   // Active Modes: 'camera' (Live Camera) | 'upload' (File upload)
   const [inputMode, setInputMode] = useState<'camera' | 'upload'>('camera');
@@ -268,7 +269,9 @@ export const AIScanner: React.FC = () => {
         animalWarningMessage: analysis.animalWarningMessage,
         detectedParts: analysis.detectedParts,
         matchedGovDisease: analysis.matchedGovDisease,
-        officialGovNotice: analysis.officialGovNotice
+        officialGovNotice: analysis.officialGovNotice,
+        analysisSummary: analysis.analysisSummary,
+        source: analysis.source
       });
 
       setScanResult(newScan);
@@ -277,7 +280,7 @@ export const AIScanner: React.FC = () => {
         setJustSavedNotification(true);
       }
       setIsScanning(false);
-    }, 900);
+    }, 800);
   };
 
   // Trigger file selection
@@ -347,7 +350,9 @@ export const AIScanner: React.FC = () => {
         animalWarningMessage: analysis.animalWarningMessage,
         detectedParts: analysis.detectedParts,
         matchedGovDisease: analysis.matchedGovDisease,
-        officialGovNotice: analysis.officialGovNotice
+        officialGovNotice: analysis.officialGovNotice,
+        analysisSummary: analysis.analysisSummary,
+        source: analysis.source
       });
 
       setScanResult(newScan);
@@ -770,118 +775,114 @@ export const AIScanner: React.FC = () => {
                   </button>
                 </div>
               ) : scanResult ? (
-                /* ── O'SIMLIK TASHXISI & DAVLAT RETSEPTI ── */
-                <div className="space-y-4">
-                  {/* Category Auto-Correction Banner (Agar foydalanuvchi limon deb ko'chat yoki pomidor yuborgan bo'lsa) */}
-                  {scanResult.isAutoCorrected && (
-                    <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-lg flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-200 animate-fadeIn">
-                      <RefreshCw className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-bold flex items-center gap-1.5">
-                          <span>Kategoriya Avtomatik Aniqlanib Toʻgʻrilandi:</span>
-                          <span className="uppercase px-1.5 py-0.5 rounded bg-amber-200 dark:bg-amber-900/80 font-mono text-[10px] text-amber-950 dark:text-amber-100">
-                            {scanResult.detectedCategory}
+                /* ── O'SIMLIK TASHXISI & RASMIY KO'RSATMALAR (TALAB QILINGAN KETMA-KETLIKDA) ── */
+                <div className="space-y-3.5">
+                  {/* 1. KICHIK BOSHLASH (Sana, Aniqlangan tur, AI Aniqlik & Gemini AI belgisi) */}
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800/90 rounded-lg border border-slate-200 dark:border-slate-700 space-y-2">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                          AI Tahlil Natijasi
+                        </span>
+                        {scanResult.source === 'gemini_vision' ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-800 flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-blue-600" />
+                            Real Gemini AI Vision
                           </span>
-                        </p>
-                        <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-1 leading-relaxed">
-                          {scanResult.autoCorrectionNote || `Tasvirda haqiqatda ${scanResult.detectedPlantName || 'oʻsimlik'} aniqlanganligi sababli, AI tahlilni toʻgʻri yoʻnalishda olib bordi.`}
-                        </p>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                            Yozyovon Agro Vision
+                          </span>
+                        )}
                       </div>
+                      <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                        {scanResult.scannedAt}
+                      </span>
                     </div>
-                  )}
 
-                  {/* Top Status & Identified Plant */}
-                  <div className="p-3.5 bg-[#F8FAFC] dark:bg-slate-800 rounded-lg border border-[#E2E8F0] dark:border-slate-700 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[10px] text-[#64748B] dark:text-slate-400 uppercase font-bold tracking-wider">
-                          Aniqlangan Tur:
-                        </span>
-                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
-                          <Sprout className="w-3 h-3 text-emerald-600" />
-                          {scanResult.detectedPlantName || scanResult.detectedCategory?.toUpperCase() || 'Oʻsimlik'}
-                        </span>
+                    <div className="flex items-center justify-between pt-0.5">
+                      <div className="flex items-center gap-2">
+                        <Sprout className="w-5 h-5 text-emerald-600 shrink-0" />
+                        <div>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold block">
+                            Aniqlangan Tur:
+                          </span>
+                          <h5 className="font-bold text-sm text-slate-900 dark:text-white leading-tight">
+                            {scanResult.detectedPlantName || scanResult.detectedCategory?.toUpperCase() || 'Oʻsimlik'}
+                          </h5>
+                        </div>
                       </div>
                       <div className="text-right">
-                        <span className="text-[10px] text-[#64748B] dark:text-slate-400 inline mr-1">Aniqlik:</span>
-                        <span className="text-sm font-black text-[#3B82F6]">
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold block">
+                          AI Aniqlik:
+                        </span>
+                        <span className="text-base font-black text-blue-600 dark:text-blue-400">
                           {scanResult.confidence.toFixed(1)}%
                         </span>
                       </div>
                     </div>
 
-                    <div>
-                      <span className="text-[10px] text-[#64748B] dark:text-slate-400 uppercase font-bold tracking-wider block">
-                        Tashxis qoʻyilgan patologiya:
-                      </span>
-                      <h4 className="font-bold text-base text-[#0F172A] dark:text-white leading-tight mt-0.5">
-                        {scanResult.diseaseName}
-                      </h4>
-                    </div>
-                  </div>
-
-                  {/* Internet Grounding Search Notification */}
-                  {scanResult.internetGroundingUsed && (
-                    <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 rounded-lg border border-blue-200 dark:border-blue-900 flex items-start gap-2.5 text-xs text-blue-950 dark:text-blue-200">
-                      <Globe className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-                      <div className="space-y-1">
-                        <p className="font-bold">🌐 Internet Fitosanitariya Ilmiy Bazalaridan Qidiruv</p>
-                        <p className="text-[11px] text-blue-800 dark:text-blue-300 leading-relaxed">
-                          Davlat bazasida qoʻshimcha maʼlumot toʻldirish uchun, AI internetdagi ilmiy agronomik manbalar (Agro.uz, FAO IPPC) orqali xulosa shakllantirdi.
-                        </p>
-                        {scanResult.internetSources && scanResult.internetSources.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {scanResult.internetSources.map((src, i) => (
-                              <span key={i} className="text-[10px] bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 font-medium">
-                                ✓ {src}
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                    {scanResult.isAutoCorrected && (
+                      <div className="pt-1.5 border-t border-slate-200 dark:border-slate-700 text-[11px] text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+                        <RefreshCw className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span>Kategoriya toʻgʻrilandi: {scanResult.autoCorrectionNote || `AI tasvirda ${scanResult.detectedPlantName} aniqladi.`}</span>
                       </div>
-                    </div>
-                  )}
-
-                  {/* Government Official Notice Stamp */}
-                  <div className="p-3 bg-violet-50 dark:bg-violet-950/40 rounded-lg border border-violet-200 dark:border-violet-900 flex items-start gap-2.5 text-xs text-violet-900 dark:text-violet-200">
-                    <ShieldCheck className="w-5 h-5 text-violet-600 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-bold">Rasmiy Davlat Fitosanitariya Reestri Asosida</p>
-                      <p className="text-[11px] text-violet-700 dark:text-violet-300 mt-0.5">
-                        {scanResult.officialGovNotice || "Yozyovon Davlat Fitosanitariya Inspeksiyasi tomonidan tasdiqlangan preparatlar tavsiya etildi."}
-                      </p>
-                    </div>
+                    )}
                   </div>
 
-                  {/* Detected Plant Parts Breakdown (Barg, Meva, Shox) */}
-                  {scanResult.detectedParts && scanResult.detectedParts.length > 0 && (
-                    <div className="space-y-2">
-                      <span className="text-xs font-bold text-[#0F172A] dark:text-white flex items-center gap-1.5">
-                        <Layers className="w-4 h-4 text-emerald-600" />
-                        <span>Alohida Tekshirilgan Qismlar:</span>
-                      </span>
+                  {/* 2. TAHLIL NATIJASI (Vizual Xulosa & AI Koʻrgan Belgilar) */}
+                  <div className="p-3 bg-blue-50/70 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-900/60 space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-blue-950 dark:text-blue-200">
+                      <Search className="w-4 h-4 text-blue-600" />
+                      <span>Tahlil Natijasi (Vizual Xulosa):</span>
+                    </div>
+                    <p className="text-xs text-blue-900 dark:text-blue-100 leading-relaxed font-medium">
+                      {scanResult.analysisSummary || "Tasvirdagi barg toʻqimalarining holati, pigmentatsiya va fotosintez faolligi sinchkovlik bilan tahlil qilindi."}
+                    </p>
+                  </div>
 
-                      <div className="space-y-2">
+                  {/* 3. XAVFLAR VA ZARARLANGAN QISMLAR */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <AlertTriangle className="w-4 h-4 text-amber-500" />
+                        <span>Xavf Darajasi & Zararlangan Aʼzolar:</span>
+                      </span>
+                      <span className={`px-2.5 py-0.5 rounded text-[11px] font-bold uppercase ${
+                        scanResult.severity === 'high' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800' :
+                        scanResult.severity === 'medium' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800' :
+                        'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+                      }`}>
+                        {scanResult.severity === 'high' ? 'Xavf: Yuqori' : scanResult.severity === 'medium' ? 'Xavf: Oʻrta' : 'Holat: Sogʻlom / Xavfsiz'}
+                      </span>
+                    </div>
+
+                    {scanResult.detectedParts && scanResult.detectedParts.length > 0 && (
+                      <div className="space-y-1.5">
                         {scanResult.detectedParts.map(part => {
                           const isSelected = selectedPartId === part.id;
                           return (
                             <div
                               key={part.id}
                               onClick={() => setSelectedPartId(part.id)}
-                              className={`p-3 rounded-lg border transition-all cursor-pointer ${
+                              className={`p-2.5 rounded-lg border transition-all cursor-pointer ${
                                 isSelected 
                                   ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/40 shadow-xs' 
                                   : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100'
                               }`}
                             >
                               <div className="flex items-center justify-between">
-                                <span className="font-bold text-xs text-slate-900 dark:text-white">{part.partName}</span>
+                                <span className="font-bold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                                  <span>{part.partType === 'leaf' ? '🍃' : part.partType === 'fruit' ? '🍎' : '🪵'}</span>
+                                  <span>{part.partName}</span>
+                                </span>
                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                                   part.severity === 'high' ? 'bg-rose-100 text-rose-800' :
                                   part.severity === 'medium' ? 'bg-amber-100 text-amber-800' :
                                   'bg-emerald-100 text-emerald-800'
                                 }`}>
-                                  {part.severity === 'high' ? 'Xavf: Yuqori' : part.severity === 'medium' ? 'Xavf: Oʻrta' : 'Yengil'}
+                                  {part.severity === 'high' ? 'Zararlangan' : part.severity === 'medium' ? 'Nazoratda' : 'Sogʻlom'}
                                 </span>
                               </div>
                               <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
@@ -891,25 +892,35 @@ export const AIScanner: React.FC = () => {
                           );
                         })}
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
-                  {/* Medicines Prescription */}
+                  {/* 4. KASALLIK VA PATOLOGIYA TASHXISI */}
+                  <div className="p-3.5 bg-rose-50/50 dark:bg-rose-950/20 rounded-lg border border-rose-200 dark:border-rose-900/60 space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-rose-700 dark:text-rose-400 block tracking-wider">
+                      Tashxis Qoʻyilgan Kasallik / Patologiya:
+                    </span>
+                    <h4 className="font-bold text-base text-rose-950 dark:text-rose-200 leading-tight">
+                      {scanResult.diseaseName}
+                    </h4>
+                  </div>
+
+                  {/* 5. DORI VOSITALARI VA DOZASI */}
                   <div className="p-3.5 bg-blue-50/80 dark:bg-blue-950/40 rounded-lg border border-blue-200 dark:border-blue-900 space-y-1.5">
                     <span className="text-xs font-bold text-blue-950 dark:text-blue-200 flex items-center gap-1.5">
-                      <Pill className="w-4 h-4 text-[#3B82F6]" />
-                      <span>Davlat Tasdiqlagan Dori Vositalari & Dozasi:</span>
+                      <Pill className="w-4 h-4 text-blue-600" />
+                      <span>Tavsiya Etilgan Dori Vositalari & Dozasi:</span>
                     </span>
                     <p className="text-xs text-blue-900 dark:text-blue-100 leading-relaxed font-semibold">
                       {scanResult.medicines}
                     </p>
                   </div>
 
-                  {/* Agrotechnical Recommendations */}
+                  {/* 6. PARVARISHLASH VA AGROTEXNIK KO'RSATMALAR */}
                   <div className="p-3.5 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-lg border border-emerald-200 dark:border-emerald-900 space-y-1.5">
                     <span className="text-xs font-bold text-emerald-950 dark:text-emerald-200 flex items-center gap-1.5">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span>Agrotexnik Profilaktika va Chora-Tadbirlar:</span>
+                      <span>Parvarishlash va Agrotexnik Profilaktika Koʻrsatmalari:</span>
                     </span>
                     <p className="text-xs text-emerald-900 dark:text-emerald-300 leading-relaxed">
                       {scanResult.recommendations}
@@ -992,56 +1003,100 @@ export const AIScanner: React.FC = () => {
       ) : (
         /* History Sub Tab */
         <div className="bg-white dark:bg-slate-900 p-6 rounded-lg border border-[#E2E8F0] dark:border-slate-800 shadow-xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0] dark:border-slate-800">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#E2E8F0] dark:border-slate-800">
             <div>
               <h3 className="font-bold text-base text-[#0F172A] dark:text-white">AI Tahlillar Tarixi</h3>
               <p className="text-xs text-[#64748B] dark:text-slate-400">Oldin oʻtkazilgan barcha skanerlashlar va berilgan tavsiyalar</p>
             </div>
-            <span className="text-xs font-semibold text-[#0F172A] dark:text-white bg-[#F1F5F9] dark:bg-slate-800 px-3 py-1 rounded">
-              Jami: {aiScans.length} ta skaner
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-[#0F172A] dark:text-white bg-[#F1F5F9] dark:bg-slate-800 px-3 py-1 rounded">
+                Jami: {aiScans.length} ta skaner
+              </span>
+              {aiScans.length > 0 && (
+                <button
+                  onClick={() => {
+                    if (window.confirm("Barcha tahlillar tarixini tozalamoqchimisiz?")) {
+                      clearAIScans();
+                      setLiveCapturedList([]);
+                    }
+                  }}
+                  className="px-2.5 py-1 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded border border-rose-200 dark:border-rose-900 transition-all flex items-center gap-1"
+                  title="Eski tahlillar tarixini tozalash"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Tarixni tozalash</span>
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="divide-y divide-[#E2E8F0] dark:divide-slate-800">
-            {aiScans.map((scan) => (
-              <div key={scan.id} className="py-4 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-md overflow-hidden bg-slate-100 dark:bg-slate-800 shrink-0 border border-[#E2E8F0] dark:border-slate-700">
-                    <img 
-                      src={scan.imageUrl} 
-                      alt={scan.diseaseName} 
-                      className="w-full h-full object-cover" 
-                      referrerPolicy="no-referrer"
-                    />
+          {aiScans.length === 0 ? (
+            <div className="text-center py-12 text-[#94A3B8]">
+              <History className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
+              <p className="text-xs font-medium">Hozircha tahlillar tarixi mavjud emas.</p>
+              <button
+                onClick={() => setActiveSubTab('scanner')}
+                className="mt-3 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold"
+              >
+                Yangi Tahlilni Boshlash
+              </button>
+            </div>
+          ) : (
+            <div className="divide-y divide-[#E2E8F0] dark:divide-slate-800">
+              {aiScans.map((scan) => (
+                <div key={scan.id} className="py-4 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-md overflow-hidden bg-slate-100 dark:bg-slate-800 shrink-0 border border-[#E2E8F0] dark:border-slate-700">
+                      <img 
+                        src={scan.imageUrl} 
+                        alt={scan.diseaseName} 
+                        className="w-full h-full object-cover" 
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-sm text-[#0F172A] dark:text-white">{scan.diseaseName}</h4>
+                        {scan.source === 'gemini_vision' && (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                            Gemini AI
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-[#64748B] dark:text-slate-400 mt-0.5">
+                        {scan.detectedPlantName ? `${scan.detectedPlantName} • ` : ''}Ishonchlilik: {scan.confidence}% • Sana: {scan.scannedAt}
+                      </p>
+                      <p className="text-xs text-[#334155] dark:text-slate-300 mt-1 line-clamp-1">{scan.medicines}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-sm text-[#0F172A] dark:text-white">{scan.diseaseName}</h4>
-                    <p className="text-xs text-[#64748B] dark:text-slate-400 mt-0.5">
-                      Ishonchlilik: {scan.confidence}% • Sana: {scan.scannedAt}
-                    </p>
-                    <p className="text-xs text-[#334155] dark:text-slate-300 mt-1 line-clamp-1">{scan.medicines}</p>
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-                  <span className={`px-2.5 py-1 rounded text-xs font-bold ${
-                    scan.severity === 'high' ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900' : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900'
-                  }`}>
-                    {scan.severity === 'high' ? 'Yuqori Xavf' : 'Sogʻlom / Yaxshi'}
-                  </span>
-                  <button
-                    onClick={() => {
-                      setScanResult(scan);
-                      setActiveSubTab('scanner');
-                    }}
-                    className="px-3 py-1.5 bg-[#F8FAFC] dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-[#CBD5E1] dark:border-slate-700 text-[#0F172A] dark:text-white text-xs font-semibold rounded transition-colors"
-                  >
-                    Koʻrish
-                  </button>
+                  <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+                    <span className={`px-2.5 py-1 rounded text-xs font-bold ${
+                      scan.severity === 'high' ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900' : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900'
+                    }`}>
+                      {scan.severity === 'high' ? 'Yuqori Xavf' : 'Sogʻlom / Yaxshi'}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setScanResult(scan);
+                        setActiveSubTab('scanner');
+                      }}
+                      className="px-3 py-1.5 bg-[#F8FAFC] dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 border border-[#CBD5E1] dark:border-slate-700 text-[#0F172A] dark:text-white text-xs font-semibold rounded transition-colors"
+                    >
+                      Koʻrish
+                    </button>
+                    <button
+                      onClick={() => deleteAIScan(scan.id)}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-all"
+                      title="Oʻchirish"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -1236,48 +1291,112 @@ export const AIScanner: React.FC = () => {
                 </div>
               ) : (
                 <div className="mt-3 space-y-3 text-xs">
-                  {/* Category Auto-Correction Banner */}
-                  {scanResult.isAutoCorrected && (
-                    <div className="p-2.5 bg-amber-900/60 border border-amber-500 rounded-lg text-[11px] text-amber-200">
-                      <strong className="block text-amber-300">🔄 Kategoriya Avtomatik Toʻgʻrilandi:</strong>
-                      <span>{scanResult.autoCorrectionNote || `AI tasvirda haqiqatda ${scanResult.detectedPlantName || 'oʻsimlik'} aniqlaganligi sababli, toʻgʻri kategoriya boʻyicha tashxis qoʻydi.`}</span>
+                  {/* 1. KICHIK BOSHLASH */}
+                  <div className="p-3 bg-slate-800/90 rounded-xl border border-slate-700 space-y-2">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-700">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">AI Tahlil Natijasi</span>
+                        {scanResult.source === 'gemini_vision' ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-900/80 text-blue-200 border border-blue-700 flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-blue-400" />
+                            Real Gemini AI Vision
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-900/80 text-emerald-200 border border-emerald-700">
+                            Yozyovon Agro Vision
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-400">{scanResult.scannedAt}</span>
                     </div>
-                  )}
 
-                  <div>
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className="text-[10px] text-slate-400 uppercase font-bold">Aniqlangan Tur:</span>
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-900/80 text-emerald-200 border border-emerald-700">
-                        🌱 {scanResult.detectedPlantName || scanResult.detectedCategory?.toUpperCase()}
-                      </span>
+                    <div className="flex items-center justify-between pt-1">
+                      <div className="flex items-center gap-2">
+                        <Sprout className="w-5 h-5 text-emerald-400 shrink-0" />
+                        <div>
+                          <span className="text-[9px] uppercase font-bold text-slate-400 block">Aniqlangan Tur:</span>
+                          <span className="font-bold text-xs text-white">
+                            {scanResult.detectedPlantName || scanResult.detectedCategory?.toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[9px] uppercase font-bold text-slate-400 block">AI Aniqlik:</span>
+                        <span className="text-sm font-black text-blue-400">{scanResult.confidence.toFixed(1)}%</span>
+                      </div>
                     </div>
-                    <span className="text-[10px] text-slate-400 uppercase font-bold">Aniqlangan holat:</span>
-                    <h3 className="text-base font-bold text-emerald-400">{scanResult.diseaseName}</h3>
-                    <p className="text-[11px] text-slate-300">Ishonchlilik: {scanResult.confidence.toFixed(1)}%</p>
+
+                    {scanResult.isAutoCorrected && (
+                      <div className="pt-1 border-t border-slate-700 text-[10px] text-amber-300 flex items-center gap-1">
+                        <RefreshCw className="w-3 h-3 text-amber-400 shrink-0" />
+                        <span>Kategoriya toʻgʻrilandi: {scanResult.autoCorrectionNote || `AI tasvirda ${scanResult.detectedPlantName} aniqladi.`}</span>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Detected Parts Pill List */}
-                  {scanResult.detectedParts && scanResult.detectedParts.length > 0 && (
-                    <div className="p-2.5 bg-slate-800 rounded-lg space-y-1">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Zararlangan organlar:</span>
-                      <div className="flex flex-wrap gap-1">
+                  {/* 2. TAHLIL NATIJASI (Vizual Xulosa) */}
+                  <div className="p-3 bg-blue-950/50 rounded-xl border border-blue-800 space-y-1">
+                    <div className="flex items-center gap-1 text-[11px] font-bold text-blue-200">
+                      <Search className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Tahlil Natijasi (Vizual Xulosa):</span>
+                    </div>
+                    <p className="text-[11px] text-blue-100 leading-relaxed font-medium">
+                      {scanResult.analysisSummary || "Tasvirdagi oʻsimlik bargi toʻqimalari va zararlanish oʻchoqlari sinchkovlik bilan tekshirildi."}
+                    </p>
+                  </div>
+
+                  {/* 3. XAVFLAR VA A'ZOLAR */}
+                  <div className="p-2.5 bg-slate-800/90 rounded-xl border border-slate-700 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-200 flex items-center gap-1">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Xavf Darajasi:</span>
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                        scanResult.severity === 'high' ? 'bg-rose-950 text-rose-300 border border-rose-700' :
+                        scanResult.severity === 'medium' ? 'bg-amber-950 text-amber-300 border border-amber-700' :
+                        'bg-emerald-950 text-emerald-300 border border-emerald-700'
+                      }`}>
+                        {scanResult.severity === 'high' ? 'Xavf: Yuqori' : scanResult.severity === 'medium' ? 'Xavf: Oʻrta' : 'Holat: Sogʻlom'}
+                      </span>
+                    </div>
+
+                    {scanResult.detectedParts && scanResult.detectedParts.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-1">
                         {scanResult.detectedParts.map(p => (
                           <span key={p.id} className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-700 text-emerald-300">
-                            {p.partName}
+                            {p.partName}: {p.symptom}
                           </span>
                         ))}
                       </div>
-                    </div>
-                  )}
-
-                  <div className="p-3 bg-blue-950/70 rounded-lg border border-blue-800 space-y-1">
-                    <strong className="text-blue-300 block">Davlat Tasdiqlagan Dori & Doza:</strong>
-                    <p className="text-blue-100 leading-relaxed font-semibold">{scanResult.medicines}</p>
+                    )}
                   </div>
 
-                  <div className="p-3 bg-slate-800 rounded-lg border border-slate-700 space-y-1">
-                    <strong className="text-emerald-300 block">Agrotexnik Profilaktika:</strong>
-                    <p className="text-slate-200 leading-relaxed">{scanResult.recommendations}</p>
+                  {/* 4. KASALLIK TASHXISI */}
+                  <div className="p-3 bg-rose-950/30 rounded-xl border border-rose-800 space-y-0.5">
+                    <span className="text-[9px] uppercase font-bold text-rose-400 block tracking-wider">
+                      Tashxis Qoʻyilgan Kasallik / Patologiya:
+                    </span>
+                    <h4 className="text-sm font-bold text-rose-200">{scanResult.diseaseName}</h4>
+                  </div>
+
+                  {/* 5. DORI VOSITALARI VA DOZASI */}
+                  <div className="p-3 bg-blue-950/60 rounded-xl border border-blue-800 space-y-1">
+                    <span className="text-[11px] font-bold text-blue-300 flex items-center gap-1">
+                      <Pill className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Tavsiya Etilgan Dori & Dozasi:</span>
+                    </span>
+                    <p className="text-[11px] text-blue-100 leading-relaxed font-semibold">{scanResult.medicines}</p>
+                  </div>
+
+                  {/* 6. PARVARISHLASH KO'RSATMASI */}
+                  <div className="p-3 bg-emerald-950/40 rounded-xl border border-emerald-800 space-y-1">
+                    <span className="text-[11px] font-bold text-emerald-300 flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Parvarishlash va Profilaktika:</span>
+                    </span>
+                    <p className="text-[11px] text-slate-200 leading-relaxed">{scanResult.recommendations}</p>
                   </div>
 
                   <button

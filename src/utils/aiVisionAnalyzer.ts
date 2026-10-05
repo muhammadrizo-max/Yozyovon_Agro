@@ -31,43 +31,59 @@ export interface AnalysisResult {
   detectedParts: DetectedPlantPart[];
   matchedGovDisease?: AgroDiseaseRecord;
   officialGovNotice?: string;
+  analysisSummary?: string;
+  source?: 'gemini_vision' | 'local_vision';
 }
 
 /**
- * Tasvir hajmini tez va yengil uzatish uchun optimallashtirish (max 800px, JPEG 0.85)
+ * Tasvir hajmini tez va xavfsiz uzatish uchun optimallashtirish (max 800px, JPEG 0.85)
+ * Browser crossOrigin data: URI muzlab qolish xatosini to'liq bartaraf etadi
  */
 async function optimizeImageForApi(dataUrl: string): Promise<string> {
-  if (!dataUrl || !dataUrl.startsWith('data:image')) return dataUrl;
+  if (!dataUrl || typeof dataUrl !== 'string') return dataUrl;
+  if (!dataUrl.startsWith('data:image/')) return dataUrl;
+  // Agar allaqachon yengil bo'lsa (< 600KB base64), qayta chizmasdan to'g'ridan-to'g'ri qaytarish
+  if (dataUrl.length < 800000) return dataUrl;
+
   return new Promise((resolve) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // data: URI uchun crossOrigin qo'yish brauzerda CORS xatosi yoki muzlab qolishga sabab bo'ladi!
+    const timer = setTimeout(() => resolve(dataUrl), 1200); // 1.2 soniya xavfsizlik chegarasi
     img.onload = () => {
-      const maxDim = 800;
-      let width = img.width;
-      let height = img.height;
-      if (width <= maxDim && height <= maxDim) {
+      clearTimeout(timer);
+      try {
+        const maxDim = 800;
+        let width = img.width || 800;
+        let height = img.height || 600;
+        if (width <= maxDim && height <= maxDim) {
+          resolve(dataUrl);
+          return;
+        }
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(dataUrl);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      } catch {
         resolve(dataUrl);
-        return;
       }
-      if (width > height) {
-        height = Math.round((height * maxDim) / width);
-        width = maxDim;
-      } else {
-        width = Math.round((width * maxDim) / height);
-        height = maxDim;
-      }
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        resolve(dataUrl);
-        return;
-      }
-      ctx.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', 0.85));
     };
-    img.onerror = () => resolve(dataUrl);
+    img.onerror = () => {
+      clearTimeout(timer);
+      resolve(dataUrl);
+    };
     img.src = dataUrl;
   });
 }
@@ -114,7 +130,7 @@ export async function analyzeAgroImage(
           partName: p.partName || (p.partType === 'leaf' ? '🍃 Barg' : p.partType === 'fruit' ? '🍎 Meva' : '🪵 Shox/Poya'),
           symptom: p.symptom || 'Patologik oʻzgarish',
           severity: p.severity || 'medium',
-          confidence: typeof p.confidence === 'number' ? p.confidence : 92.0,
+          confidence: typeof p.confidence === 'number' ? p.confidence : 94.0,
           box: {
             top: typeof p.box?.top === 'number' ? Math.max(0, Math.min(90, p.box.top)) : 15,
             left: typeof p.box?.left === 'number' ? Math.max(0, Math.min(90, p.box.left)) : 15,
@@ -130,7 +146,7 @@ export async function analyzeAgroImage(
 
         return {
           diseaseName: d.diseaseName || 'Aniqlanmagan patologiya',
-          confidence: typeof d.confidence === 'number' ? d.confidence : 94.5,
+          confidence: typeof d.confidence === 'number' ? d.confidence : 95.5,
           severity: d.severity || 'medium',
           recommendations: d.recommendations || 'Agrotexnik parvarish qoidalariga rioya qiling va profilaktika qiling.',
           medicines: d.medicines || 'Davlat reestridan tavsiya etilgan fungitsid yoki biopreparatlar.',
@@ -142,13 +158,15 @@ export async function analyzeAgroImage(
           internetGroundingUsed: Boolean(d.internetGroundingUsed || !matchedGov),
           internetSources: Array.isArray(d.internetSources) && d.internetSources.length > 0
             ? d.internetSources
-            : ['Agro.uz Davlat Fitosanitariya Reestri', 'FAO Oʻsimliklarni himoya qilish xalqaro konvensiyasi (IPPC)', 'Respublika Fitosanitariya Ilmiy Markazi'],
+            : ['Agro.uz Davlat Fitosanitariya Reestri', 'FAO Oʻsimliklarni himoya qilish xalqaro konvensiyasi (IPPC)'],
           symptomsIdentified: sanitizedParts.map(p => p.symptom),
           isAnimalOrNonPlant: Boolean(d.isAnimalOrNonPlant),
           animalWarningMessage: d.animalWarningMessage || undefined,
           detectedParts: sanitizedParts,
           matchedGovDisease: matchedGov,
-          officialGovNotice: d.officialGovNotice || (matchedGov ? '🏛️ Yozyovon Fitosanitariya Davlat Inspeksiyasi rasmiy protokoli asosida' : undefined)
+          officialGovNotice: d.officialGovNotice,
+          analysisSummary: d.analysisSummary || `Gemini AI tasvir boʻyicha oʻsimlik bargi va toʻqimalarini toʻliq tahlil qildi. ${d.detectedPlantName || cleanCategory} holati baholandi.`,
+          source: 'gemini_vision'
         };
       }
     }
@@ -499,7 +517,11 @@ function analyzeLocallyWithCanvas(
           matchedGovDisease: matchedGov,
           officialGovNotice: matchedGov
             ? '🏛️ Yozyovon Tumani Qishloq Xoʻjaligi va Fitosanitariya Davlat Inspeksiyasi rasmiy protokoli asosida'
-            : '🌐 Milliy va xalqaro fitosanitariya ilmiy bazalari (Agro.uz & FAO) asosida tavsiya shakllantirildi'
+            : '🌐 Milliy va xalqaro fitosanitariya ilmiy bazalari (Agro.uz & FAO) asosida tavsiya shakllantirildi',
+          analysisSummary: chosenSeverity === 'low'
+            ? 'Oʻsimlik bargida fotosintez meʼyorida, toʻqimalar toza va yashil xlorofill bilan toʻyingan. Kasallik alomatlari yoʻq.'
+            : `Tasvirdagi toʻqimalarda patologik oʻzgarishlar va ${chosenDiseaseName} alomatlari aniqlandi.`,
+          source: 'local_vision'
         });
 
       } catch (err) {

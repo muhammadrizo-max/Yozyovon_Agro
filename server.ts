@@ -241,14 +241,10 @@ QAT'IY QOIDALAR VA TALABLAR:
    - Har bir holat uchun individual, mos keluvchi professional tavsiya va dori dozasini bering.
 
 5. BAZADA MAʼLUMOT KAM BOʻLSA INTERNETDAN QIDIRIB XULOSA CHIQARISH (INTERNET GROUNDING):
-   - Quyida davlat fitosanitariya roʻyxatidagi rasmiy kasalliklar:
-     ${JSON.stringify(govDiseases.slice(0, 10))}
-   - Agar ushbu bazada toʻliq maʼlumot boʻlsa yoki mos kelsa, davlat retseptini kiriting va "matchedGovDiseaseName" ni toʻldiring.
-   - AGARDA davlat bazasida mazkur oʻsimlik/kasallik haqida maʼlumot kam yoki yetarli boʻlmasa:
-     * Oʻzingizning internetdagi eng soʻnggi agronomik, fitopatologik va xalqaro fitosanitariya (Agro.uz, FAO IPPC, EPPO) ilmiy tadqiqotlari hamda tavsiyalariga asoslanib xulosa chiqaring!
-     * "internetGroundingUsed": true
-     * "internetSources": ["Agro.uz Davlat Fitosanitariya Reestri", "FAO Oʻsimliklarni himoya qilish xalqaro konvensiyasi (IPPC)", "Respublika Karantin va Oʻsimliklarni Himoya Qilish Ilmiy Markazi"]
-     * Eng samarali kimyoviy va biologik vositalar, faol moddasi va suvga qoʻshish dozasini aniq yozing.
+   - Davlat fitosanitariya roʻyxatidagi rasmiy kasalliklar namunalari:
+     ${govDiseases.map((d: any) => d.diseaseName).join(', ')}
+   - Agar tasvirdagi kasallik yuqoridagi roʻyxatda boʻlsa, unga mos rasmiy retseptni bering.
+   - Agarda davlat roʻyxatida toʻliq boʻlmasa, xalqaro fitosanitariya (Agro.uz, FAO IPPC, EPPO) ilmiy tadqiqotlariga tayangan holda aniq tashxis, tavsiya va dorilar dozasini shakllantiring.
 
 FAKAT VA FAQAT quyidagi JSON formatida javob bering:
 {
@@ -258,6 +254,7 @@ FAKAT VA FAQAT quyidagi JSON formatida javob bering:
   "detectedPlantName": string,
   "isAutoCorrected": boolean,
   "autoCorrectionNote": string or null,
+  "analysisSummary": string,
   "diseaseName": string,
   "confidence": number,
   "severity": "low" | "medium" | "high",
@@ -281,41 +278,53 @@ FAKAT VA FAQAT quyidagi JSON formatida javob bering:
 }
 `;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: {
-          parts: [
-            {
-              inlineData: {
-                mimeType: detectedMime,
-                data: cleanBase64
-              }
-            },
-            {
-              text: prompt
-            }
-          ]
-        },
-        config: {
-          responseMimeType: 'application/json'
-        }
-      });
+      const candidateModels = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-3.8-flash'];
+      let lastError: any = null;
+      let parsedResult: any = null;
 
-      const responseText = response.text || '{}';
-      let parsedResult;
-      try {
-        parsedResult = JSON.parse(responseText);
-      } catch (parseErr) {
-        // Agar markdown ```json bo'lsa tozalash
-        const cleaned = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-        parsedResult = JSON.parse(cleaned);
+      for (const modelName of candidateModels) {
+        try {
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: [
+              {
+                inlineData: {
+                  mimeType: detectedMime,
+                  data: cleanBase64
+                }
+              },
+              {
+                text: prompt
+              }
+            ],
+            config: {
+              responseMimeType: 'application/json'
+            }
+          });
+
+          const responseText = (response.text || '{}').trim();
+          try {
+            parsedResult = JSON.parse(responseText);
+          } catch {
+            const cleaned = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+            parsedResult = JSON.parse(cleaned);
+          }
+
+          if (parsedResult && typeof parsedResult === 'object') {
+            return res.json({
+              success: true,
+              source: 'gemini_vision',
+              modelUsed: modelName,
+              data: parsedResult
+            });
+          }
+        } catch (mErr: any) {
+          console.warn(`Model ${modelName} failed or unavailable:`, mErr?.message || mErr);
+          lastError = mErr;
+        }
       }
 
-      return res.json({
-        success: true,
-        source: 'gemini_vision',
-        data: parsedResult
-      });
+      throw lastError || new Error('All vision models failed to respond.');
     } catch (apiError: any) {
       console.error('Gemini vision scan error:', apiError);
       return res.status(500).json({

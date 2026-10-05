@@ -75,8 +75,9 @@ interface AppContextType {
   addCrop: (crop: Omit<Crop, 'id' | 'userId'>) => void;
   deleteCrop: (id: number) => void;
   addLivestock: (item: Omit<Livestock, 'id' | 'userId'>) => void;
-  deleteLivestock: (id: number) => void;
   addAIScan: (scan: Omit<AIScan, 'id' | 'userId' | 'scannedAt'>) => AIScan;
+  deleteAIScan: (id: number) => void;
+  clearAIScans: () => void;
   markNotificationAsRead: (id: string) => void;
   exportToCsv: (filename: string, headers: string[], rows: (string | number)[][]) => void;
   approveSubsidy: (id: string) => void;
@@ -1644,7 +1645,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setNotifications(prev => [urgentNotif, ...prev]);
     }
 
+    setAiScans(prev => {
+      const updated = [newScan, ...prev];
+      localStorage.setItem(STORAGE_KEYS.SCANS, JSON.stringify(updated));
+      return updated;
+    });
+
     return newScan;
+  };
+
+  const deleteAIScan = (id: number) => {
+    setAiScans(prev => {
+      const updated = prev.filter(s => s.id !== id);
+      localStorage.setItem(STORAGE_KEYS.SCANS, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const clearAIScans = () => {
+    setAiScans([]);
+    localStorage.removeItem(STORAGE_KEYS.SCANS);
   };
 
   const markNotificationAsRead = (id: string) => {
@@ -1935,8 +1955,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addCrop,
         deleteCrop,
         addLivestock,
-        deleteLivestock,
         addAIScan,
+        deleteAIScan,
+        clearAIScans,
         markNotificationAsRead,
         exportToCsv,
         approveSubsidy,

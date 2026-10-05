@@ -251,6 +251,8 @@ export interface AIScan {
   detectedParts?: DetectedPlantPart[];
   matchedGovDisease?: AgroDiseaseRecord;
   officialGovNotice?: string;
+  analysisSummary?: string;
+  source?: 'gemini_vision' | 'local_vision';
 }
 
 export interface WeatherInfo {
